@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:30:00
 //  Last edited:
-//    31 Oct 2023, 15:41:53
+//    01 Nov 2023, 15:05:23
 //  Auto updated?
 //    Yes
 //
@@ -43,10 +43,10 @@ fn print_elem(funcs: &HashMap<usize, &Function>, f: &mut Formatter<'_>, elem: &'
             writeln!(f, "{}  - input  : {}", prefix, t.input.iter().map(|data| data.name.as_str()).collect::<Vec<&str>>().join(", "))?;
             writeln!(f, "{}  - output : {}", prefix, if let Some(output) = &t.output { output.name.as_str() } else { "<none>" })?;
             writeln!(f, "{}", prefix)?;
-            writeln!(f, "{}  - location : {}", prefix, if let Some(location) = &t.location { location.as_str() } else { "<unplanned>" })?;
+            writeln!(f, "{}  - location  : {}", prefix, if let Some(location) = &t.location { location.as_str() } else { "<unplanned>" })?;
             writeln!(
                 f,
-                "{}  - metadata : {}",
+                "{}  - metadata  : {}",
                 prefix,
                 t.metadata
                     .iter()
@@ -60,6 +60,7 @@ fn print_elem(funcs: &HashMap<usize, &Function>, f: &mut Formatter<'_>, elem: &'
                     .collect::<Vec<String>>()
                     .join(", ")
             )?;
+            writeln!(f, "{}  - signature : {}", prefix, t.signature)?;
 
             // Do next
             print_elem(funcs, f, &*t.next, prefix)

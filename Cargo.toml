@@ -11,6 +11,10 @@ description = "Long-awaited implementation of the EPI Framework checkers, which 
 repository = "https://github.com/epi-project/policy-reasoner"
 
 
+[dependencies]
+workflow = { path = "./lib/workflow" }
+
+
 [workspace]
 resolver = "2"
 members = [

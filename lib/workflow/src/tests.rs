@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 15:27:38
 //  Last edited:
-//    31 Oct 2023, 17:28:50
+//    01 Nov 2023, 14:10:56
 //  Auto updated?
 //    Yes
 //
@@ -17,18 +17,29 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use brane_ast::{ast, compile_program, CompileResult, ParserOptions};
-use brane_shr::utilities::{create_data_index, create_package_index, test_on_dsl_files};
+use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 
 use super::spec::Workflow;
 
 
+/***** CONSTANTS *****/
+/// Defines the location of the tests
+pub const TESTS_DIR: &str = "../../tests";
+
+
+
+
+
 /***** LIBRARY *****/
 /// Run all the BraneScript tests
 #[test]
 fn test_checker_workflow() {
-    test_on_dsl_files("BraneScript", |path: PathBuf, code: String| {
+    let tests_path: PathBuf = PathBuf::from(TESTS_DIR);
+
+    // Run the compiler for every applicable DSL file
+    test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
         // Start by the name to always know which file this is
         println!("{}", (0..80).map(|_| '-').collect::<String>());
         println!("File '{}' gave us:", path.display());
@@ -43,8 +54,8 @@ fn test_checker_workflow() {
         }
 
         // Load the package index
-        let pindex: PackageIndex = create_package_index();
-        let dindex: DataIndex = create_data_index();
+        let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
+        let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
 
         // Compile the raw source to WIR
         let wir: ast::Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
@@ -90,7 +101,10 @@ fn test_checker_workflow() {
 /// Run all the BraneScript tests _with_ optimization
 #[test]
 fn test_checker_workflow_optimized() {
-    test_on_dsl_files("BraneScript", |path: PathBuf, code: String| {
+    let tests_path: PathBuf = PathBuf::from(TESTS_DIR);
+
+    // Run the compiler for every applicable DSL file
+    test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
         // Start by the name to always know which file this is
         println!("{}", (0..80).map(|_| '-').collect::<String>());
         println!("(Optimized) File '{}' gave us:", path.display());
@@ -105,8 +119,8 @@ fn test_checker_workflow_optimized() {
         }
 
         // Load the package index
-        let pindex: PackageIndex = create_package_index();
-        let dindex: DataIndex = create_data_index();
+        let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
+        let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
 
         // Compile the raw source to WIR
         let wir: ast::Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {

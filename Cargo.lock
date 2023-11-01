@@ -235,7 +235,7 @@ dependencies = [
 [[package]]
 name = "brane-ast"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#6c9a3a244db854ad76174f689b3ba2c4dc96fd1b"
+source = "git+https://github.com/epi-project/brane#8f0f53a5269dca6edbf6cb20a2004d035382d220"
 dependencies = [
  "brane-dsl",
  "brane-shr",
@@ -253,7 +253,7 @@ dependencies = [
 [[package]]
 name = "brane-dsl"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#6c9a3a244db854ad76174f689b3ba2c4dc96fd1b"
+source = "git+https://github.com/epi-project/brane#8f0f53a5269dca6edbf6cb20a2004d035382d220"
 dependencies = [
  "brane-shr",
  "bytes",
@@ -274,7 +274,7 @@ dependencies = [
 [[package]]
 name = "brane-shr"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#6c9a3a244db854ad76174f689b3ba2c4dc96fd1b"
+source = "git+https://github.com/epi-project/brane#8f0f53a5269dca6edbf6cb20a2004d035382d220"
 dependencies = [
  "async-compression",
  "console",
@@ -1340,6 +1340,9 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 [[package]]
 name = "policy-reasoner"
 version = "0.1.0"
+dependencies = [
+ "workflow",
+]
 
 [[package]]
 name = "portable-atomic"
@@ -1831,7 +1834,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#6c9a3a244db854ad76174f689b3ba2c4dc96fd1b"
+source = "git+https://github.com/epi-project/brane#8f0f53a5269dca6edbf6cb20a2004d035382d220"
 dependencies = [
  "anyhow",
  "async-trait",

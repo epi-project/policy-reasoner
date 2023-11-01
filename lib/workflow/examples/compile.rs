@@ -4,14 +4,14 @@
 //  Created:
 //    31 Oct 2023, 14:20:54
 //  Last edited:
-//    31 Oct 2023, 17:08:54
+//    01 Nov 2023, 14:20:29
 //  Auto updated?
 //    Yes
 //
 //  Description:
 //!   Implements a wrapper that converts the
 //!   [WIR](brane_ast::ast::Workflow) into
-//!   [checker workflows](brane_chk::workflow::spec::Workflow).
+//!   [checker workflows](workflow::workflow::spec::Workflow).
 //
 
 use std::fmt::{Display, Formatter, Result as FResult};
@@ -20,7 +20,7 @@ use std::str::FromStr;
 use std::{error, fs};
 
 use brane_ast::{ast, compile_program, CompileResult, ParserOptions};
-use brane_chk::workflow::spec::Workflow;
+use brane_shr::utilities::{create_data_index_from, create_package_index_from};
 use clap::Parser;
 use enum_debug::EnumDebug;
 use error_trace::ErrorTrace as _;
@@ -28,6 +28,7 @@ use humanlog::{DebugMode, HumanLogger};
 use log::{debug, error, info, Level};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
+use workflow::spec::Workflow;
 
 
 /***** ERRORS *****/
@@ -55,7 +56,7 @@ enum Error {
     /// Failed to deserialize the given file as a JSON WIR.
     InputDeserialize { path: PathBuf, err: serde_json::Error },
     /// Failed to compile the WIR into a Workflow
-    InputCompile { path: PathBuf, err: brane_chk::workflow::compile::Error },
+    InputCompile { path: PathBuf, err: workflow::compile::Error },
 }
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -131,6 +132,22 @@ struct Arguments {
     /// Whether to skip optimisation or not.
     #[clap(long, alias = "no-optimize", global = true, help = "If given, does not optimise the workflow before printing.")]
     no_optimise: bool,
+    /// The location where to read packages from.
+    #[clap(
+        short,
+        long,
+        default_value = "./tests/packages",
+        help = "The location where we're reading packages from to compile the test files. Ignored if input language is not BraneScript."
+    )]
+    packages_path: PathBuf,
+    /// The location where to read datasets from.
+    #[clap(
+        short,
+        long,
+        default_value = "./tests/data",
+        help = "The location where we're reading data from to compile the test files. Ignored if input language is not BraneScript."
+    )]
+    data_path: PathBuf,
 }
 
 
@@ -162,9 +179,15 @@ fn main() {
 
         // If it's a BraneScript file, compile to WIR first
         let wir: ast::Workflow = if args.language == InputLanguage::BraneScript {
+            // Get the package and data index
+            debug!("Reading package index from '{}'...", args.packages_path.display());
+            let pindex: PackageIndex = create_package_index_from(&args.packages_path);
+            debug!("Reading data index from '{}'...", args.data_path.display());
+            let dindex: DataIndex = create_data_index_from(&args.data_path);
+
             // Compile to WIR first
             debug!("Compiling input {} to {}...", InputLanguage::BraneScript.variant(), InputLanguage::WorkflowIntermediateRepresentation.variant());
-            match compile_program(raw.as_bytes(), &PackageIndex::empty(), &DataIndex::from_infos(vec![]).unwrap(), &ParserOptions::bscript()) {
+            match compile_program(raw.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
                 CompileResult::Workflow(wir, warns) => {
                     for warn in warns {
                         warn.prettyprint(input.display().to_string(), &raw);
