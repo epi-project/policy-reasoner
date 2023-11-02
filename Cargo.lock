@@ -2599,6 +2599,7 @@ dependencies = [
  "error-trace",
  "humanlog",
  "log",
+ "num-traits",
  "serde",
  "serde_json",
  "specifications",

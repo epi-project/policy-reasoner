@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:54:17
 //  Last edited:
-//    01 Nov 2023, 10:07:52
+//    02 Nov 2023, 15:12:20
 //  Auto updated?
 //    Yes
 //
@@ -15,7 +15,9 @@
 // Declare the subsubmodules
 pub mod compile;
 pub mod optimize;
+pub mod preprocess;
 pub mod spec;
 #[cfg(test)]
 pub mod tests;
+pub mod utils;
 pub mod visualize;
