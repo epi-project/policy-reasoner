@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    31 Oct 2023, 17:25:15
+//    02 Nov 2023, 11:35:55
 //  Auto updated?
 //    Yes
 //
@@ -278,7 +278,7 @@ fn resolve_calls(
             Ok((calls, cond_id))
         },
 
-        ast::Edge::Call { next } => {
+        ast::Edge::Call { input: _, result: _, next } => {
             // Alright time to jump functions based on the current top-of-the-stack
             let stack_id: usize = match stack_id {
                 Some(id) => id,
@@ -475,7 +475,7 @@ fn reconstruct_graph(
             Ok(Elem::Loop(ElemLoop { body: Box::new(cond), next: Box::new(next) }))
         },
 
-        ast::Edge::Call { next } => {
+        ast::Edge::Call { input: _, result: _, next } => {
             // Attempt to get the call ID & matching definition
             let (func_id, func_def): (usize, &ast::FunctionDef) = match calls.get(&pc) {
                 Some(id) => match catch_unwind(|| table.func(*id)) {
