@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    02 Nov 2023, 11:35:55
+//    02 Nov 2023, 14:43:18
 //  Auto updated?
 //    Yes
 //
@@ -13,21 +13,20 @@
 //!   [Checker Workflow](Workflow) and the [WIR](ast::Workflow).
 //
 
-use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
-use std::rc::Rc;
 
+use brane_ast::spec::BuiltinFunctions;
 use brane_ast::state::VirtualSymTable;
 use brane_ast::{ast, MergeStrategy};
 use enum_debug::EnumDebug as _;
 use log::trace;
 use specifications::data::{AvailabilityKind, PreprocessKind};
 
-use super::spec::{Dataset, Elem, ElemBranch, ElemCall, ElemLoop, ElemParallel, ElemTask, Function, FunctionBody, User, Workflow};
+use super::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
 
 
 /***** ERRORS *****/
@@ -51,6 +50,14 @@ pub enum Error {
     ParallelWithNonJoin { pc: (usize, usize), merge: (usize, usize), got: String },
     /// Found a join that wasn't paired with a parallel edge.
     StrayJoin { pc: (usize, usize) },
+    /// A call was performed to a non-builtin
+    IllegalCall { pc: (usize, usize), name: String },
+    /// A `commit_result()` was found that returns more than 1 result.
+    CommitTooMuchOutput { pc: (usize, usize), got: usize },
+    /// A `commit_result()` was found without output.
+    CommitNoOutput { pc: (usize, usize) },
+    /// A `commit_result()` was found that outputs a result instead of a dataset.
+    CommitReturnsResult { pc: (usize, usize) },
 }
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -71,6 +78,20 @@ impl Display for Error {
                 pc.0, pc.1, merge.0, merge.1, got
             ),
             StrayJoin { pc } => write!(f, "Found Join-edge without preceding Parallel-edge at ({},{})", pc.0, pc.1),
+            IllegalCall { pc, name } => {
+                write!(
+                    f,
+                    "Encountered illegal call to function '{}' at ({},{}) (calls to non-task, non-builtin functions are not supported)",
+                    name, pc.0, pc.1
+                )
+            },
+            CommitTooMuchOutput { pc, got } => {
+                write!(f, "Call to `commit_result()` as ({},{}) returns more than 1 outputs (got {})", pc.0, pc.1, got)
+            },
+            CommitNoOutput { pc } => write!(f, "Call to `commit_result()` at ({},{}) does not return a dataset", pc.0, pc.1),
+            CommitReturnsResult { pc } => {
+                write!(f, "Call to `commit_result()` at ({},{}) returns an IntermediateResult instead of a Data", pc.0, pc.1)
+            },
         }
     }
 }
@@ -308,7 +329,7 @@ fn resolve_calls(
             Ok((calls, next_id))
         },
 
-        ast::Edge::Return {} => {
+        ast::Edge::Return { result: _ } => {
             // If we're in the main function, this acts as an [`Elem::Stop`] with value
             if pc.0 == usize::MAX {
                 return Ok((HashMap::new(), None));
@@ -332,7 +353,6 @@ fn resolve_calls(
 /// - `wir`: The [`ast::Workflow`] to analyse.
 /// - `table`: A running [`VirtualSymTable`] that determines the current types in scope.
 /// - `calls`: The map of Call program-counter-indices to function IDs called.
-/// - `funcs`: A map of function bodies we've build for functions.
 /// - `pc`: The program-counter-index of the edge to analyse. These are pairs of `(function, edge_idx)`, where main is referred to by [`usize::MAX`](usize).
 /// - `plug`: The element to write when we reached the (implicit) end of a branch.
 /// - `breakpoint`: An optional program-counter-index that, if given, will not analyse that edge onwards (excluding it too).
@@ -346,7 +366,6 @@ fn reconstruct_graph(
     wir: &ast::Workflow,
     table: &mut VirtualSymTable,
     calls: &HashMap<(usize, usize), usize>,
-    funcs: &mut HashMap<usize, FunctionBody>,
     pc: (usize, usize),
     plug: Elem,
     breakpoint: Option<(usize, usize)>,
@@ -369,7 +388,7 @@ fn reconstruct_graph(
     match edge {
         ast::Edge::Linear { next, .. } => {
             // Simply skip to the next, as linear connectors are no longer interesting
-            reconstruct_graph(wir, table, calls, funcs, (pc.0, *next), plug, breakpoint)
+            reconstruct_graph(wir, table, calls, (pc.0, *next), plug, breakpoint)
         },
 
         ast::Edge::Node { task, locs: _, at, input, result, next } => {
@@ -411,23 +430,25 @@ fn reconstruct_graph(
                 location:  at.clone(),
                 metadata:  vec![],
                 signature: "its_signed_i_swear_mom".into(),
-                next:      Box::new(reconstruct_graph(wir, table, calls, funcs, (pc.0, *next), plug, breakpoint)?),
+                next:      Box::new(reconstruct_graph(wir, table, calls, (pc.0, *next), plug, breakpoint)?),
             }))
         },
 
-        ast::Edge::Stop {} => Ok(Elem::Stop),
+        ast::Edge::Stop {} => Ok(Elem::Stop(HashSet::new())),
 
         ast::Edge::Branch { true_next, false_next, merge } => {
             // Construct the branches first
             let mut branches: Vec<Elem> =
-                vec![reconstruct_graph(wir, table, calls, funcs, (pc.0, *true_next), Elem::Next, merge.map(|merge| (pc.0, merge)))?];
+                vec![reconstruct_graph(wir, table, calls, (pc.0, *true_next), Elem::Next, merge.map(|merge| (pc.0, merge)))?];
             if let Some(false_next) = false_next {
-                branches.push(reconstruct_graph(wir, table, calls, funcs, (pc.0, *false_next), Elem::Next, merge.map(|merge| (pc.0, merge)))?)
+                branches.push(reconstruct_graph(wir, table, calls, (pc.0, *false_next), Elem::Next, merge.map(|merge| (pc.0, merge)))?)
             }
 
             // Build the next, if there is any
-            let next: Elem =
-                merge.map(|merge| reconstruct_graph(wir, table, calls, funcs, (pc.0, merge), plug, breakpoint)).transpose()?.unwrap_or(Elem::Stop);
+            let next: Elem = merge
+                .map(|merge| reconstruct_graph(wir, table, calls, (pc.0, merge), plug, breakpoint))
+                .transpose()?
+                .unwrap_or(Elem::Stop(HashSet::new()));
 
             // Build the elem using those branches and next
             Ok(Elem::Branch(ElemBranch { branches, next: Box::new(next) }))
@@ -437,7 +458,7 @@ fn reconstruct_graph(
             // Construct the branches first
             let mut elem_branches: Vec<Elem> = Vec::with_capacity(branches.len());
             for branch in branches {
-                elem_branches.push(reconstruct_graph(wir, table, calls, funcs, (pc.0, *branch), Elem::Next, Some((pc.0, *merge)))?);
+                elem_branches.push(reconstruct_graph(wir, table, calls, (pc.0, *branch), Elem::Next, Some((pc.0, *merge)))?);
             }
 
             // Let us checkout that the merge point is a join
@@ -452,7 +473,7 @@ fn reconstruct_graph(
             };
 
             // Build the post-join point onwards
-            let next: Elem = reconstruct_graph(wir, table, calls, funcs, (pc.0, next), plug, breakpoint)?;
+            let next: Elem = reconstruct_graph(wir, table, calls, (pc.0, next), plug, breakpoint)?;
 
             // We have enough to build ourselves
             Ok(Elem::Parallel(ElemParallel { branches: elem_branches, merge: strategy, next: Box::new(next) }))
@@ -462,58 +483,97 @@ fn reconstruct_graph(
 
         ast::Edge::Loop { cond, body, next } => {
             // Build the body first
-            let body_elems: Elem = reconstruct_graph(wir, table, calls, funcs, (pc.0, *body), Elem::Next, Some((pc.0, *cond)))?;
+            let body_elems: Elem = reconstruct_graph(wir, table, calls, (pc.0, *body), Elem::Next, Some((pc.0, *cond)))?;
 
             // Build the condition, with immediately following the body for any open ends that we find
-            let cond: Elem = reconstruct_graph(wir, table, calls, funcs, (pc.0, *cond), body_elems, Some((pc.0, *body - 1)))?;
+            let cond: Elem = reconstruct_graph(wir, table, calls, (pc.0, *cond), body_elems, Some((pc.0, *body - 1)))?;
 
             // Build the next
-            let next: Elem =
-                next.map(|next| reconstruct_graph(wir, table, calls, funcs, (pc.0, next), plug, breakpoint)).transpose()?.unwrap_or(Elem::Stop);
+            let next: Elem = next
+                .map(|next| reconstruct_graph(wir, table, calls, (pc.0, next), plug, breakpoint))
+                .transpose()?
+                .unwrap_or(Elem::Stop(HashSet::new()));
 
             // We have enough to build self
             Ok(Elem::Loop(ElemLoop { body: Box::new(cond), next: Box::new(next) }))
         },
 
-        ast::Edge::Call { input: _, result: _, next } => {
+        ast::Edge::Call { input, result, next } => {
             // Attempt to get the call ID & matching definition
-            let (func_id, func_def): (usize, &ast::FunctionDef) = match calls.get(&pc) {
+            let func_def: &ast::FunctionDef = match calls.get(&pc) {
                 Some(id) => match catch_unwind(|| table.func(*id)) {
-                    Ok(def) => (*id, def),
+                    Ok(def) => def,
                     Err(_) => return Err(Error::UnknownFunc { id: *id }),
                 },
                 None => return Err(Error::CallingWithoutId { pc }),
             };
 
-            // If there is a function body (i.e., it's not a builtin), then process that
-            let func: FunctionBody = match funcs.get(&func_id) {
-                // We already compiled this body, just fetch that
-                Some(body) => body.clone(),
-                // Otherwise, build it if it has a body
-                None => {
-                    if wir.funcs.contains_key(&func_id) {
-                        // Wrap the call to the body in the extended symbol table for that function
-                        table.push(&func_def.table);
-                        let elem: FunctionBody = reconstruct_graph(wir, table, calls, funcs, (func_id, 0), Elem::Next, None)
-                            .map(|elem| FunctionBody::Elems(Rc::new(RefCell::new(elem))))?;
-                        table.pop();
-                        funcs.insert(func_id, elem.clone());
-                        elem
+            // Only allow calls to builtins
+            if func_def.name == BuiltinFunctions::CommitResult.name() {
+                // Attempt to fetch the name of the dataset
+                if result.len() > 1 {
+                    return Err(Error::CommitTooMuchOutput { pc, got: result.len() });
+                }
+                let data_name: String = if let Some(name) = result.iter().next() {
+                    if let ast::DataName::Data(name) = name {
+                        name.clone()
                     } else {
-                        funcs.insert(func_id, FunctionBody::Builtin);
-                        FunctionBody::Builtin
+                        return Err(Error::CommitReturnsResult { pc });
                     }
-                },
-            };
+                } else {
+                    return Err(Error::CommitNoOutput { pc });
+                };
 
-            // Process the next
-            let next: Elem = reconstruct_graph(wir, table, calls, funcs, (pc.0, *next), plug, breakpoint)?;
+                // Construct next first
+                let next: Elem = reconstruct_graph(wir, table, calls, (pc.0, *next), plug, breakpoint)?;
 
-            // Build self!
-            Ok(Elem::Call(ElemCall { id: func_id, func, next: Box::new(next) }))
+                // Then we wrap the rest in a commit
+                Ok(Elem::Commit(ElemCommit {
+                    data_name,
+                    input: input.iter().map(|input| Dataset { name: input.name().into(), from: None, metadata: vec![] }).collect(),
+                    next: Box::new(next),
+                }))
+            } else if func_def.name == BuiltinFunctions::Print.name()
+                || func_def.name == BuiltinFunctions::PrintLn.name()
+                || func_def.name == BuiltinFunctions::Len.name()
+            {
+                // Using them is OK, we just ignore them for the improved workflow
+                reconstruct_graph(wir, table, calls, (pc.0, *next), plug, breakpoint)
+            } else {
+                Err(Error::IllegalCall { pc, name: func_def.name.clone() })
+            }
+
+            // // If there is a function body (i.e., it's not a builtin), then process that
+            // let func: FunctionBody = match funcs.get(&func_id) {
+            //     // We already compiled this body, just fetch that
+            //     Some(body) => body.clone(),
+            //     // Otherwise, build it if it has a body
+            //     None => {
+            //         if wir.funcs.contains_key(&func_id) {
+            //             // Wrap the call to the body in the extended symbol table for that function
+            //             table.push(&func_def.table);
+            //             let elem: FunctionBody = reconstruct_graph(wir, table, calls, funcs, (func_id, 0), Elem::Next, None)
+            //                 .map(|elem| FunctionBody::Elems(Rc::new(RefCell::new(elem))))?;
+            //             table.pop();
+            //             funcs.insert(func_id, elem.clone());
+            //             elem
+            //         } else {
+            //             funcs.insert(func_id, FunctionBody::Builtin);
+            //             FunctionBody::Builtin
+            //         }
+            //     },
+            // };
+
+            // // Process the next
+            // let next: Elem = reconstruct_graph(wir, table, calls, funcs, (pc.0, *next), plug, breakpoint)?;
+
+            // // Build self!
+            // Ok(Elem::Call(ElemCall { id: func_id, func, next: Box::new(next) }))
         },
 
-        ast::Edge::Return {} => Ok(Elem::Return),
+        ast::Edge::Return { result } => {
+            Ok(Elem::Stop(result.iter().map(|data| Dataset { name: data.name().into(), from: None, metadata: vec![] }).collect()))
+        },
     }
 }
 
@@ -532,13 +592,12 @@ impl TryFrom<ast::Workflow> for Workflow {
             resolve_calls(&value, &mut VirtualSymTable::with(&value.table), (usize::MAX, 0), None, None)?;
 
         // Alright now attempt to re-build the graph in the new style
-        let mut funcs: HashMap<usize, FunctionBody> = HashMap::new();
-        let graph: Elem = reconstruct_graph(&value, &mut VirtualSymTable::with(&value.table), &calls, &mut funcs, (usize::MAX, 0), Elem::Stop, None)?;
+        let graph: Elem =
+            reconstruct_graph(&value, &mut VirtualSymTable::with(&value.table), &calls, (usize::MAX, 0), Elem::Stop(HashSet::new()), None)?;
 
         // Build a new Workflow with that!
         Ok(Self {
             start: graph,
-            funcs: funcs.into_iter().map(|(id, body)| (id, (Function { name: value.table.funcs[id].name.clone() }, body))).collect(),
 
             user:      User { name: "Danny Data Scientist".into(), metadata: vec![] },
             metadata:  vec![],

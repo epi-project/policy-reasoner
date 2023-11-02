@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 15:44:51
 //  Last edited:
-//    31 Oct 2023, 17:39:24
+//    02 Nov 2023, 14:43:47
 //  Auto updated?
 //    Yes
 //
@@ -12,6 +12,8 @@
 //!   Optimizes a [`Workflow`] by aggregating elements that we can
 //!   aggregate.
 //
+
+use std::collections::HashSet;
 
 use log::debug;
 use transform::Transform as _;
@@ -108,16 +110,10 @@ fn optimize_elem(elem: Elem) -> (bool, Elem) {
         },
         Elem::Parallel(parallel) => (false, Elem::Parallel(parallel)),
         Elem::Loop(l) => (false, Elem::Loop(l)),
-        Elem::Call(mut call) => {
-            /* TODO */
-            let (changed, next) = optimize_elem(*call.next);
-            call.next = Box::new(next);
-            (changed, Elem::Call(call))
-        },
+        Elem::Commit(commit) => (false, Elem::Commit(commit)),
 
         Elem::Next => (false, Elem::Next),
-        Elem::Return => (false, Elem::Return),
-        Elem::Stop => (false, Elem::Stop),
+        Elem::Stop(returns) => (false, Elem::Stop(returns)),
     }
 }
 
@@ -129,10 +125,10 @@ fn optimize_elem(elem: Elem) -> (bool, Elem) {
 impl Workflow {
     /// Optimizes the workflow graph by pruning elements which do task-independent things (like branching without tasks) and aggregates aggregatable edges.
     pub fn optimize(&mut self) {
-        let Self { start, funcs, .. } = self;
+        let Self { start, .. } = self;
 
         // Get the start out of self
-        let mut graph: Elem = Elem::Stop;
+        let mut graph: Elem = Elem::Stop(HashSet::new());
         std::mem::swap(&mut graph, start);
 
         // Decide which functions can be discarded

@@ -235,7 +235,7 @@ dependencies = [
 [[package]]
 name = "brane-ast"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f106dcc4402d767f408513006040935e521e9ee4"
+source = "git+https://github.com/epi-project/brane?branch=develop#aef9f98f50723ed16468433aeee3fa842b7713e8"
 dependencies = [
  "brane-dsl",
  "brane-shr",
@@ -253,7 +253,7 @@ dependencies = [
 [[package]]
 name = "brane-dsl"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f106dcc4402d767f408513006040935e521e9ee4"
+source = "git+https://github.com/epi-project/brane?branch=develop#aef9f98f50723ed16468433aeee3fa842b7713e8"
 dependencies = [
  "brane-shr",
  "bytes",
@@ -274,7 +274,7 @@ dependencies = [
 [[package]]
 name = "brane-shr"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f106dcc4402d767f408513006040935e521e9ee4"
+source = "git+https://github.com/epi-project/brane?branch=develop#aef9f98f50723ed16468433aeee3fa842b7713e8"
 dependencies = [
  "async-compression",
  "console",
@@ -1834,7 +1834,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f106dcc4402d767f408513006040935e521e9ee4"
+source = "git+https://github.com/epi-project/brane?branch=develop#aef9f98f50723ed16468433aeee3fa842b7713e8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2599,6 +2599,7 @@ dependencies = [
  "error-trace",
  "humanlog",
  "log",
+ "serde",
  "serde_json",
  "specifications",
  "transform",

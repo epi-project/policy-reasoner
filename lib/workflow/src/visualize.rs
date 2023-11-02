@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:30:00
 //  Last edited:
-//    01 Nov 2023, 15:05:23
+//    02 Nov 2023, 14:46:43
 //  Auto updated?
 //    Yes
 //
@@ -13,10 +13,33 @@
 //!   neatly to some writer.
 //
 
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FResult};
 
-use super::spec::{Elem, Function, FunctionBody, Workflow};
+use super::spec::{Elem, Workflow};
+
+
+/***** HELPER MACROS *****/
+/// Prints a given iterator somewhat nicely to a string.
+macro_rules! write_iter {
+    ($iter:expr, $conn:literal) => {{
+        let mut iter = $iter.peekable();
+        format!(
+            "{}",
+            if let Some(first) = iter.next() {
+                if iter.peek().is_some() {
+                    format!(concat!("{}", $conn, "{}"), first, iter.collect::<Vec<String>>().join($conn))
+                } else {
+                    format!("{}", first)
+                }
+            } else {
+                String::from("<none>")
+            }
+        )
+    }};
+}
+
+
+
 
 
 /***** HELPER FUNCTIONS *****/
@@ -30,7 +53,7 @@ use super::spec::{Elem, Function, FunctionBody, Workflow};
 ///
 /// # Errors
 /// This function only errors if we failed to write to the given `f`.
-fn print_elem(funcs: &HashMap<usize, &Function>, f: &mut Formatter<'_>, elem: &'_ Elem, prefix: &dyn Display) -> FResult {
+fn print_elem(f: &mut Formatter<'_>, elem: &'_ Elem, prefix: &dyn Display) -> FResult {
     // Print the element
     match elem {
         Elem::Task(t) => {
@@ -40,30 +63,34 @@ fn print_elem(funcs: &HashMap<usize, &Function>, f: &mut Formatter<'_>, elem: &'
             writeln!(f, "{}  - version : {}", prefix, t.version)?;
             writeln!(f, "{}  - hash    : {}", prefix, if let Some(hash) = &t.hash { hash.as_str() } else { "<unhashed>" })?;
             writeln!(f, "{}", prefix)?;
-            writeln!(f, "{}  - input  : {}", prefix, t.input.iter().map(|data| data.name.as_str()).collect::<Vec<&str>>().join(", "))?;
-            writeln!(f, "{}  - output : {}", prefix, if let Some(output) = &t.output { output.name.as_str() } else { "<none>" })?;
+            writeln!(f, "{}  - input  : {}", prefix, write_iter!(t.input.iter().map(|data| format!("'{}'", data.name)), " or "))?;
+            writeln!(
+                f,
+                "{}  - output : {}",
+                prefix,
+                if let Some(output) = &t.output { format!("'{}'", output.name.as_str()) } else { "<none>".into() }
+            )?;
             writeln!(f, "{}", prefix)?;
             writeln!(f, "{}  - location  : {}", prefix, if let Some(location) = &t.location { location.as_str() } else { "<unplanned>" })?;
             writeln!(
                 f,
                 "{}  - metadata  : {}",
                 prefix,
-                t.metadata
-                    .iter()
-                    .map(|metadata| format!(
+                write_iter!(
+                    t.metadata.iter().map(|metadata| format!(
                         "{}.{} ({}, {})",
                         metadata.namespace,
                         metadata.tag,
                         metadata.signature,
                         if let Some(valid) = metadata.signature_valid { if valid { "OK" } else { "invalid" } } else { "<not validated>" }
-                    ))
-                    .collect::<Vec<String>>()
-                    .join(", ")
+                    )),
+                    ", "
+                )
             )?;
             writeln!(f, "{}  - signature : {}", prefix, t.signature)?;
 
             // Do next
-            print_elem(funcs, f, &*t.next, prefix)
+            print_elem(f, &*t.next, prefix)
         },
 
         Elem::Branch(b) => {
@@ -72,12 +99,12 @@ fn print_elem(funcs: &HashMap<usize, &Function>, f: &mut Formatter<'_>, elem: &'
             // Write the branches
             for (i, branch) in b.branches.iter().enumerate() {
                 writeln!(f, "{}{}<branch{}>", prefix, Indent(4), i)?;
-                print_elem(funcs, f, branch, &Pair(prefix, Indent(8)))?;
+                print_elem(f, branch, &Pair(prefix, Indent(8)))?;
                 writeln!(f, "{}", prefix)?;
             }
 
             // Do next
-            print_elem(funcs, f, &*b.next, prefix)
+            print_elem(f, &*b.next, prefix)
         },
         Elem::Parallel(p) => {
             writeln!(f, "{}parallel", prefix)?;
@@ -85,32 +112,44 @@ fn print_elem(funcs: &HashMap<usize, &Function>, f: &mut Formatter<'_>, elem: &'
             // Write the branches
             for (i, branch) in p.branches.iter().enumerate() {
                 writeln!(f, "{}{}<branch{}>", prefix, Indent(4), i)?;
-                print_elem(funcs, f, branch, &Pair(prefix, Indent(8)))?;
+                print_elem(f, branch, &Pair(prefix, Indent(8)))?;
                 writeln!(f, "{}", prefix)?;
             }
 
             // Do next
-            print_elem(funcs, f, &*p.next, prefix)
+            print_elem(f, &*p.next, prefix)
         },
         Elem::Loop(l) => {
             writeln!(f, "{}loop", prefix)?;
             writeln!(f, "{}<repeated>", Pair(prefix, Indent(4)))?;
-            print_elem(funcs, f, &*l.body, &Pair(prefix, Indent(8)))?;
+            print_elem(f, &*l.body, &Pair(prefix, Indent(8)))?;
             writeln!(f)?;
 
             // Do next
-            print_elem(funcs, f, &*l.next, prefix)
+            print_elem(f, &*l.next, prefix)
         },
-        Elem::Call(c) => {
-            writeln!(f, "{}call <{}:{}>", prefix, c.id, funcs.get(&c.id).map(|func| func.name.as_str()).unwrap_or("???"))?;
+        Elem::Commit(c) => {
+            writeln!(f, "{}commit <{} as '{}'>", prefix, write_iter!(c.input.iter().map(|data| format!("'{}'", data.name)), " or "), c.data_name)?;
 
             // Do next
-            print_elem(funcs, f, &*c.next, prefix)
+            print_elem(f, &*c.next, prefix)
         },
 
-        Elem::Next => writeln!(f, "{}next", prefix),
-        Elem::Return => writeln!(f, "{}return", prefix),
-        Elem::Stop => writeln!(f, "{}stop", prefix),
+        Elem::Next => {
+            writeln!(f, "{}next", prefix)
+        },
+        Elem::Stop(returns) => {
+            writeln!(
+                f,
+                "{}stop{}",
+                prefix,
+                if !returns.is_empty() {
+                    format!(" <returns {}>", write_iter!(returns.iter().map(|data| format!("'{}'", data.name)), " or "))
+                } else {
+                    String::new()
+                }
+            )
+        },
     }
 }
 
@@ -150,31 +189,11 @@ pub struct WorkflowFormatter<'w> {
 }
 impl<'w> Display for WorkflowFormatter<'w> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
-        // Prepare a map of functions to metadata
-        let funcs: HashMap<usize, &Function> = self.wf.funcs.iter().map(|(id, (func, _))| (*id, func)).collect();
-
         // Print some nice header thingy
         writeln!(f, "Workflow [")?;
 
-        // Print the functions first
-        let mut ids: Vec<usize> = self.wf.funcs.keys().cloned().collect();
-        ids.sort();
-        for id in ids {
-            let (func, body): &(Function, FunctionBody) = self.wf.funcs.get(&id).unwrap();
-            match body {
-                FunctionBody::Elems(elem) => {
-                    writeln!(f, "    {}:{}()", id, func.name)?;
-                    print_elem(&funcs, f, &*elem.borrow(), &Indent(8))?
-                },
-                FunctionBody::Builtin => writeln!(f, "    {}:{}() <builtin>", id, func.name)?,
-            }
-            writeln!(f)?;
-            writeln!(f)?;
-        }
-
         // Alright print the main elements
-        writeln!(f, "    <main>")?;
-        print_elem(&funcs, f, &self.wf.start, &Indent(8))?;
+        print_elem(f, &self.wf.start, &Indent(4))?;
 
         // Finish with the end bracket
         write!(f, "]")
