@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    02 Nov 2023, 15:37:52
+//    03 Nov 2023, 16:10:33
 //  Auto updated?
 //    Yes
 //
@@ -19,6 +19,7 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 
 use brane_ast::ast::{Edge, EdgeInstr, FunctionDef, TaskDef, Workflow};
+use brane_ast::spec::BuiltinFunctions;
 use brane_ast::state::VirtualSymTable;
 use brane_ast::MergeStrategy;
 use enum_debug::EnumDebug as _;
@@ -159,7 +160,7 @@ fn resolve_calls(
     };
 
     // Match to recursively process it
-    trace!("Analyzing {:?} calls", edge.variant());
+    trace!("Attempting to resolve calls in {} ({:?})", pc.display(table), edge.variant());
     match edge {
         Edge::Node { task, next, .. } => {
             // Attempt to discover the return type of the Node.
@@ -296,10 +297,108 @@ fn resolve_calls(
 ///
 /// # Arguments
 /// - `wir`: The input [WIR](Workflow) to analyse.
+/// - `calls`: The map of call indices to which function is actually called.
+/// - `table`: The [`VirtualSymTable`] keeping track of current definitions in scope.
+/// - `trace`: A stack of function IDs that keeps track of our nesting. Any duplication means a recursive call!
+/// - `pc`: Points to the current [`Edge`] to analyse.
+/// - `breakpoint`: If given, then analysis should stop when this PC is hit.
 ///
 /// # Returns
 /// A [`HashSet`] with all the IDs of the functions that are candidates for inlining.
-fn find_non_recursive_funcs(wir: &Workflow, calls: &HashMap<ProgramCounter, usize>) -> HashSet<usize> { HashSet::new() }
+fn find_non_recursive_funcs(
+    wir: &Workflow,
+    calls: &HashMap<ProgramCounter, usize>,
+    table: &mut VirtualSymTable,
+    trace: &mut Vec<usize>,
+    pc: ProgramCounter,
+    breakpoint: Option<ProgramCounter>,
+) -> HashSet<usize> {
+    // Attempt to get the edge
+    let edge: &Edge = match utils::get_edge(wir, pc) {
+        Some(edge) => edge,
+        None => return HashSet::new(),
+    };
+
+    // Match on its kind
+    match edge {
+        Edge::Node { next, .. } | Edge::Linear { next, .. } => {
+            // Doesn't call any functions, so just proceed with the next one
+            find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), breakpoint)
+        },
+
+        Edge::Branch { true_next, false_next, merge } => {
+            // Analyse the left branch...
+            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*true_next), merge.map(|merge| pc.jump(merge)));
+            // ...the right branch...
+            if let Some(false_next) = false_next {
+                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*false_next), merge.map(|merge| pc.jump(merge))));
+            }
+            // ...and the merge!
+            if let Some(merge) = merge {
+                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*merge), breakpoint));
+            }
+            funcs
+        },
+
+        Edge::Parallel { branches, merge } => {
+            // Collect all the branches
+            let mut funcs: HashSet<usize> = HashSet::new();
+            for branch in branches {
+                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*branch), Some(pc.jump(*merge))))
+            }
+
+            // Run merge and done is Cees
+            funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*merge), breakpoint));
+            funcs
+        },
+
+        Edge::Join { next, .. } => find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), breakpoint),
+
+        Edge::Loop { cond, body, next } => {
+            // Traverse the condition...
+            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*cond), Some(pc.jump(*body - 1)));
+            // ...the body...
+            funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*body), Some(pc.jump(*cond))));
+            // ...and finally, the next step, if any
+            if let Some(next) = next {
+                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), breakpoint));
+            }
+            funcs
+        },
+
+        Edge::Call { next, .. } => {
+            // OK, the exciting point!
+
+            // Resolve the function ID we're calling
+            let func_id: usize = match calls.get(&pc) {
+                Some(id) => *id,
+                None => {
+                    panic!("Encountered unresolved call after running call analysis");
+                },
+            };
+            let def: &FunctionDef = match catch_unwind(|| table.func(func_id)) {
+                Ok(def) => def,
+                Err(_) => panic!("Failed to get definition of function {func_id} after call analysis"),
+            };
+
+            // Analyse next
+            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), None);
+
+            // Nothing to do if it's a builtin
+            if def.name == BuiltinFunctions
+
+            // Recurse into the function body, then add this call to convertible functions only iff it's non-recursive
+            table.push(&def.table);
+            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, trace, ProgramCounter::call(func_id), None);
+            table.pop();
+
+            // Examine if this call would introduce a recursive problem
+            if trace.contains(&func_id) {
+            } else {
+            }
+        },
+    }
+}
 
 
 
