@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 15:27:38
 //  Last edited:
-//    01 Nov 2023, 14:10:56
+//    07 Nov 2023, 10:23:00
 //  Auto updated?
 //    Yes
 //
@@ -24,19 +24,11 @@ use specifications::package::PackageIndex;
 use super::spec::Workflow;
 
 
-/***** CONSTANTS *****/
-/// Defines the location of the tests
-pub const TESTS_DIR: &str = "../../tests";
-
-
-
-
-
 /***** LIBRARY *****/
 /// Run all the BraneScript tests
 #[test]
 fn test_checker_workflow() {
-    let tests_path: PathBuf = PathBuf::from(TESTS_DIR);
+    let tests_path: PathBuf = PathBuf::from(super::TESTS_DIR);
 
     // Run the compiler for every applicable DSL file
     test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
@@ -101,7 +93,7 @@ fn test_checker_workflow() {
 /// Run all the BraneScript tests _with_ optimization
 #[test]
 fn test_checker_workflow_optimized() {
-    let tests_path: PathBuf = PathBuf::from(TESTS_DIR);
+    let tests_path: PathBuf = PathBuf::from(super::TESTS_DIR);
 
     // Run the compiler for every applicable DSL file
     test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {

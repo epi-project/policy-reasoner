@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:54:17
 //  Last edited:
-//    02 Nov 2023, 15:12:20
+//    07 Nov 2023, 10:22:46
 //  Auto updated?
 //    Yes
 //
@@ -21,3 +21,8 @@ pub mod spec;
 pub mod tests;
 pub mod utils;
 pub mod visualize;
+
+
+/***** CONSTANTS *****/
+/// Defines the location of the tests
+const TESTS_DIR: &str = "../../tests";

@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    03 Nov 2023, 16:10:33
+//    07 Nov 2023, 11:10:44
 //  Auto updated?
 //    Yes
 //
@@ -26,6 +26,91 @@ use enum_debug::EnumDebug as _;
 use log::trace;
 
 use super::utils::{self, PrettyProgramCounter, ProgramCounter};
+
+
+/***** TESTS *****/
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use brane_ast::traversals::print::ast;
+    use brane_ast::{compile_program, CompileResult, ParserOptions};
+    use brane_shr::utilities::{create_data_index_from, create_package_index_from};
+    use specifications::data::DataIndex;
+    use specifications::package::PackageIndex;
+
+    use super::*;
+
+
+    /// Runs checks to verify the workflow inlining analysis
+    #[test]
+    fn test_checker_workflow_inline() {
+        // Defines a few test files with expected inlinable functions
+        let tests: [(&str, HashMap<usize, bool>); 4] = [
+            (r#"println("Hello, world!");"#, HashMap::from([(1, false)])),
+            (r#"func hello_world() { return "Hello, world!"; } println(hello_world());"#, HashMap::from([(1, false), (4, true)])),
+            (r#"import hello_world; println(hello_world());"#, HashMap::from([(1, false)])),
+            (
+                r#"func hello_world(n) { if (n <= 0) { return "Hello, world!"; } else { return "Hello, " + hello_world(n - 1) + "\n"; } } println(hello_world(3));"#,
+                HashMap::from([(1, false), (4, false)]),
+            ),
+        ];
+
+        // Load example package- and data indices
+        let tests_path: PathBuf = PathBuf::from(super::super::TESTS_DIR);
+        let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
+        let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
+
+        // Test them each
+        for (i, (test, gold)) in tests.into_iter().enumerate() {
+            // Compile to BraneScript (we'll assume this works)
+            let wir: Workflow = match compile_program(test.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
+                CompileResult::Workflow(wir, _) => wir,
+                CompileResult::Err(errs) => {
+                    for err in errs {
+                        err.prettyprint(format!("<test {i}>"), test);
+                    }
+                    panic!("Failed to compile BraneScript (see error above)");
+                },
+                CompileResult::Eof(err) => {
+                    err.prettyprint(format!("<test {i}>"), test);
+                    panic!("Failed to compile BraneScript (see error above)");
+                },
+
+                _ => {
+                    unreachable!();
+                },
+            };
+            // Emit the compiled workflow
+            println!("{}", (0..80).map(|_| '-').collect::<String>());
+            ast::do_traversal(&wir, std::io::stdout()).unwrap();
+            println!();
+
+            // Analyse function calls (we'll assume this works too)
+            let calls: HashMap<ProgramCounter, usize> =
+                resolve_calls(&wir, &mut VirtualSymTable::with(&wir.table), &mut vec![], ProgramCounter::new(), None, None).unwrap().0;
+            println!(
+                "Resolved functions calls: {:?}",
+                calls
+                    .iter()
+                    .map(|(pc, func_id)| (format!("{}", pc.display(&VirtualSymTable::with(&wir.table))), *func_id))
+                    .collect::<HashMap<String, usize>>()
+            );
+
+            // Analyse the inlinable funcs
+            let mut pred: HashMap<usize, bool> = HashMap::with_capacity(calls.len());
+            find_inlinable_funcs(&wir, &calls, &mut VirtualSymTable::with(&wir.table), ProgramCounter::new(), None, &mut pred);
+            println!("Inlinable functions: {pred:?}");
+            println!();
+
+            // Neat, done, assert it was right
+            assert_eq!(pred, gold);
+        }
+    }
+}
+
+
+
 
 
 /***** ERRORS *****/
@@ -128,6 +213,7 @@ fn pushes_func_id(instrs: &[EdgeInstr], idx: usize) -> Option<Option<usize>> {
 /// # Arguments
 /// - `wir`: The [`Workflow`] to analyse.
 /// - `table`: A running [`VirtualSymTable`] that determines the current types in scope.
+/// - `trace`: A stack of call pointers that keeps track of the trace of function calls. Allows us to avoid recursion.
 /// - `stack_id`: The function ID currently known to be on the stack. Is [`None`] if we don't know this.
 /// - `pc`: The program-counter-index of the edge to analyse. These are pairs of `(function, edge_idx)`, where main is referred to by [`usize::MAX`](usize).
 /// - `breakpoint`: An optional program-counter-index that, if given, will not analyse that edge onwards (excluding it too).
@@ -142,6 +228,7 @@ fn pushes_func_id(instrs: &[EdgeInstr], idx: usize) -> Option<Option<usize>> {
 fn resolve_calls(
     wir: &Workflow,
     table: &mut VirtualSymTable,
+    trace: &mut Vec<ProgramCounter>,
     pc: ProgramCounter,
     stack_id: Option<usize>,
     breakpoint: Option<ProgramCounter>,
@@ -170,7 +257,7 @@ fn resolve_calls(
             };
 
             // Alright, recurse with the next instruction
-            resolve_calls(wir, table, pc.jump(*next), if def.func().ret.is_void() { stack_id } else { None }, breakpoint)
+            resolve_calls(wir, table, trace, pc.jump(*next), if def.func().ret.is_void() { stack_id } else { None }, breakpoint)
         },
 
         Edge::Linear { instrs, next } => {
@@ -178,7 +265,7 @@ fn resolve_calls(
             let stack_id: Option<usize> = if !instrs.is_empty() { pushes_func_id(instrs, instrs.len() - 1).unwrap_or(stack_id) } else { stack_id };
 
             // Analyse the next one
-            resolve_calls(wir, table, pc.jump(*next), stack_id, breakpoint)
+            resolve_calls(wir, table, trace, pc.jump(*next), stack_id, breakpoint)
         },
 
         Edge::Stop {} => Ok((HashMap::new(), None)),
@@ -186,9 +273,9 @@ fn resolve_calls(
         Edge::Branch { true_next, false_next, merge } => {
             // First, analyse the branches
             let (mut calls, mut stack_id): (HashMap<_, _>, Option<usize>) =
-                resolve_calls(wir, table, pc.jump(*true_next), stack_id, merge.map(|merge| pc.jump(merge)))?;
+                resolve_calls(wir, table, trace, pc.jump(*true_next), stack_id, merge.map(|merge| pc.jump(merge)))?;
             if let Some(false_next) = false_next {
-                let (false_calls, false_stack) = resolve_calls(wir, table, pc.jump(*false_next), stack_id, merge.map(|merge| pc.jump(merge)))?;
+                let (false_calls, false_stack) = resolve_calls(wir, table, trace, pc.jump(*false_next), stack_id, merge.map(|merge| pc.jump(merge)))?;
                 calls.extend(false_calls);
                 if stack_id != false_stack {
                     stack_id = None;
@@ -197,7 +284,7 @@ fn resolve_calls(
 
             // Analyse the remaining part next
             if let Some(merge) = merge {
-                let (merge_calls, merge_stack) = resolve_calls(wir, table, pc.jump(*merge), stack_id, breakpoint)?;
+                let (merge_calls, merge_stack) = resolve_calls(wir, table, trace, pc.jump(*merge), stack_id, breakpoint)?;
                 calls.extend(merge_calls);
                 stack_id = merge_stack;
             }
@@ -210,28 +297,28 @@ fn resolve_calls(
             // Simply analyse all branches first. No need to worry about their return values and such, since that's not until the `Join`.
             let mut calls: HashMap<_, _> = HashMap::new();
             for branch in branches {
-                calls.extend(resolve_calls(wir, table, pc.jump(*branch), stack_id, breakpoint)?.0);
+                calls.extend(resolve_calls(wir, table, trace, pc.jump(*branch), stack_id, breakpoint)?.0);
             }
 
             // OK, then analyse the rest assuming the stack is unchanged (we can do that because the parallel's branches get clones)
-            let (new_calls, stack_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, pc.jump(*merge), stack_id, breakpoint)?;
+            let (new_calls, stack_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, trace, pc.jump(*merge), stack_id, breakpoint)?;
             calls.extend(new_calls);
             Ok((calls, stack_id))
         },
 
         Edge::Join { merge, next } => {
             // Simply do the next, only _not_ resetting the stack ID if no value is returned.
-            resolve_calls(wir, table, pc.jump(*next), if *merge == MergeStrategy::None { stack_id } else { None }, breakpoint)
+            resolve_calls(wir, table, trace, pc.jump(*next), if *merge == MergeStrategy::None { stack_id } else { None }, breakpoint)
         },
 
         Edge::Loop { cond, body, next } => {
             // Traverse the three individually, using the stack ID of the codebody that precedes it
             let (mut calls, mut cond_id): (HashMap<_, _>, Option<usize>) =
-                resolve_calls(wir, table, pc.jump(*cond), stack_id, Some(pc.jump(*body - 1)))?;
-            let (body_calls, _): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, pc.jump(*body), cond_id, Some(pc.jump(*cond)))?;
+                resolve_calls(wir, table, trace, pc.jump(*cond), stack_id, Some(pc.jump(*body - 1)))?;
+            let (body_calls, _): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, trace, pc.jump(*body), cond_id, Some(pc.jump(*cond)))?;
             calls.extend(body_calls);
             if let Some(next) = next {
-                let (next_calls, next_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, pc.jump(*next), cond_id, breakpoint)?;
+                let (next_calls, next_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, trace, pc.jump(*next), cond_id, breakpoint)?;
                 calls.extend(next_calls);
                 cond_id = next_id;
             }
@@ -249,6 +336,14 @@ fn resolve_calls(
                 },
             };
 
+            // We can early quit upon recursion
+            if trace.contains(&pc) {
+                let mut calls: HashMap<ProgramCounter, usize> = HashMap::from([(pc, stack_id)]);
+                let (next_calls, next_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, trace, pc.jump(*next), None, breakpoint)?;
+                calls.extend(next_calls);
+                return Ok((calls, next_id));
+            }
+
             // Get the function definition to extend the VirtualSymTable
             let def: &FunctionDef = match catch_unwind(|| table.func(stack_id)) {
                 Ok(def) => def,
@@ -260,12 +355,14 @@ fn resolve_calls(
 
             // Resolve the call of the function (builtins simply return nothing, so are implicitly handled)
             table.push(&def.table);
-            let (call_calls, call_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, ProgramCounter::call(stack_id), None, None)?;
+            trace.push(pc);
+            let (call_calls, call_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, trace, ProgramCounter::call(stack_id), None, None)?;
+            trace.pop();
             table.pop();
             calls.extend(call_calls);
 
             // Then continue with the next one
-            let (next_calls, next_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, pc.jump(*next), call_id, breakpoint)?;
+            let (next_calls, next_id): (HashMap<_, _>, Option<usize>) = resolve_calls(wir, table, trace, pc.jump(*next), call_id, breakpoint)?;
             calls.extend(next_calls);
             Ok((calls, next_id))
         },
@@ -299,71 +396,69 @@ fn resolve_calls(
 /// - `wir`: The input [WIR](Workflow) to analyse.
 /// - `calls`: The map of call indices to which function is actually called.
 /// - `table`: The [`VirtualSymTable`] keeping track of current definitions in scope.
-/// - `trace`: A stack of function IDs that keeps track of our nesting. Any duplication means a recursive call!
 /// - `pc`: Points to the current [`Edge`] to analyse.
 /// - `breakpoint`: If given, then analysis should stop when this PC is hit.
+/// - `inlinable`: The result we're recursively building. This set simply collects all function IDs and maps them to inlinable or not.
 ///
 /// # Returns
 /// A [`HashSet`] with all the IDs of the functions that are candidates for inlining.
-fn find_non_recursive_funcs(
+fn find_inlinable_funcs(
     wir: &Workflow,
     calls: &HashMap<ProgramCounter, usize>,
     table: &mut VirtualSymTable,
-    trace: &mut Vec<usize>,
     pc: ProgramCounter,
     breakpoint: Option<ProgramCounter>,
-) -> HashSet<usize> {
+    inlinable: &mut HashMap<usize, bool>,
+) {
     // Attempt to get the edge
     let edge: &Edge = match utils::get_edge(wir, pc) {
         Some(edge) => edge,
-        None => return HashSet::new(),
+        None => return,
     };
 
     // Match on its kind
     match edge {
         Edge::Node { next, .. } | Edge::Linear { next, .. } => {
             // Doesn't call any functions, so just proceed with the next one
-            find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), breakpoint)
+            find_inlinable_funcs(wir, calls, table, pc.jump(*next), breakpoint, inlinable);
         },
+
+        Edge::Stop {} => return,
 
         Edge::Branch { true_next, false_next, merge } => {
             // Analyse the left branch...
-            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*true_next), merge.map(|merge| pc.jump(merge)));
+            find_inlinable_funcs(wir, calls, table, pc.jump(*true_next), merge.map(|merge| pc.jump(merge)), inlinable);
             // ...the right branch...
             if let Some(false_next) = false_next {
-                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*false_next), merge.map(|merge| pc.jump(merge))));
+                find_inlinable_funcs(wir, calls, table, pc.jump(*false_next), merge.map(|merge| pc.jump(merge)), inlinable);
             }
             // ...and the merge!
             if let Some(merge) = merge {
-                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*merge), breakpoint));
+                find_inlinable_funcs(wir, calls, table, pc.jump(*merge), breakpoint, inlinable);
             }
-            funcs
         },
 
         Edge::Parallel { branches, merge } => {
             // Collect all the branches
-            let mut funcs: HashSet<usize> = HashSet::new();
             for branch in branches {
-                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*branch), Some(pc.jump(*merge))))
+                find_inlinable_funcs(wir, calls, table, pc.jump(*branch), Some(pc.jump(*merge)), inlinable);
             }
 
             // Run merge and done is Cees
-            funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*merge), breakpoint));
-            funcs
+            find_inlinable_funcs(wir, calls, table, pc.jump(*merge), breakpoint, inlinable);
         },
 
-        Edge::Join { next, .. } => find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), breakpoint),
+        Edge::Join { next, .. } => find_inlinable_funcs(wir, calls, table, pc.jump(*next), breakpoint, inlinable),
 
         Edge::Loop { cond, body, next } => {
             // Traverse the condition...
-            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*cond), Some(pc.jump(*body - 1)));
+            find_inlinable_funcs(wir, calls, table, pc.jump(*cond), Some(pc.jump(*body - 1)), inlinable);
             // ...the body...
-            funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*body), Some(pc.jump(*cond))));
+            find_inlinable_funcs(wir, calls, table, pc.jump(*body), Some(pc.jump(*cond)), inlinable);
             // ...and finally, the next step, if any
             if let Some(next) = next {
-                funcs.extend(find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), breakpoint));
+                find_inlinable_funcs(wir, calls, table, pc.jump(*next), breakpoint, inlinable);
             }
-            funcs
         },
 
         Edge::Call { next, .. } => {
@@ -381,22 +476,31 @@ fn find_non_recursive_funcs(
                 Err(_) => panic!("Failed to get definition of function {func_id} after call analysis"),
             };
 
-            // Analyse next
-            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, table, trace, pc.jump(*next), None);
+            // Analyse next, since all codepaths do this always
+            find_inlinable_funcs(wir, calls, table, pc.jump(*next), None, inlinable);
 
-            // Nothing to do if it's a builtin
-            if def.name == BuiltinFunctions
-
-            // Recurse into the function body, then add this call to convertible functions only iff it's non-recursive
-            table.push(&def.table);
-            let mut funcs: HashSet<usize> = find_non_recursive_funcs(wir, calls, trace, ProgramCounter::call(func_id), None);
-            table.pop();
+            // Functions are not inlinable if builtins; if so, return
+            if BuiltinFunctions::is_builtin(&def.name) {
+                inlinable.insert(func_id, false);
+                return;
+            }
 
             // Examine if this call would introduce a recursive problem
-            if trace.contains(&func_id) {
-            } else {
+            if inlinable.contains_key(&func_id) {
+                // We've already seen this one! Change our mind about its inlinability
+                inlinable.insert(func_id, false);
+                // NOTE: No need to go into the call body, as we've done this the first time we saw it
+                return;
             }
+
+            // If we get this far, let's assume that we're inlinable for now and recurse into the body
+            inlinable.insert(func_id, true);
+            table.push(&def.table);
+            find_inlinable_funcs(wir, calls, table, ProgramCounter::call(func_id), None, inlinable);
+            table.pop();
         },
+
+        Edge::Return { result: _ } => return,
     }
 }
 
@@ -423,7 +527,11 @@ fn find_non_recursive_funcs(
 /// This function may error if the input workflow is incoherent.
 pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize>) -> Workflow {
     // Analyse which functions in the WIR are non-recursive
-    let to_inline: HashSet<usize> = find_non_recursive_funcs(&wir, calls);
+    let mut inlinable: HashMap<usize, bool> = HashMap::with_capacity(calls.len());
+    find_inlinable_funcs(&wir, calls, &mut VirtualSymTable::with(&wir.table), ProgramCounter::new(), None, &mut inlinable);
+
+    // Inline them (ez pz lemon squeezy; or difficult difficult lemon difficult?)
+
 
     // OK, we did all we could
     wir
@@ -450,7 +558,7 @@ pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize
 pub fn simplify(mut wir: Workflow) -> Result<(Workflow, HashMap<ProgramCounter, usize>), Error> {
     // Analyse call dependencies first
     let (calls, _): (HashMap<ProgramCounter, usize>, _) =
-        resolve_calls(&wir, &mut VirtualSymTable::with(&wir.table), ProgramCounter::new(), None, None)?;
+        resolve_calls(&wir, &mut VirtualSymTable::with(&wir.table), &mut vec![], ProgramCounter::new(), None, None)?;
 
     // Simplify functions as much as possible
     wir = inline_functions(wir, &calls);
