@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:20:54
 //  Last edited:
-//    01 Nov 2023, 14:20:29
+//    08 Nov 2023, 17:09:28
 //  Auto updated?
 //    Yes
 //
@@ -148,6 +148,9 @@ struct Arguments {
         help = "The location where we're reading data from to compile the test files. Ignored if input language is not BraneScript."
     )]
     data_path: PathBuf,
+    /// If given, serializes to JSON instead of something prettier.
+    #[clap(short, long, help = "If given, serializes to JSON instead of something prettier.")]
+    json: bool,
 }
 
 
@@ -248,6 +251,16 @@ fn main() {
         }
 
         // That's it, print it
-        println!("{}", wf.visualize());
+        if args.json {
+            match serde_json::to_string_pretty(&wf) {
+                Ok(wf) => println!("{wf}"),
+                Err(err) => {
+                    error!("{}", err.trace());
+                    std::process::exit(1);
+                },
+            }
+        } else {
+            println!("{}", wf.visualize());
+        }
     }
 }
