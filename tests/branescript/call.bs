@@ -1,0 +1,11 @@
+// Test function calls
+
+println("Hello there!");
+println("General \" Kenobi,\n\tyou are a bold one!");
+
+func test() {
+    println("General Kenobi!!!");
+}
+
+test();
+test();

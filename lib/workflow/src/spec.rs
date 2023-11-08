@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:56:55
 //  Last edited:
-//    31 Oct 2023, 15:39:22
+//    08 Nov 2023, 14:11:06
 //  Auto updated?
 //    Yes
 //
@@ -12,13 +12,13 @@
 //!   Defines the checker workflow itself.
 //
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::collections::HashSet;
+use std::hash::Hash;
 
 use brane_ast::locations::Location;
 use brane_ast::MergeStrategy;
 use enum_debug::EnumDebug;
+use serde::{Deserialize, Serialize};
 use specifications::version::Version;
 
 
@@ -52,7 +52,7 @@ macro_rules! next_elem_checks_impl {
         pub fn is_some(&self) -> bool { self.is_elem() }
         #[doc = concat!("Checks if a terminator has been reached or not.\n\n# Returns\nTrue if we are [Self::Next](", stringify!($name), "::Next) or [Self::Stop](", stringify!($name), "::Stop), or false otherwise.")]
         #[inline]
-        pub fn is_term(&self) -> bool { self.is_next() || self.is_return() || self.is_stop() }
+        pub fn is_term(&self) -> bool { self.is_next() || self.is_stop() }
 
         #[doc = concat!("Checks if there is a next node or not.\n\n# Returns\nTrue if we are [Self::Elem](", stringify!($name), "::Elem), or false otherwise.")]
         #[inline]
@@ -60,12 +60,9 @@ macro_rules! next_elem_checks_impl {
         #[doc = concat!("Checks if a `Next`-terminator has been reached.\n\n# Returns\nTrue if we are [Self::Next](", stringify!($name), "::Next), or false otherwise.")]
         #[inline]
         pub fn is_next(&self) -> bool { matches!(self, Self::Next) }
-        #[doc = concat!("Checks if a `Return`-terminator has been reached.\n\n# Returns\nTrue if we are [Self::Return](", stringify!($name), "::Return), or false otherwise.")]
-        #[inline]
-        pub fn is_return(&self) -> bool { matches!(self, Self::Return) }
         #[doc = concat!("Checks if a `Stop`-terminator has been reached.\n\n# Returns\nTrue if we are [Self::Stop](", stringify!($name), "::Stop), or false otherwise.")]
         #[inline]
-        pub fn is_stop(&self) -> bool { matches!(self, Self::Stop) }
+        pub fn is_stop(&self) -> bool { matches!(self, Self::Stop(_)) }
     };
 }
 
@@ -105,14 +102,17 @@ macro_rules! next_elem_ref_impl {
         #[inline]
         pub fn elem(&self) -> &Elem { if let Self::Elem(e) = self { e } else { panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Elem"), self.variant()); } }
 
+        #[doc = concat!("Returns the inner next value if this is a terminator.\n\n# Returns\nA reference to the [`Option<Dataset>`] that is contained within.\n\n# Panics\nThis function panics if we are not a [`Self::Stop](", stringify!($name), "::Stop).")]
+        #[inline]
+        pub fn returns(&self) -> &HashSet<Dataset> { match self { Self::Stop(r) => r, this => panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Stop"), this.variant()), } }
+
         #[doc = concat!("Return a [`NextElemRef`] from this ", stringify!($name), ".\n\n# Returns\nA [`NextElemRef`] that contains a reference to the element in Self, if any.")]
         #[inline]
         pub fn as_ref(&self) -> NextElemRef {
             match self {
                 Self::Elem(e) => NextElemRef::Elem(e),
                 Self::Next    => NextElemRef::Next,
-                Self::Return  => NextElemRef::Return,
-                Self::Stop    => NextElemRef::Stop,
+                Self::Stop(r) => NextElemRef::Stop(r),
             }
         }
     };
@@ -154,14 +154,17 @@ macro_rules! next_elem_mut_impl {
         #[inline]
         pub fn elem_mut(&mut self) -> &mut Elem { if let Self::Elem(e) = self { e } else { panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Elem"), self.variant()); } }
 
+        #[doc = concat!("Returns the inner next value if this is a terminator.\n\n# Returns\nA mutable reference to the [`Option<Dataset>`] that is contained within.\n\n# Panics\nThis function panics if we are not a [`Self::Stop](", stringify!($name), "::Stop).")]
+        #[inline]
+        pub fn returns_mut(&mut self) -> &mut HashSet<Dataset> { match self { Self::Stop(r) => r, this => panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Stop"), this.variant()), } }
+
         #[doc = concat!("Return a [`NextElemMut`] from this ", stringify!($name), ".\n\n# Returns\nA [`NextElemMut`] that contains a mutable reference to the element in Self, if any.")]
         #[inline]
         pub fn as_mut(&mut self) -> NextElemMut {
             match self {
                 Self::Elem(e) => NextElemMut::Elem(e),
                 Self::Next    => NextElemMut::Next,
-                Self::Return  => NextElemMut::Return,
-                Self::Stop    => NextElemMut::Stop,
+                Self::Stop(r) => NextElemMut::Stop(r),
             }
         }
     };
@@ -178,6 +181,10 @@ macro_rules! next_elem_into_impl {
             #[doc = concat!("Returns the inner next graph element.\n\n# Returns\nThe [`Elem`] that is contained within.\n\n#Panics\nThis function panics if we are not a [`Self::Elem`](", stringify!($name), "::Elem).")]
             #[inline]
             pub fn into_elem(self) -> Elem { if let Self::Elem(e) = self { e } else { panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Elem"), self.variant()); } }
+
+            #[doc = concat!("Returns the inner next value if this is a terminator.\n\n# Returns\nThe [`Option<Dataset>`] that is contained within.\n\n# Panics\nThis function panics if we are not a [`Self::Stop](", stringify!($name), "::Stop).")]
+            #[inline]
+            pub fn into_returns(self) -> HashSet<Dataset> { match self { Self::Stop(r) => r, this => panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Stop"), this.variant()), } }
         }
     };
 }
@@ -196,10 +203,8 @@ pub enum NextElem {
     Elem(Elem),
     /// An [`Elem::Next`]-terminator was encountered.
     Next,
-    /// An [`Elem::Return`]-terminator was encountered.
-    Return,
     /// An [`Elem::Stop`]-terminator was encountered.
-    Stop,
+    Stop(HashSet<Dataset>),
 }
 next_elem_checks_impl!(NextElem);
 next_elem_ref_impl!(NextElem);
@@ -215,10 +220,8 @@ pub enum NextElemRef<'e> {
     Elem(&'e Elem),
     /// An [`Elem::Next`]-terminator was encountered.
     Next,
-    /// An [`Elem::Return`]-terminator was encountered.
-    Return,
     /// An [`Elem::Stop`]-terminator was encountered.
-    Stop,
+    Stop(&'e HashSet<Dataset>),
 }
 next_elem_checks_impl!('e, NextElemRef);
 next_elem_ref_impl!('e, NextElemRef);
@@ -232,10 +235,8 @@ pub enum NextElemMut<'e> {
     Elem(&'e mut Elem),
     /// An [`Elem::Next`]-terminator was encountered.
     Next,
-    /// An [`Elem::Return`]-terminator was encountered.
-    Return,
     /// An [`Elem::Stop`]-terminator was encountered.
-    Stop,
+    Stop(&'e mut HashSet<Dataset>),
 }
 next_elem_checks_impl!('e, NextElemMut);
 next_elem_ref_impl!('e, NextElemMut);
@@ -247,7 +248,7 @@ next_elem_mut_impl!('e, NextElemMut);
 
 /***** AUXILLARY DATA *****/
 /// Defines how a user looks like.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct User {
     /// The name of the user.
     pub name:     String,
@@ -255,15 +256,8 @@ pub struct User {
     pub metadata: Vec<Metadata>,
 }
 
-/// Defines the metadata of a particular **function** (not task).
-#[derive(Clone, Debug)]
-pub struct Function {
-    /// The name of the function.
-    pub name: String,
-}
-
 /// Defines a representation of a dataset.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Dataset {
     /// The name of the dataset.
     pub name:     String,
@@ -272,15 +266,38 @@ pub struct Dataset {
     /// Any metadata attached to the dataset. Note: may need to be populated by the checker!
     pub metadata: Vec<Metadata>,
 }
+impl Dataset {
+    /// Constructor for the Dataset that only takes information originating from the workflow.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the dataset.
+    /// - `from`: The location where to pull the dataset from, or [`None`] if no transfer is planned (i.e., it lives on the same domain as the task using it as input).
+    ///
+    /// # Returns
+    /// A new instance of self with the given `name` and `from`, and all other properties initialized to some default value.
+    #[inline]
+    pub fn new(name: impl Into<String>, from: impl Into<Option<Location>>) -> Self { Self { name: name.into(), from: from.into(), metadata: vec![] } }
+}
+impl Eq for Dataset {}
+impl PartialEq for Dataset {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool { self.name == other.name }
+}
+impl Hash for Dataset {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.name.hash(state) }
+}
 
 /// Represents a "tag" and everything we need to know.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Metadata {
+    /// The "namespace" where the tag may be found. Represents the "owner", or the "definer" of the tag.
+    pub owner: String,
     /// The tag itself.
     pub tag: String,
-    /// The namespace where the tag may be found. Represents the "owner", or the "definer" of the tag.
-    pub namespace: String,
-    /// The signature verifying this metadata. Represents the "assigner", or the "user" of the tag.
+    /// The person/domain who applied this tag to something and then signed the assignment.
+    pub assigner: String,
+    /// The signature verifying this metadata. It can be assumed that this is signed by the `assigner`.
     pub signature: String,
     /// A flag stating whether the signature is valid. If [`None`], means this hasn't been validated yet.
     pub signature_valid: Option<bool>,
@@ -292,12 +309,12 @@ pub struct Metadata {
 
 /***** LIBRARY *****/
 /// Defines the workflow's toplevel view.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Workflow {
+    /// The identifier of this workflow as a whole.
+    pub id:    String,
     /// Defines the first node in the workflow.
     pub start: Elem,
-    /// The functions part of this workflow. These are [`Rc`]-pointers, as they occur naturally within the workflow as well.
-    pub funcs: HashMap<usize, (Function, FunctionBody)>,
 
     /// The user instigating this workflow (and getting the result, if any).
     pub user:      User,
@@ -310,11 +327,13 @@ pub struct Workflow {
 
 
 /// Defines an element in the graph. This is either a _Node_, which defines a task execution, or an _Edge_, which defines how next tasks may be reached.
-#[derive(Clone, Debug, EnumDebug)]
+#[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]
 pub enum Elem {
     // Nodes
-    /// Defines a task, which is like a [linear edge](Elem::Linear) but with a task to execute.
+    /// Defines a task that is executed, accessing and potentially producing data.
     Task(ElemTask),
+    /// Defines the commiting of a result into a dataset, which will linger beyong the workflow with a specific name.
+    Commit(ElemCommit),
 
     // Edges
     /// Defines an edge that connects to multiple next graph-branches of which only _one_ must be taken. Note that, because we don't include dynamic control flow information, we don't know _which_ will be taken.
@@ -323,20 +342,14 @@ pub enum Elem {
     Parallel(ElemParallel),
     /// Defines an edge that repeats a particular branch an unknown amount of times.
     Loop(ElemLoop),
-    /// Calls another stream of edges, then continues onwards.
-    Call(ElemCall),
 
     // Terminators
     /// Defines that the next element to execute is given by the parent `next`-field.
-    ///
-    /// If occuring in a function, it means a return without value.
     Next,
-    /// Defines that the next element to execute is given by the parent `next`-field, but with some value.
-    ///
-    /// If occuring in the main, it means a value is returned from the workflow.
-    Return,
     /// Defines that no more execution takes place.
-    Stop,
+    ///
+    /// The option indicates if any data is carried to the remaining code.
+    Stop(HashSet<Dataset>),
 }
 impl Elem {
     /// Retrieves the `next` element of ourselves.
@@ -348,15 +361,14 @@ impl Elem {
     pub fn next(&self) -> NextElemRef {
         match self {
             Self::Task(ElemTask { next, .. }) => NextElemRef::Elem(next),
+            Self::Commit(ElemCommit { next, .. }) => NextElemRef::Elem(next),
 
-            Self::Branch(ElemBranch { next, .. })
-            | Self::Parallel(ElemParallel { next, .. })
-            | Self::Loop(ElemLoop { next, .. })
-            | Self::Call(ElemCall { next, .. }) => NextElemRef::Elem(next),
+            Self::Branch(ElemBranch { next, .. }) | Self::Parallel(ElemParallel { next, .. }) | Self::Loop(ElemLoop { next, .. }) => {
+                NextElemRef::Elem(next)
+            },
 
             Self::Next => NextElemRef::Next,
-            Self::Return => NextElemRef::Return,
-            Self::Stop => NextElemRef::Stop,
+            Self::Stop(returns) => NextElemRef::Stop(returns),
         }
     }
 
@@ -369,15 +381,14 @@ impl Elem {
     pub fn next_mut(&mut self) -> NextElemMut {
         match self {
             Self::Task(ElemTask { next, .. }) => NextElemMut::Elem(next),
+            Self::Commit(ElemCommit { next, .. }) => NextElemMut::Elem(next),
 
-            Self::Branch(ElemBranch { next, .. })
-            | Self::Parallel(ElemParallel { next, .. })
-            | Self::Loop(ElemLoop { next, .. })
-            | Self::Call(ElemCall { next, .. }) => NextElemMut::Elem(next),
+            Self::Branch(ElemBranch { next, .. }) | Self::Parallel(ElemParallel { next, .. }) | Self::Loop(ElemLoop { next, .. }) => {
+                NextElemMut::Elem(next)
+            },
 
             Self::Next => NextElemMut::Next,
-            Self::Return => NextElemMut::Return,
-            Self::Stop => NextElemMut::Stop,
+            Self::Stop(returns) => NextElemMut::Stop(returns),
         }
     }
 
@@ -390,24 +401,26 @@ impl Elem {
     pub fn into_next(self) -> NextElem {
         match self {
             Self::Task(ElemTask { next, .. }) => NextElem::Elem(*next),
+            Self::Commit(ElemCommit { next, .. }) => NextElem::Elem(*next),
 
-            Self::Branch(ElemBranch { next, .. })
-            | Self::Parallel(ElemParallel { next, .. })
-            | Self::Loop(ElemLoop { next, .. })
-            | Self::Call(ElemCall { next, .. }) => NextElem::Elem(*next),
+            Self::Branch(ElemBranch { next, .. }) | Self::Parallel(ElemParallel { next, .. }) | Self::Loop(ElemLoop { next, .. }) => {
+                NextElem::Elem(*next)
+            },
 
             Self::Next => NextElem::Next,
-            Self::Return => NextElem::Return,
-            Self::Stop => NextElem::Stop,
+            Self::Stop(returns) => NextElem::Stop(returns),
         }
     }
 }
 
-/// Defines the only node in the graph consisting of [`Elem`]s.
+/// Defines a task node in the graph consisting of [`Elem`]s, which defines data access.
 ///
 /// Yeah so basically represents a task execution, with all checker-relevant information.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ElemTask {
+    /// Some identifier for this _task_, i.e., the call.
+    pub id: String,
+
     /// The name of the task to execute
     pub name:    String,
     /// The name of the package in which to find the task.
@@ -418,6 +431,8 @@ pub struct ElemTask {
     pub hash:    Option<String>,
 
     /// Any input datasets used by the task.
+    ///
+    /// Note that this denotes a set of **possible** input sets. One or more of these may actually be used at runtime.
     pub input:  Vec<Dataset>,
     /// If there is an output dataset produced by this task, this names it.
     pub output: Option<Dataset>,
@@ -433,10 +448,26 @@ pub struct ElemTask {
     pub next: Box<Elem>,
 }
 
+/// Defines a commit node in the graph consisting of [`Elem`]s, which defines data promotion.
+///
+/// Checkers can assume that anything produced by a function will be deleted after the workflow stops (or at least, domains **should** do so) _unless_ committed.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ElemCommit {
+    /// The name after committing.
+    pub data_name: String,
+    /// Any input datasets used by the task.
+    ///
+    /// Note that this denotes a set of **possible** input sets. One or more of these may actually be used at runtime.
+    pub input:     Vec<Dataset>,
+
+    /// The next graph element that this task connects to.
+    pub next: Box<Elem>,
+}
+
 /// Defines a branching connection between graph [`Elem`]ents.
 ///
 /// Or rather, defines a linear connection between two nodes, with a set of branches in between them.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ElemBranch {
     /// The branches of which one _must_ be taken, but we don't know which one.
     pub branches: Vec<Elem>,
@@ -447,7 +478,7 @@ pub struct ElemBranch {
 /// Defines a parallel connection between graph [`Elem`]ents.
 ///
 /// Is like a [branch](ElemBranch), except that _all_ branches are taken _concurrently_ instead of only one.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ElemParallel {
     /// The branches, _all_ of which but be taken _concurrently_.
     pub branches: Vec<Elem>,
@@ -460,31 +491,10 @@ pub struct ElemParallel {
 /// Defines a looping connection between graph [`Elem`]ents.
 ///
 /// Simply defines a branch that is taken repeatedly. Any condition that was there is embedded in the branching part, since that's how the branch is dynamically taken and we can't know how often any of them is taken anyway.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ElemLoop {
     /// The body (and embedded condition) of the loop.
     pub body: Box<Elem>,
     /// The next graph element that this parallel edge connects to.
     pub next: Box<Elem>,
-}
-
-/// Defines a calling connection between graph [`Elem`]ents.
-///
-/// Refers (not defines) to a shared-ownership branch of elements that is executed before the `next`` element is continued with.
-#[derive(Clone, Debug)]
-pub struct ElemCall {
-    /// The ID of the function we're calling.
-    pub id:   usize,
-    /// The set of elements to call. Note that this may represent a concrete body of elements _or_ some reference to a builtin.
-    pub func: FunctionBody,
-    /// The next graph element that this calling edge connects to.
-    pub next: Box<Elem>,
-}
-/// The possibilities that make up a function body.
-#[derive(Clone, Debug, EnumDebug)]
-pub enum FunctionBody {
-    /// It's a concrete tree of elements.
-    Elems(Rc<RefCell<Elem>>),
-    /// It's a builtin with a given name.
-    Builtin,
 }

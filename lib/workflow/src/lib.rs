@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:54:17
 //  Last edited:
-//    01 Nov 2023, 10:07:52
+//    08 Nov 2023, 14:44:58
 //  Auto updated?
 //    Yes
 //
@@ -14,8 +14,12 @@
 
 // Declare the subsubmodules
 pub mod compile;
+#[cfg(feature = "eflint")]
+pub mod eflint;
 pub mod optimize;
+pub mod preprocess;
 pub mod spec;
 #[cfg(test)]
 pub mod tests;
+pub mod utils;
 pub mod visualize;
