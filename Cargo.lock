@@ -235,7 +235,7 @@ dependencies = [
 [[package]]
 name = "brane-ast"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f8aea3194b3886443886daaf459b435bd6172a84"
+source = "git+https://github.com/epi-project/brane?branch=develop#c6996808ffdfce66d46842badc97bb696b5f061e"
 dependencies = [
  "brane-dsl",
  "brane-shr",
@@ -254,7 +254,7 @@ dependencies = [
 [[package]]
 name = "brane-dsl"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f8aea3194b3886443886daaf459b435bd6172a84"
+source = "git+https://github.com/epi-project/brane?branch=develop#c6996808ffdfce66d46842badc97bb696b5f061e"
 dependencies = [
  "brane-shr",
  "bytes",
@@ -275,7 +275,7 @@ dependencies = [
 [[package]]
 name = "brane-shr"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f8aea3194b3886443886daaf459b435bd6172a84"
+source = "git+https://github.com/epi-project/brane?branch=develop#c6996808ffdfce66d46842badc97bb696b5f061e"
 dependencies = [
  "async-compression",
  "console",
@@ -284,6 +284,7 @@ dependencies = [
  "fs2",
  "futures-util",
  "hex",
+ "humanlog",
  "indicatif",
  "log",
  "num-derive",
@@ -1835,7 +1836,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#f8aea3194b3886443886daaf459b435bd6172a84"
+source = "git+https://github.com/epi-project/brane?branch=develop#c6996808ffdfce66d46842badc97bb696b5f061e"
 dependencies = [
  "anyhow",
  "async-trait",

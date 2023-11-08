@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 15:27:38
 //  Last edited:
-//    07 Nov 2023, 10:23:00
+//    08 Nov 2023, 14:35:37
 //  Auto updated?
 //    Yes
 //
@@ -18,6 +18,7 @@ use std::path::PathBuf;
 
 use brane_ast::{ast, compile_program, CompileResult, ParserOptions};
 use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
+use log::{debug, Level};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 
@@ -27,7 +28,7 @@ use super::spec::Workflow;
 /***** LIBRARY *****/
 /// Run all the BraneScript tests
 #[test]
-fn test_checker_workflow() {
+fn test_checker_workflow_unoptimized() {
     let tests_path: PathBuf = PathBuf::from(super::TESTS_DIR);
 
     // Run the compiler for every applicable DSL file
@@ -75,6 +76,14 @@ fn test_checker_workflow() {
                 unreachable!();
             },
         };
+
+        // Print the WIR in debug mode
+        if log::max_level() >= Level::Debug {
+            // Write the processed graph
+            let mut buf: Vec<u8> = vec![];
+            brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
+            debug!("Compiled workflow:\n\n{}\n", String::from_utf8_lossy(&buf));
+        }
 
         // Next, compile to the checker's workflow
         let wf: Workflow = match wir.try_into() {
@@ -140,6 +149,14 @@ fn test_checker_workflow_optimized() {
                 unreachable!();
             },
         };
+
+        // Print the WIR in debug mode
+        if log::max_level() >= Level::Debug {
+            // Write the processed graph
+            let mut buf: Vec<u8> = vec![];
+            brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
+            debug!("Compiled workflow:\n\n{}\n", String::from_utf8_lossy(&buf));
+        }
 
         // Next, compile to the checker's workflow
         let mut wf: Workflow = match wir.try_into() {

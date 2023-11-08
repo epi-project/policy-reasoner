@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:56:55
 //  Last edited:
-//    08 Nov 2023, 13:21:30
+//    08 Nov 2023, 14:11:06
 //  Auto updated?
 //    Yes
 //
@@ -418,6 +418,9 @@ impl Elem {
 /// Yeah so basically represents a task execution, with all checker-relevant information.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ElemTask {
+    /// Some identifier for this _task_, i.e., the call.
+    pub id: String,
+
     /// The name of the task to execute
     pub name:    String,
     /// The name of the package in which to find the task.

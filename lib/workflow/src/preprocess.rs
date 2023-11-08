@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    08 Nov 2023, 13:56:08
+//    08 Nov 2023, 14:38:25
 //  Auto updated?
 //    Yes
 //
@@ -37,7 +37,6 @@ mod tests {
     use brane_ast::traversals::print::ast;
     use brane_ast::{compile_program, CompileResult, ParserOptions};
     use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
-    use humanlog::{DebugMode, HumanLogger};
     use specifications::data::DataIndex;
     use specifications::package::PackageIndex;
 
@@ -115,24 +114,8 @@ mod tests {
     fn test_checker_workflow_simplify() {
         let tests_path: PathBuf = PathBuf::from(super::super::TESTS_DIR);
 
-        // Setup logger if told
-        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
-            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
-                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
-            }
-        }
-        // Scope the function
-        let test_file: Option<String> = std::env::var("TEST_FILE").ok();
-
         // Run the compiler for every applicable DSL file
         test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {
-            // Skip if not the file we're looking for
-            if let Some(test_file) = &test_file {
-                if path.file_name().is_none() || path.file_name().unwrap().to_string_lossy() != test_file.as_str() {
-                    return;
-                }
-            }
-
             // Start by the name to always know which file this is
             println!("{}", (0..80).map(|_| '-').collect::<String>());
             println!("File '{}' gave us:", path.display());
@@ -728,7 +711,7 @@ fn prep_func_body(edges: &mut [Edge], ret_idx: usize, next_offset: usize, pc: us
 ///
 /// # Arguments
 /// - `body`: A [WIR](Workflow) function body to inline functions _in_.
-/// - `calls`: The map of call indices to which function is actually called.
+/// - `calls`: The map of call indices to which function is actually called.  Note that this set is modified to correctly move calls out of the function body and into the parent body.
 /// - `funcs`: A map of call IDs to function bodies ready to be substituted in the `body`.
 /// - `inlinable`: A map of functions that determines if functions are inlinable. If they are, then their ID is mapped to a list of functions on which the call depends (or else [`None`]).
 /// - `table`: The parent scope's [`SymTable`] we use to resolve definitions.
@@ -737,7 +720,7 @@ fn prep_func_body(edges: &mut [Edge], ret_idx: usize, next_offset: usize, pc: us
 /// - `breakpoint`: If given, then analysis should stop when this PC is hit.
 fn inline_funcs_in_body(
     body: &mut Vec<Edge>,
-    calls: &HashMap<ProgramCounter, usize>,
+    calls: &mut HashMap<ProgramCounter, usize>,
     funcs: &HashMap<usize, Vec<Edge>>,
     inlinable: &HashMap<usize, Option<HashSet<usize>>>,
     table: &SymTable,
@@ -859,6 +842,24 @@ fn inline_funcs_in_body(
             prep_func_body(&mut call_body, next, body_len, 0, None);
             trace!("New call body: {call_body:?}");
 
+            // Transfer the call IDs of the old function body to the new one
+            for (i, edge) in call_body.iter().enumerate() {
+                if let Edge::Call { .. } = edge {
+                    let nested_call_id: usize = match calls.get(&ProgramCounter(call_id, i)) {
+                        Some(id) => *id,
+                        None => {
+                            panic!("Encountered unresolved call at {} after running inline analysis", ProgramCounter(call_id, i).display(table));
+                        },
+                    };
+                    trace!(
+                        "Moving call ID map from {}->{nested_call_id} to {}->{nested_call_id}",
+                        ProgramCounter(call_id, i).display(table),
+                        ProgramCounter(func_id, body_len + i).display(table)
+                    );
+                    calls.insert(ProgramCounter(func_id, body_len + i), nested_call_id);
+                }
+            }
+
             // Append it to the main body and the inlining is complete
             trace!("Appending function body at end of edge buffer (at {})", ProgramCounter(func_id, body_len).display(table));
             body.extend(call_body);
@@ -891,9 +892,9 @@ fn sort_inlinable_funcs(inlinable: &HashMap<usize, Option<HashSet<usize>>>) -> V
         for (i, id) in sorted.iter().enumerate() {
             // Check if all dependencies are previous
             for dep in id.1 {
-                if sorted[i + 1..].iter().find(|(id, _)| id == dep).is_some() {
+                if let Some(j) = sorted[i + 1..].iter().enumerate().find_map(|(j, (id, _))| if id == dep { Some(i + 1 + j) } else { None }) {
                     // Move this item one forward and try again
-                    sorted.swap(i, i + 1);
+                    sorted.swap(i, j);
                     continue 'main;
                 }
             }
@@ -919,14 +920,14 @@ fn sort_inlinable_funcs(inlinable: &HashMap<usize, Option<HashSet<usize>>>) -> V
 ///
 /// # Arguments
 /// - `wir`: The input [WIR](Workflow) to simply.
-/// - `calls`: The map of call indices to which function is actually called.
+/// - `calls`: The map of call indices to which function is actually called. Note that this set is modified to correctly move calls out of the function body and into the parent body.
 ///
 /// # Returns
 /// The same `wir` as given, but then optimized.
 ///
 /// # Errors
 /// This function may error if the input workflow is incoherent.
-pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize>) -> Workflow {
+pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, usize>) -> Workflow {
     // Analyse which functions in the WIR are non-recursive
     let mut inlinable: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
     find_inlinable_funcs(&wir, calls, &wir.table, &mut vec![], ProgramCounter::new(), None, &mut inlinable);
@@ -975,10 +976,6 @@ pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize
         let mut funcs: Arc<HashMap<usize, Vec<Edge>>> = Arc::new(HashMap::new());
         std::mem::swap(&mut funcs, wir_funcs);
         let mut funcs: HashMap<usize, Vec<Edge>> = Arc::into_inner(funcs).unwrap();
-        // Extract the WIR table
-        let mut table: Arc<SymTable> = Arc::new(SymTable::new());
-        std::mem::swap(&mut table, wir_table);
-        let mut table: SymTable = Arc::into_inner(table).unwrap();
 
         // Inline non-main function bodies first
         let mut new_funcs: HashMap<usize, Vec<Edge>> = HashMap::new();
@@ -987,17 +984,15 @@ pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize
             let mut new_body: Vec<Edge> = funcs.get(&id).unwrap().clone();
 
             // Inline the functions in this body
-            inline_funcs_in_body(&mut new_body, calls, &new_funcs, &inlinable, &table, id, 0, None);
+            inline_funcs_in_body(&mut new_body, calls, &new_funcs, &inlinable, wir_table, id, 0, None);
             new_funcs.insert(id, new_body);
         }
         funcs = new_funcs;
 
         // Now inline the main with all function bodies inlined correctly
-        inline_funcs_in_body(&mut graph, calls, &funcs, &inlinable, &table, usize::MAX, 0, None);
+        inline_funcs_in_body(&mut graph, calls, &funcs, &inlinable, wir_table, usize::MAX, 0, None);
 
         // Write the functions and graphs back
-        let mut table: Arc<SymTable> = Arc::new(table);
-        std::mem::swap(wir_table, &mut table);
         let mut funcs: Arc<HashMap<usize, Vec<Edge>>> = Arc::new(funcs);
         std::mem::swap(wir_funcs, &mut funcs);
         let mut graph: Arc<Vec<Edge>> = Arc::new(graph);
@@ -1028,11 +1023,11 @@ pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize
 /// This function may error if the input workflow is incoherent.
 pub fn simplify(mut wir: Workflow) -> Result<(Workflow, HashMap<ProgramCounter, usize>), Error> {
     // Analyse call dependencies first
-    let (calls, _): (HashMap<ProgramCounter, usize>, _) = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::new(), None, None)?;
+    let (mut calls, _): (HashMap<ProgramCounter, usize>, _) = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::new(), None, None)?;
     debug!("Resolved calls as: {:?}", calls.iter().map(|(pc, id)| (format!("{}", pc.display(&wir.table)), *id)).collect::<HashMap<String, usize>>());
 
     // Simplify functions as much as possible
-    wir = inline_functions(wir, &calls);
+    wir = inline_functions(wir, &mut calls);
 
     // Done!
     Ok((wir, calls))

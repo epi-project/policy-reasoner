@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    08 Nov 2023, 13:56:27
+//    08 Nov 2023, 14:32:24
 //  Auto updated?
 //    Yes
 //
@@ -22,7 +22,7 @@ use std::panic::catch_unwind;
 use brane_ast::spec::BuiltinFunctions;
 use brane_ast::{ast, MergeStrategy};
 use enum_debug::EnumDebug as _;
-use log::trace;
+use log::{debug, trace, Level};
 use specifications::data::{AvailabilityKind, PreprocessKind};
 
 use super::preprocess;
@@ -160,11 +160,12 @@ fn reconstruct_graph(
 
             // Return the elem
             Ok(Elem::Task(ElemTask {
-                name:      def.function.name.clone(),
-                package:   def.package.clone(),
-                version:   def.version,
-                hash:      None,
-                input:     input
+                id: pc.display(table).to_string(),
+                name: def.function.name.clone(),
+                package: def.package.clone(),
+                version: def.version,
+                hash: None,
+                input: input
                     .iter()
                     .map(|(name, avail)| Dataset {
                         name:     name.name().into(),
@@ -180,11 +181,11 @@ fn reconstruct_graph(
                         metadata: vec![],
                     })
                     .collect(),
-                output:    result.as_ref().map(|name| Dataset { name: name.clone(), from: None, metadata: vec![] }),
-                location:  at.clone(),
-                metadata:  vec![],
+                output: result.as_ref().map(|name| Dataset { name: name.clone(), from: None, metadata: vec![] }),
+                location: at.clone(),
+                metadata: vec![],
                 signature: "its_signed_i_swear_mom".into(),
-                next:      Box::new(reconstruct_graph(wir, table, calls, pc.jump(*next), plug, breakpoint)?),
+                next: Box::new(reconstruct_graph(wir, table, calls, pc.jump(*next), plug, breakpoint)?),
             }))
         },
 
@@ -323,6 +324,12 @@ impl TryFrom<ast::Workflow> for Workflow {
             Ok(res) => res,
             Err(err) => return Err(Error::Preprocess { err }),
         };
+        if log::max_level() >= Level::Debug {
+            // Write the processed graph
+            let mut buf: Vec<u8> = vec![];
+            brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
+            debug!("Preprocessed workflow:\n\n{}\n", String::from_utf8_lossy(&buf));
+        }
 
         // Alright now attempt to re-build the graph in the new style
         let graph: Elem = reconstruct_graph(&wir, &wir.table, &calls, ProgramCounter::new(), Elem::Stop(HashSet::new()), None)?;
