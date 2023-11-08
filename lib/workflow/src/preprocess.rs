@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    08 Nov 2023, 14:38:25
+//    08 Nov 2023, 14:46:04
 //  Auto updated?
 //    Yes
 //
@@ -62,7 +62,7 @@ mod tests {
         ];
 
         // Load example package- and data indices
-        let tests_path: PathBuf = PathBuf::from(super::super::TESTS_DIR);
+        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
         let pindex: PackageIndex = create_package_index_from(tests_path.join("packages"));
         let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
 
@@ -112,7 +112,7 @@ mod tests {
     /// Runs the workflow inlining on the test files only
     #[test]
     fn test_checker_workflow_simplify() {
-        let tests_path: PathBuf = PathBuf::from(super::super::TESTS_DIR);
+        let tests_path: PathBuf = PathBuf::from(super::super::tests::TESTS_DIR);
 
         // Run the compiler for every applicable DSL file
         test_on_dsl_files_in("BraneScript", &tests_path, |path: PathBuf, code: String| {

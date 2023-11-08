@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:54:17
 //  Last edited:
-//    08 Nov 2023, 10:18:46
+//    08 Nov 2023, 14:44:58
 //  Auto updated?
 //    Yes
 //
@@ -14,6 +14,8 @@
 
 // Declare the subsubmodules
 pub mod compile;
+#[cfg(feature = "eflint")]
+pub mod eflint;
 pub mod optimize;
 pub mod preprocess;
 pub mod spec;
@@ -21,9 +23,3 @@ pub mod spec;
 pub mod tests;
 pub mod utils;
 pub mod visualize;
-
-
-/***** CONSTANTS *****/
-/// Defines the location of the tests
-#[cfg(test)]
-const TESTS_DIR: &str = "../../tests";
