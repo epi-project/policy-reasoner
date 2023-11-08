@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:56:55
 //  Last edited:
-//    02 Nov 2023, 14:40:06
+//    08 Nov 2023, 13:21:30
 //  Auto updated?
 //    Yes
 //
@@ -266,6 +266,18 @@ pub struct Dataset {
     /// Any metadata attached to the dataset. Note: may need to be populated by the checker!
     pub metadata: Vec<Metadata>,
 }
+impl Dataset {
+    /// Constructor for the Dataset that only takes information originating from the workflow.
+    ///
+    /// # Arguments
+    /// - `name`: The name of the dataset.
+    /// - `from`: The location where to pull the dataset from, or [`None`] if no transfer is planned (i.e., it lives on the same domain as the task using it as input).
+    ///
+    /// # Returns
+    /// A new instance of self with the given `name` and `from`, and all other properties initialized to some default value.
+    #[inline]
+    pub fn new(name: impl Into<String>, from: impl Into<Option<Location>>) -> Self { Self { name: name.into(), from: from.into(), metadata: vec![] } }
+}
 impl Eq for Dataset {}
 impl PartialEq for Dataset {
     #[inline]
@@ -279,11 +291,13 @@ impl Hash for Dataset {
 /// Represents a "tag" and everything we need to know.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Metadata {
+    /// The "namespace" where the tag may be found. Represents the "owner", or the "definer" of the tag.
+    pub owner: String,
     /// The tag itself.
     pub tag: String,
-    /// The namespace where the tag may be found. Represents the "owner", or the "definer" of the tag.
-    pub namespace: String,
-    /// The signature verifying this metadata. Represents the "assigner", or the "user" of the tag.
+    /// The person/domain who applied this tag to something and then signed the assignment.
+    pub assigner: String,
+    /// The signature verifying this metadata. It can be assumed that this is signed by the `assigner`.
     pub signature: String,
     /// A flag stating whether the signature is valid. If [`None`], means this hasn't been validated yet.
     pub signature_valid: Option<bool>,
@@ -297,6 +311,8 @@ pub struct Metadata {
 /// Defines the workflow's toplevel view.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Workflow {
+    /// The identifier of this workflow as a whole.
+    pub id:    String,
     /// Defines the first node in the workflow.
     pub start: Elem,
 

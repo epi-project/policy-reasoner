@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:30:00
 //  Last edited:
-//    02 Nov 2023, 14:46:43
+//    08 Nov 2023, 13:56:52
 //  Auto updated?
 //    Yes
 //
@@ -78,9 +78,10 @@ fn print_elem(f: &mut Formatter<'_>, elem: &'_ Elem, prefix: &dyn Display) -> FR
                 prefix,
                 write_iter!(
                     t.metadata.iter().map(|metadata| format!(
-                        "{}.{} ({}, {})",
-                        metadata.namespace,
+                        "{}.{} ({}:{}, {})",
+                        metadata.owner,
                         metadata.tag,
+                        metadata.assigner,
                         metadata.signature,
                         if let Some(valid) = metadata.signature_valid { if valid { "OK" } else { "invalid" } } else { "<not validated>" }
                     )),

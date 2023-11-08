@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    02 Nov 2023, 15:35:11
+//    08 Nov 2023, 13:56:27
 //  Auto updated?
 //    Yes
 //
@@ -20,7 +20,6 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 
 use brane_ast::spec::BuiltinFunctions;
-use brane_ast::state::VirtualSymTable;
 use brane_ast::{ast, MergeStrategy};
 use enum_debug::EnumDebug as _;
 use log::trace;
@@ -106,7 +105,7 @@ impl error::Error for Error {
 ///
 /// # Arguments
 /// - `wir`: The [`ast::Workflow`] to analyse.
-/// - `table`: A running [`VirtualSymTable`] that determines the current types in scope.
+/// - `table`: A running [`ast::SymTable`] that determines the current types in scope.
 /// - `calls`: The map of Call program-counter-indices to function IDs called.
 /// - `pc`: The program-counter-index of the edge to analyse. These are pairs of `(function, edge_idx)`, where main is referred to by [`usize::MAX`](usize).
 /// - `plug`: The element to write when we reached the (implicit) end of a branch.
@@ -119,7 +118,7 @@ impl error::Error for Error {
 /// This function errors if a definition in the Workflow was unknown.
 fn reconstruct_graph(
     wir: &ast::Workflow,
-    table: &mut VirtualSymTable,
+    table: &ast::SymTable,
     calls: &HashMap<ProgramCounter, usize>,
     pc: ProgramCounter,
     plug: Elem,
@@ -326,11 +325,11 @@ impl TryFrom<ast::Workflow> for Workflow {
         };
 
         // Alright now attempt to re-build the graph in the new style
-        let graph: Elem =
-            reconstruct_graph(&wir, &mut VirtualSymTable::with(&wir.table), &calls, ProgramCounter::new(), Elem::Stop(HashSet::new()), None)?;
+        let graph: Elem = reconstruct_graph(&wir, &wir.table, &calls, ProgramCounter::new(), Elem::Stop(HashSet::new()), None)?;
 
         // Build a new Workflow with that!
         Ok(Self {
+            id:    String::new(),
             start: graph,
 
             user:      User { name: "Danny Data Scientist".into(), metadata: vec![] },

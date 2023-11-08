@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 15:11:34
 //  Last edited:
-//    02 Nov 2023, 15:31:08
+//    08 Nov 2023, 10:06:25
 //  Auto updated?
 //    Yes
 //
@@ -16,7 +16,6 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 
 use brane_ast::ast;
-use brane_ast::state::VirtualSymTable;
 
 
 /***** FORMATTERS *****/
@@ -97,7 +96,7 @@ impl ProgramCounter {
     /// # Returns
     /// A [`PrettyProgramCounter`] that shows the name of the function indexed by `self.0` if known.
     #[inline]
-    pub fn display(&self, table: &VirtualSymTable) -> PrettyProgramCounter {
+    pub fn display(&self, table: &ast::SymTable) -> PrettyProgramCounter {
         // Attempt to find the function ID
         if self.0 == usize::MAX {
             PrettyProgramCounter(self.0, self.1, Some("<main>".into()))

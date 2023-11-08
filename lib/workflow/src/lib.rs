@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:54:17
 //  Last edited:
-//    07 Nov 2023, 10:22:46
+//    08 Nov 2023, 10:18:46
 //  Auto updated?
 //    Yes
 //
@@ -25,4 +25,5 @@ pub mod visualize;
 
 /***** CONSTANTS *****/
 /// Defines the location of the tests
+#[cfg(test)]
 const TESTS_DIR: &str = "../../tests";
