@@ -13,10 +13,12 @@ repository = "https://github.com/epi-project/policy-reasoner"
 
 [dependencies]
 workflow = { path = "./lib/workflow" }
+eflint-json = { path = "lib/eflint-json" }
 
 
 [workspace]
 resolver = "2"
 members = [
     "lib/workflow",
+    "lib/eflint-json",
 ]
