@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:54:17
 //  Last edited:
-//    08 Nov 2023, 14:44:58
+//    16 Nov 2023, 17:24:56
 //  Auto updated?
 //    Yes
 //
@@ -23,3 +23,7 @@ pub mod spec;
 pub mod tests;
 pub mod utils;
 pub mod visualize;
+
+
+// Bring some of it into the main namespace
+pub use spec::*;

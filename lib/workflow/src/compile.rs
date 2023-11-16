@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    15 Nov 2023, 11:00:34
+//    16 Nov 2023, 17:37:38
 //  Auto updated?
 //    Yes
 //
@@ -116,6 +116,7 @@ fn generate_id(len: usize) -> String { rand::thread_rng().sample_iter(rand::dist
 ///
 /// # Arguments
 /// - `wir`: The [`ast::Workflow`] to analyse.
+/// - `wf_id`: The identifier of the workflow we're compiling in.
 /// - `table`: A running [`ast::SymTable`] that determines the current types in scope.
 /// - `calls`: The map of Call program-counter-indices to function IDs called.
 /// - `pc`: The program-counter-index of the edge to analyse. These are pairs of `(function, edge_idx)`, where main is referred to by [`usize::MAX`](usize).
@@ -129,6 +130,7 @@ fn generate_id(len: usize) -> String { rand::thread_rng().sample_iter(rand::dist
 /// This function errors if a definition in the Workflow was unknown.
 fn reconstruct_graph(
     wir: &ast::Workflow,
+    wf_id: &str,
     table: &ast::SymTable,
     calls: &HashMap<ProgramCounter, usize>,
     pc: ProgramCounter,
@@ -153,7 +155,7 @@ fn reconstruct_graph(
     match edge {
         ast::Edge::Linear { next, .. } => {
             // Simply skip to the next, as linear connectors are no longer interesting
-            reconstruct_graph(wir, table, calls, pc.jump(*next), plug, breakpoint)
+            reconstruct_graph(wir, wf_id, table, calls, pc.jump(*next), plug, breakpoint)
         },
 
         ast::Edge::Node { task, locs: _, at, input, result, next } => {
@@ -171,7 +173,7 @@ fn reconstruct_graph(
 
             // Return the elem
             Ok(Elem::Task(ElemTask {
-                id: format!("task-{}-{}", pc.display(table), generate_id(8)),
+                id: format!("{}-{}-task", wf_id, pc.display(table)),
                 name: def.function.name.clone(),
                 package: def.package.clone(),
                 version: def.version,
@@ -193,7 +195,7 @@ fn reconstruct_graph(
                 output: result.as_ref().map(|name| Dataset { name: name.clone(), from: None }),
                 location: at.clone(),
                 metadata: vec![],
-                next: Box::new(reconstruct_graph(wir, table, calls, pc.jump(*next), plug, breakpoint)?),
+                next: Box::new(reconstruct_graph(wir, wf_id, table, calls, pc.jump(*next), plug, breakpoint)?),
             }))
         },
 
@@ -202,14 +204,14 @@ fn reconstruct_graph(
         ast::Edge::Branch { true_next, false_next, merge } => {
             // Construct the branches first
             let mut branches: Vec<Elem> =
-                vec![reconstruct_graph(wir, table, calls, pc.jump(*true_next), Elem::Next, merge.map(|merge| pc.jump(merge)))?];
+                vec![reconstruct_graph(wir, wf_id, table, calls, pc.jump(*true_next), Elem::Next, merge.map(|merge| pc.jump(merge)))?];
             if let Some(false_next) = false_next {
-                branches.push(reconstruct_graph(wir, table, calls, pc.jump(*false_next), Elem::Next, merge.map(|merge| pc.jump(merge)))?)
+                branches.push(reconstruct_graph(wir, wf_id, table, calls, pc.jump(*false_next), Elem::Next, merge.map(|merge| pc.jump(merge)))?)
             }
 
             // Build the next, if there is any
             let next: Elem = merge
-                .map(|merge| reconstruct_graph(wir, table, calls, pc.jump(merge), plug, breakpoint))
+                .map(|merge| reconstruct_graph(wir, wf_id, table, calls, pc.jump(merge), plug, breakpoint))
                 .transpose()?
                 .unwrap_or(Elem::Stop(HashSet::new()));
 
@@ -221,7 +223,7 @@ fn reconstruct_graph(
             // Construct the branches first
             let mut elem_branches: Vec<Elem> = Vec::with_capacity(branches.len());
             for branch in branches {
-                elem_branches.push(reconstruct_graph(wir, table, calls, pc.jump(*branch), Elem::Next, Some(pc.jump(*merge)))?);
+                elem_branches.push(reconstruct_graph(wir, wf_id, table, calls, pc.jump(*branch), Elem::Next, Some(pc.jump(*merge)))?);
             }
 
             // Let us checkout that the merge point is a join
@@ -240,7 +242,7 @@ fn reconstruct_graph(
             };
 
             // Build the post-join point onwards
-            let next: Elem = reconstruct_graph(wir, table, calls, pc.jump(next), plug, breakpoint)?;
+            let next: Elem = reconstruct_graph(wir, wf_id, table, calls, pc.jump(next), plug, breakpoint)?;
 
             // We have enough to build ourselves
             Ok(Elem::Parallel(ElemParallel { branches: elem_branches, merge: strategy, next: Box::new(next) }))
@@ -250,14 +252,14 @@ fn reconstruct_graph(
 
         ast::Edge::Loop { cond, body, next } => {
             // Build the body first
-            let body_elems: Elem = reconstruct_graph(wir, table, calls, pc.jump(*body), Elem::Next, Some(pc.jump(*cond)))?;
+            let body_elems: Elem = reconstruct_graph(wir, wf_id, table, calls, pc.jump(*body), Elem::Next, Some(pc.jump(*cond)))?;
 
             // Build the condition, with immediately following the body for any open ends that we find
-            let cond: Elem = reconstruct_graph(wir, table, calls, pc.jump(*cond), body_elems, Some(pc.jump(*body - 1)))?;
+            let cond: Elem = reconstruct_graph(wir, wf_id, table, calls, pc.jump(*cond), body_elems, Some(pc.jump(*body - 1)))?;
 
             // Build the next
             let next: Elem = next
-                .map(|next| reconstruct_graph(wir, table, calls, pc.jump(next), plug, breakpoint))
+                .map(|next| reconstruct_graph(wir, wf_id, table, calls, pc.jump(next), plug, breakpoint))
                 .transpose()?
                 .unwrap_or(Elem::Stop(HashSet::new()));
 
@@ -292,11 +294,11 @@ fn reconstruct_graph(
                 };
 
                 // Construct next first
-                let next: Elem = reconstruct_graph(wir, table, calls, pc.jump(*next), plug, breakpoint)?;
+                let next: Elem = reconstruct_graph(wir, wf_id, table, calls, pc.jump(*next), plug, breakpoint)?;
 
                 // Then we wrap the rest in a commit
                 Ok(Elem::Commit(ElemCommit {
-                    id: format!("commit-{}", generate_id(8)),
+                    id: format!("{}-{}-commit", wf_id, pc.display(table)),
                     data_name,
                     input: input.iter().map(|input| Dataset { name: input.name().into(), from: None }).collect(),
                     next: Box::new(next),
@@ -306,7 +308,7 @@ fn reconstruct_graph(
                 || func_def.name == BuiltinFunctions::Len.name()
             {
                 // Using them is OK, we just ignore them for the improved workflow
-                reconstruct_graph(wir, table, calls, pc.jump(*next), plug, breakpoint)
+                reconstruct_graph(wir, wf_id, table, calls, pc.jump(*next), plug, breakpoint)
             } else {
                 Err(Error::IllegalCall { pc: pc.display(table), name: func_def.name.clone() })
             }
@@ -339,11 +341,12 @@ impl TryFrom<ast::Workflow> for Workflow {
         }
 
         // Alright now attempt to re-build the graph in the new style
-        let graph: Elem = reconstruct_graph(&wir, &wir.table, &calls, ProgramCounter::new(), Elem::Stop(HashSet::new()), None)?;
+        let wf_id: String = format!("workflow-{}", generate_id(8));
+        let graph: Elem = reconstruct_graph(&wir, &wf_id, &wir.table, &calls, ProgramCounter::new(), Elem::Stop(HashSet::new()), None)?;
 
         // Build a new Workflow with that!
         Ok(Self {
-            id:    format!("workflow-{}", generate_id(8)),
+            id:    wf_id,
             start: graph,
 
             user:      User { name: "Danny Data Scientist".into() },
