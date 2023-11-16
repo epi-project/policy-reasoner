@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:30:00
 //  Last edited:
-//    08 Nov 2023, 13:56:52
+//    15 Nov 2023, 11:14:02
 //  Auto updated?
 //    Yes
 //
@@ -15,7 +15,7 @@
 
 use std::fmt::{Display, Formatter, Result as FResult};
 
-use super::spec::{Elem, Workflow};
+use super::spec::{Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, Workflow};
 
 
 /***** HELPER MACROS *****/
@@ -53,87 +53,82 @@ macro_rules! write_iter {
 ///
 /// # Errors
 /// This function only errors if we failed to write to the given `f`.
-fn print_elem(f: &mut Formatter<'_>, elem: &'_ Elem, prefix: &dyn Display) -> FResult {
+fn print_elem(f: &mut Formatter, elem: &Elem, prefix: &dyn Display) -> FResult {
     // Print the element
     match elem {
-        Elem::Task(t) => {
-            writeln!(f, "{}task", prefix)?;
-            writeln!(f, "{}  - name    : {}", prefix, t.name)?;
-            writeln!(f, "{}  - package : {}", prefix, t.package)?;
-            writeln!(f, "{}  - version : {}", prefix, t.version)?;
-            writeln!(f, "{}  - hash    : {}", prefix, if let Some(hash) = &t.hash { hash.as_str() } else { "<unhashed>" })?;
-            writeln!(f, "{}", prefix)?;
-            writeln!(f, "{}  - input  : {}", prefix, write_iter!(t.input.iter().map(|data| format!("'{}'", data.name)), " or "))?;
+        Elem::Task(ElemTask { id, name, package, version, input, output, location, metadata, next }) => {
+            writeln!(f, "{prefix}task")?;
+            writeln!(f, "{prefix}  - id : {id}")?;
+            writeln!(f, "{prefix}")?;
+            writeln!(f, "{prefix}  - name    : {name}")?;
+            writeln!(f, "{prefix}  - package : {package}")?;
+            writeln!(f, "{prefix}  - version : {version}")?;
+            writeln!(f, "{prefix}")?;
+            writeln!(f, "{prefix}  - input  : {}", write_iter!(input.iter().map(|data| format!("'{}'", data.name)), " or "))?;
             writeln!(
                 f,
                 "{}  - output : {}",
                 prefix,
-                if let Some(output) = &t.output { format!("'{}'", output.name.as_str()) } else { "<none>".into() }
+                if let Some(output) = &output { format!("'{}'", output.name.as_str()) } else { "<none>".into() }
             )?;
-            writeln!(f, "{}", prefix)?;
-            writeln!(f, "{}  - location  : {}", prefix, if let Some(location) = &t.location { location.as_str() } else { "<unplanned>" })?;
+            writeln!(f, "{prefix}")?;
+            writeln!(f, "{prefix}  - location  : {}", if let Some(location) = &location { location.as_str() } else { "<unplanned>" })?;
             writeln!(
                 f,
                 "{}  - metadata  : {}",
                 prefix,
                 write_iter!(
-                    t.metadata.iter().map(|metadata| format!(
-                        "{}.{} ({}:{}, {})",
-                        metadata.owner,
-                        metadata.tag,
-                        metadata.assigner,
-                        metadata.signature,
-                        if let Some(valid) = metadata.signature_valid { if valid { "OK" } else { "invalid" } } else { "<not validated>" }
-                    )),
+                    metadata.iter().map(|metadata| format!("{}.{} ({}:{})", metadata.owner, metadata.tag, metadata.assigner, metadata.signature,)),
                     ", "
                 )
             )?;
-            writeln!(f, "{}  - signature : {}", prefix, t.signature)?;
 
             // Do next
-            print_elem(f, &*t.next, prefix)
+            print_elem(f, next, prefix)
         },
 
-        Elem::Branch(b) => {
-            writeln!(f, "{}branch", prefix)?;
+        Elem::Branch(ElemBranch { branches, next }) => {
+            writeln!(f, "{prefix}branch")?;
 
             // Write the branches
-            for (i, branch) in b.branches.iter().enumerate() {
-                writeln!(f, "{}{}<branch{}>", prefix, Indent(4), i)?;
+            for (i, branch) in branches.iter().enumerate() {
+                writeln!(f, "{prefix}{}<branch{}>", Indent(4), i)?;
                 print_elem(f, branch, &Pair(prefix, Indent(8)))?;
-                writeln!(f, "{}", prefix)?;
+                writeln!(f, "{prefix}")?;
             }
 
             // Do next
-            print_elem(f, &*b.next, prefix)
+            print_elem(f, next, prefix)
         },
-        Elem::Parallel(p) => {
-            writeln!(f, "{}parallel", prefix)?;
+        Elem::Parallel(ElemParallel { branches, merge, next }) => {
+            writeln!(f, "{prefix}parallel")?;
+            writeln!(f, "{prefix}  - merge strategy : {merge:?}")?;
 
             // Write the branches
-            for (i, branch) in p.branches.iter().enumerate() {
-                writeln!(f, "{}{}<branch{}>", prefix, Indent(4), i)?;
+            for (i, branch) in branches.iter().enumerate() {
+                writeln!(f, "{prefix}{}<branch{}>", Indent(4), i)?;
                 print_elem(f, branch, &Pair(prefix, Indent(8)))?;
-                writeln!(f, "{}", prefix)?;
+                writeln!(f, "{prefix}")?;
             }
 
             // Do next
-            print_elem(f, &*p.next, prefix)
+            print_elem(f, next, prefix)
         },
-        Elem::Loop(l) => {
-            writeln!(f, "{}loop", prefix)?;
+        Elem::Loop(ElemLoop { body, next }) => {
+            writeln!(f, "{prefix}loop")?;
             writeln!(f, "{}<repeated>", Pair(prefix, Indent(4)))?;
-            print_elem(f, &*l.body, &Pair(prefix, Indent(8)))?;
+            print_elem(f, body, &Pair(prefix, Indent(8)))?;
             writeln!(f)?;
 
             // Do next
-            print_elem(f, &*l.next, prefix)
+            print_elem(f, next, prefix)
         },
-        Elem::Commit(c) => {
-            writeln!(f, "{}commit <{} as '{}'>", prefix, write_iter!(c.input.iter().map(|data| format!("'{}'", data.name)), " or "), c.data_name)?;
+        Elem::Commit(ElemCommit { id, data_name, input, next }) => {
+            writeln!(f, "{prefix}commit <{} as '{}'>", write_iter!(input.iter().map(|data| format!("'{}'", data.name)), " or "), data_name)?;
+            writeln!(f, "{prefix}  - id : {id}")?;
 
             // Do next
-            print_elem(f, &*c.next, prefix)
+            print_elem(f, next, prefix)
         },
 
         Elem::Next => {

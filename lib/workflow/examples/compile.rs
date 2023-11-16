@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:20:54
 //  Last edited:
-//    08 Nov 2023, 17:09:28
+//    16 Nov 2023, 17:11:05
 //  Auto updated?
 //    Yes
 //
@@ -47,6 +47,22 @@ impl Display for InputLanguageParseError {
     }
 }
 impl error::Error for InputLanguageParseError {}
+
+/// Defines what may go wrong when parsing [`OutputLanguage`]s from strings.
+#[derive(Debug)]
+enum OutputLanguageParseError {
+    /// The given string identifier was unknown.
+    Unknown { raw: String },
+}
+impl Display for OutputLanguageParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use OutputLanguageParseError::*;
+        match self {
+            Unknown { raw } => write!(f, "Unknown output language '{raw}' (see `--help` for more information)"),
+        }
+    }
+}
+impl error::Error for OutputLanguageParseError {}
 
 /// Defines binary-level origin errors.
 #[derive(Debug)]
@@ -105,6 +121,32 @@ impl FromStr for InputLanguage {
     }
 }
 
+/// Defines the possible output languages.
+#[derive(Clone, Copy, Debug, EnumDebug, Eq, Hash, PartialEq)]
+enum OutputLanguage {
+    /// The workflow visualisation
+    Workflow,
+    /// JSON serialization
+    Json,
+    /// eFLINT phrases
+    #[cfg(feature = "eflint")]
+    EFlint,
+}
+impl FromStr for OutputLanguage {
+    type Err = OutputLanguageParseError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "wf" | "workflow" => Ok(Self::Workflow),
+            "json" => Ok(Self::Json),
+            #[cfg(feature = "eflint")]
+            "eflint" => Ok(Self::EFlint),
+            raw => Err(OutputLanguageParseError::Unknown { raw: raw.into() }),
+        }
+    }
+}
+
 
 
 /// Defines the toplevel arguments of the binary.
@@ -128,7 +170,16 @@ struct Arguments {
         help = "The language of the input file(s). Options are: `bs`, `bscript` or `branescript` for BraneScript; and `wir` for the already \
                 compiled WIR directly."
     )]
-    language: InputLanguage,
+    input: InputLanguage,
+    /// Language to write to
+    #[clap(
+        short,
+        long,
+        default_value = "",
+        help = "The language of the output. Options are: `wf` or `workflow` for the workflow visualisation; `json` for JSON or `eflint` for eFLINT \
+                phrases. Note that the letter is only available when compiled with the `eflint`-feature."
+    )]
+    output: OutputLanguage,
     /// Whether to skip optimisation or not.
     #[clap(long, alias = "no-optimize", global = true, help = "If given, does not optimise the workflow before printing.")]
     no_optimise: bool,
@@ -148,9 +199,6 @@ struct Arguments {
         help = "The location where we're reading data from to compile the test files. Ignored if input language is not BraneScript."
     )]
     data_path: PathBuf,
-    /// If given, serializes to JSON instead of something prettier.
-    #[clap(short, long, help = "If given, serializes to JSON instead of something prettier.")]
-    json: bool,
 }
 
 
@@ -171,7 +219,7 @@ fn main() {
     // Go thru the inputs
     for input in args.inputs {
         // Get the input file
-        debug!("Reading file '{}' as {}...", input.display(), args.language.variant());
+        debug!("Reading file '{}' as {}...", input.display(), args.input.variant());
         let raw: String = match fs::read_to_string(&input) {
             Ok(raw) => raw,
             Err(err) => {
@@ -181,7 +229,7 @@ fn main() {
         };
 
         // If it's a BraneScript file, compile to WIR first
-        let wir: ast::Workflow = if args.language == InputLanguage::BraneScript {
+        let wir: ast::Workflow = if args.input == InputLanguage::BraneScript {
             // Get the package and data index
             debug!("Reading package index from '{}'...", args.packages_path.display());
             let pindex: PackageIndex = create_package_index_from(&args.packages_path);
@@ -251,16 +299,23 @@ fn main() {
         }
 
         // That's it, print it
-        if args.json {
-            match serde_json::to_string_pretty(&wf) {
+        match args.output {
+            OutputLanguage::Workflow => println!("{}", wf.visualize()),
+            OutputLanguage::Json => match serde_json::to_string_pretty(&wf) {
                 Ok(wf) => println!("{wf}"),
                 Err(err) => {
                     error!("{}", err.trace());
                     std::process::exit(1);
                 },
-            }
-        } else {
-            println!("{}", wf.visualize());
+            },
+            #[cfg(feature = "eflint")]
+            OutputLanguage::EFlint => match serde_json::to_string_pretty(&wf.to_eflint()) {
+                Ok(phrases) => println!("{phrases}"),
+                Err(err) => {
+                    error!("{}", err.trace());
+                    std::process::exit(1);
+                },
+            },
         }
     }
 }

@@ -11,11 +11,14 @@ repository.workspace = true
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 log = "0.4"
 num-traits = "0.2"
+rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 transform = { git = "https://github.com/Lut99/transform-rs" }
 
 brane-ast = { git = "https://github.com/epi-project/brane", branch = "develop" }
 specifications = { git = "https://github.com/epi-project/brane", branch = "develop" }
+
+eflint-json = { path = "../eflint-json", optional = true }
 
 
 [dev-dependencies]
@@ -29,4 +32,4 @@ brane-shr = { git = "https://github.com/epi-project/brane", branch = "develop" }
 
 
 [features]
-"eflint" = []
+"eflint" = [ "dep:eflint-json" ]

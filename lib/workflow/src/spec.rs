@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:56:55
 //  Last edited:
-//    08 Nov 2023, 14:11:06
+//    15 Nov 2023, 10:39:52
 //  Auto updated?
 //    Yes
 //
@@ -251,20 +251,16 @@ next_elem_mut_impl!('e, NextElemMut);
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct User {
     /// The name of the user.
-    pub name:     String,
-    /// Any metadata attached to the user. Note: may need to be populated by the checker!
-    pub metadata: Vec<Metadata>,
+    pub name: String,
 }
 
 /// Defines a representation of a dataset.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Dataset {
     /// The name of the dataset.
-    pub name:     String,
+    pub name: String,
     /// The place that we get it from. No transfer is necessary if this is the place of task execution.
-    pub from:     Option<Location>,
-    /// Any metadata attached to the dataset. Note: may need to be populated by the checker!
-    pub metadata: Vec<Metadata>,
+    pub from: Option<Location>,
 }
 impl Dataset {
     /// Constructor for the Dataset that only takes information originating from the workflow.
@@ -276,7 +272,7 @@ impl Dataset {
     /// # Returns
     /// A new instance of self with the given `name` and `from`, and all other properties initialized to some default value.
     #[inline]
-    pub fn new(name: impl Into<String>, from: impl Into<Option<Location>>) -> Self { Self { name: name.into(), from: from.into(), metadata: vec![] } }
+    pub fn new(name: impl Into<String>, from: impl Into<Option<Location>>) -> Self { Self { name: name.into(), from: from.into() } }
 }
 impl Eq for Dataset {}
 impl PartialEq for Dataset {
@@ -299,8 +295,6 @@ pub struct Metadata {
     pub assigner: String,
     /// The signature verifying this metadata. It can be assumed that this is signed by the `assigner`.
     pub signature: String,
-    /// A flag stating whether the signature is valid. If [`None`], means this hasn't been validated yet.
-    pub signature_valid: Option<bool>,
 }
 
 
@@ -320,7 +314,7 @@ pub struct Workflow {
     pub user:      User,
     /// The metadata associated with this workflow as a whole.
     pub metadata:  Vec<Metadata>,
-    /// The signature verifying this workflow. Is this needed???.
+    /// The signature verifying this workflow.
     pub signature: String,
 }
 
@@ -418,7 +412,7 @@ impl Elem {
 /// Yeah so basically represents a task execution, with all checker-relevant information.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ElemTask {
-    /// Some identifier for this _task_, i.e., the call.
+    /// Some identifier for this call specifically.
     pub id: String,
 
     /// The name of the task to execute
@@ -427,8 +421,6 @@ pub struct ElemTask {
     pub package: String,
     /// The version number of the package in which to find the task.
     pub version: Version,
-    /// The hash of the container, specifically.
-    pub hash:    Option<String>,
 
     /// Any input datasets used by the task.
     ///
@@ -438,11 +430,9 @@ pub struct ElemTask {
     pub output: Option<Dataset>,
 
     /// The location where the task is planned to be executed, if any.
-    pub location:  Option<Location>,
+    pub location: Option<Location>,
     /// The list of metadata belonging to this task. Note: may need to be populated by the checker!
-    pub metadata:  Vec<Metadata>,
-    /// The signature verifying this container.
-    pub signature: String,
+    pub metadata: Vec<Metadata>,
 
     /// The next graph element that this task connects to.
     pub next: Box<Elem>,
@@ -453,6 +443,9 @@ pub struct ElemTask {
 /// Checkers can assume that anything produced by a function will be deleted after the workflow stops (or at least, domains **should** do so) _unless_ committed.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ElemCommit {
+    /// Some identifier for this call specifically.
+    pub id: String,
+
     /// The name after committing.
     pub data_name: String,
     /// Any input datasets used by the task.

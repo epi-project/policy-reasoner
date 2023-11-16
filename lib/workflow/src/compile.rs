@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    08 Nov 2023, 14:32:24
+//    15 Nov 2023, 11:00:34
 //  Auto updated?
 //    Yes
 //
@@ -23,6 +23,7 @@ use brane_ast::spec::BuiltinFunctions;
 use brane_ast::{ast, MergeStrategy};
 use enum_debug::EnumDebug as _;
 use log::{debug, trace, Level};
+use rand::Rng as _;
 use specifications::data::{AvailabilityKind, PreprocessKind};
 
 use super::preprocess;
@@ -101,6 +102,16 @@ impl error::Error for Error {
 
 
 /***** HELPER FUNCTIONS *****/
+/// Generates a random ID for a task/commit/workflow.
+///
+/// # Arguments
+/// - `len`: The length of random characters to generate.
+///
+/// # Returns
+/// A string with the new identifier.
+#[inline]
+fn generate_id(len: usize) -> String { rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(len).map(char::from).collect() }
+
 /// Reconstructs the workflow graph to [`Elem`]s instead of [`ast::Edge`]s.
 ///
 /// # Arguments
@@ -160,16 +171,15 @@ fn reconstruct_graph(
 
             // Return the elem
             Ok(Elem::Task(ElemTask {
-                id: pc.display(table).to_string(),
+                id: format!("task-{}-{}", pc.display(table), generate_id(8)),
                 name: def.function.name.clone(),
                 package: def.package.clone(),
                 version: def.version,
-                hash: None,
                 input: input
                     .iter()
                     .map(|(name, avail)| Dataset {
-                        name:     name.name().into(),
-                        from:     avail
+                        name: name.name().into(),
+                        from: avail
                             .as_ref()
                             .map(|avail| match avail {
                                 AvailabilityKind::Available { how: _ } => None,
@@ -178,13 +188,11 @@ fn reconstruct_graph(
                                 },
                             })
                             .flatten(),
-                        metadata: vec![],
                     })
                     .collect(),
-                output: result.as_ref().map(|name| Dataset { name: name.clone(), from: None, metadata: vec![] }),
+                output: result.as_ref().map(|name| Dataset { name: name.clone(), from: None }),
                 location: at.clone(),
                 metadata: vec![],
-                signature: "its_signed_i_swear_mom".into(),
                 next: Box::new(reconstruct_graph(wir, table, calls, pc.jump(*next), plug, breakpoint)?),
             }))
         },
@@ -288,8 +296,9 @@ fn reconstruct_graph(
 
                 // Then we wrap the rest in a commit
                 Ok(Elem::Commit(ElemCommit {
+                    id: format!("commit-{}", generate_id(8)),
                     data_name,
-                    input: input.iter().map(|input| Dataset { name: input.name().into(), from: None, metadata: vec![] }).collect(),
+                    input: input.iter().map(|input| Dataset { name: input.name().into(), from: None }).collect(),
                     next: Box::new(next),
                 }))
             } else if func_def.name == BuiltinFunctions::Print.name()
@@ -303,9 +312,7 @@ fn reconstruct_graph(
             }
         },
 
-        ast::Edge::Return { result } => {
-            Ok(Elem::Stop(result.iter().map(|data| Dataset { name: data.name().into(), from: None, metadata: vec![] }).collect()))
-        },
+        ast::Edge::Return { result } => Ok(Elem::Stop(result.iter().map(|data| Dataset { name: data.name().into(), from: None }).collect())),
     }
 }
 
@@ -336,10 +343,10 @@ impl TryFrom<ast::Workflow> for Workflow {
 
         // Build a new Workflow with that!
         Ok(Self {
-            id:    String::new(),
+            id:    format!("workflow-{}", generate_id(8)),
             start: graph,
 
-            user:      User { name: "Danny Data Scientist".into(), metadata: vec![] },
+            user:      User { name: "Danny Data Scientist".into() },
             metadata:  vec![],
             signature: "its_signed_i_swear_mom".into(),
         })
