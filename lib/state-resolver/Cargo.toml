@@ -1,0 +1,12 @@
+[package]
+name = "state-resolver"
+version = "0.1.0"
+edition = "2021"
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+workflow = {path = "../workflow"}
+async-trait = "*"
+serde = {version="1.0", features=["derive"]}

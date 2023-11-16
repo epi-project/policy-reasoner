@@ -1,0 +1,3 @@
+- [ ] Move sqlite implementation out of policy
+- [ ] Move eFlint connector out of reasonerconn
+- [ ] Swap eFlint json spec with Tim's implementation

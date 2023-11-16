@@ -12,13 +12,26 @@ repository = "https://github.com/epi-project/policy-reasoner"
 
 
 [dependencies]
+tokio = { version = "1", features = ["full"] }
 workflow = { path = "./lib/workflow" }
+deliberation = { path = "./lib/deliberation" }
+reasonerconn = { path = "./lib/reasonerconn" }
+policy = { path = "./lib/policy" }
 eflint-json = { path = "lib/eflint-json" }
-
+srv = { path = "lib/srv" }
+state-resolver = { path = "lib/state-resolver" }
+async-trait = "*"
+serde = {version="1.0", features=["derive"]}
+serde_json = {version = "1.0" , features = ["raw_value"]}
 
 [workspace]
 resolver = "2"
 members = [
     "lib/workflow",
+    "lib/deliberation",
+    "lib/reasonerconn",
+    "lib/policy",
     "lib/eflint-json",
+    "lib/srv",
+    "lib/state-resolver",
 ]

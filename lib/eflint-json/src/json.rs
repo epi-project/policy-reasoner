@@ -32,10 +32,10 @@ pub struct PhrasesInput {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Phrase {
+    Definition(Definition),
     Query(Query),
     Fact(Fact),
     Statement(Statement),
-    Definition(Definition),
     ExtendEnum(ExtendEnum)
 }
 
@@ -128,6 +128,7 @@ impl AtomicFact {
     }
 }
 
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct CompositeFact {
@@ -150,7 +151,7 @@ impl CompositeFact {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
 pub enum Definition {
-    #[serde(rename = "placeholer")]
+    #[serde(rename = "placeholder")]
     Placeholder(Placeholder),
     #[serde(rename = "predicate")]
     Predicate(Predicate),
@@ -358,11 +359,11 @@ pub struct Error {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Result {
-    success: bool,
+    pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    errors: Option<Vec<Error>>,
+    pub errors: Option<Vec<Error>>,
     #[serde(flatten)]
-    results: ResultTypes
+    pub results: ResultTypes
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -379,17 +380,17 @@ pub struct PingResult {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct HandshakeResult {
-    supported_versions: Vec<String>,
+    pub supported_versions: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    reasoner: Option<String>,
+    pub reasoner: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    reasoner_version: Option<String>,
+    pub reasoner_version: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    shares_updates: Option<bool>,
+    pub shares_updates: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    shares_triggers: Option<bool>,
+    pub shares_triggers: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    shares_violations: Option<bool>,
+    pub shares_violations: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -402,27 +403,27 @@ pub enum PhraseResult {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BQueryResult {
-    result: bool,
+    pub result: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct IQueryResult {
-    results: Vec<ConstructorApplication>,
+    pub results: Vec<ConstructorApplication>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StateChangeResult {
-    results: Vec<StateChange>
+    pub results: Vec<StateChange>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StateChange {
-    success: bool,
+    pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    changes: Option<Vec<Phrase>>,
+    pub changes: Option<Vec<Phrase>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    triggers: Option<Vec<TriggerType>>,
-    violated: bool,
+    pub triggers: Option<Vec<TriggerType>>,
+    pub violated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    violations: Option<Vec<Violation>>,
+    pub violations: Option<Vec<Violation>>,
 }
