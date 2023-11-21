@@ -10,8 +10,7 @@ Fact user.
 Fact domain Identified by user.
 
 Fact commit.
-Placeholder result For dataset.
-Fact commits Identified by commit * result * dataset.
+Fact commits Identified by commit * dataset * dataset.
 
 // Relations (populate these)
 Fact is-valid Identified by signature.

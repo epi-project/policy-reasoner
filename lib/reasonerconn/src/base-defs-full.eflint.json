@@ -810,6 +810,41 @@
     {
         "kind": "predicate",
         "is-invariant": true,
+        "name": "requested-task-should-exist",
+        "expression": {
+            "iterator": "FORALL",
+            "binds": [
+                "task-to-execute"
+            ],
+            "expression": {
+                "operator": "WHEN",
+                "operands": [
+                    {
+                        "operator": "HOLDS",
+                        "operands": [
+                            {
+                                "parameter": "task",
+                                "operand": [
+                                    "task-to-execute"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "operator": "HOLDS",
+                        "operands": [
+                            [
+                                "task-to-execute"
+                            ]
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    {
+        "kind": "predicate",
+        "is-invariant": true,
         "name": "task-should-be-part-of-workflow",
         "expression": {
             "iterator": "FORALL",

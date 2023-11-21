@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    16 Nov 2023, 17:10:02
+//    21 Nov 2023, 10:41:38
 //  Auto updated?
 //    Yes
 //
@@ -47,16 +47,6 @@ macro_rules! str_lit {
 
 
 
-// EFLINT CHANGES
-// Fact function Identified by task * string * dataset.
-
-// Placeholder owner For domain.
-// Placeholder assigner For domain.
-// Fact metadata Identified by owner * tag * assigner * signature.
-//
-// Fact commit.
-// Placeholder result For dataset.
-// Fact commits Identified by commit * result * dataset.
 
 
 /***** HELPER FUNCTIONS *****/
@@ -156,7 +146,7 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
                     phrases.push(create!(constr_app!(
                         "commits",
                         constr_app!("commit", str_lit!(id.clone())),
-                        constr_app!("result", str_lit!(i.name.clone())),
+                        constr_app!("dataset", str_lit!(i.name.clone())),
                         constr_app!("dataset", str_lit!(data_name.clone()))
                     )));
                 }
