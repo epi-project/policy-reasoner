@@ -2,7 +2,7 @@
 Implements the famous policy reasoner, known as `checker` in Brane terminology. Builds on top of reasoners like [eFLINT](https://gitlab.com/eflint) and meant to be queried by [Brane](https://github.com/epi-project/brane).
 
 
-# Needed FIXES
+# Setup for sqlite3 impl
 
 Install diesel CLI
 - `cargo install diesel_cli --no-default-features --feature sqlite`
@@ -19,6 +19,14 @@ Add active policy (requires `sqlite3` client)
   INSERT INTO active_version VALUES(1,'2023-10-31 20:14:39.669660','Bas Kloosterman');
   ```
 - Ctrl+D
+
+# Example policy api calls
+
+`
+$ curl -v -X GET -H "Content-Type: application/json" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkEifQ.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNjk5MjM5MDIyLCJleHAiOjE3OTkyMzkwMjIsInVzZXJuYW1lIjoiQmFzIEtsb29zdGVybWFuIn0.uuJWvZtD3VYtLfrM9qRp2xg401DO4muHZGS9lCuG5Po" http://localhost:3030/v1/policies
+`
+
+# Needed FIXES
 
 // TODO: Check if needed
 go eFlint server
