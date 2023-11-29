@@ -19,7 +19,7 @@ humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
 log = "0.4"
 reasonerconn = { path = "./lib/reasonerconn" }
 policy = { path = "./lib/policy" }
-eflint-json = { path = "lib/eflint-json" }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs"}
 srv = { path = "lib/srv" }
 state-resolver = { path = "lib/state-resolver" }
 async-trait = "*"
@@ -35,7 +35,6 @@ members = [
     "lib/deliberation",
     "lib/reasonerconn",
     "lib/policy",
-    "lib/eflint-json",
     "lib/srv",
     "lib/state-resolver",
 ]

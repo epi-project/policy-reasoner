@@ -652,58 +652,6 @@
     {
         "kind": "predicate",
         "is-invariant": true,
-        "name": "one-function-per-task",
-        "expression": {
-            "iterator": "FORALL",
-            "binds": [
-                "task"
-            ],
-            "expression": {
-                "operator": "EQ",
-                "operands": [
-                    {
-                        "operator": "COUNT",
-                        "operands": [
-                            {
-                                "iterator": "FOREACH",
-                                "binds": [
-                                    "dataset"
-                                ],
-                                "expression": {
-                                    "operator": "WHEN",
-                                    "operands": [
-                                        [
-                                            "dataset"
-                                        ],
-                                        {
-                                            "operator": "HOLDS",
-                                            "operands": [
-                                                {
-                                                    "identifier": "function",
-                                                    "operands": [
-                                                        [
-                                                            "task"
-                                                        ],
-                                                        [
-                                                            "dataset"
-                                                        ]
-                                                    ]
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    1
-                ]
-            }
-        }
-    },
-    {
-        "kind": "predicate",
-        "is-invariant": true,
         "name": "zero-or-one-output-per-task",
         "expression": {
             "iterator": "FORALL",

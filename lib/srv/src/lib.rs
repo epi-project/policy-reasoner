@@ -4,7 +4,7 @@ use std::sync::Arc;
 use deliberation::spec::{DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest, TaskExecResponse};
 use log::{debug, info};
 use policy::policy::{Policy, PolicyDataAccess};
-use reasonerconn::connector::ReasonerConnector;
+use reasonerconn::ReasonerConnector;
 use serde::{Deserialize, Serialize};
 use state_resolver::StateResolver;
 use warp::Filter;

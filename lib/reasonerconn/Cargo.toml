@@ -14,7 +14,7 @@ transform = { git = "https://github.com/Lut99/transform-rs" }
 policy = { path = "../policy" }
 workflow = { path = "../workflow", features = ["eflint"]}
 state-resolver = { path = "../state-resolver" }
-eflint-json = { path = "../eflint-json" }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs" }
 reqwest = {version = "*", features = ["blocking"]}
 anyhow = "*"
 serde = {version="1.0", features=["derive"]}
