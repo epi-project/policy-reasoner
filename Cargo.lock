@@ -654,6 +654,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "eflint-json"
+version = "0.1.0"
+source = "git+https://gitlab.com/eflint/json-spec-rs#f00314a4772411dcb08a1d38509228059b726d43"
+dependencies = [
+ "enum-debug",
+ "serde",
+]
+
+[[package]]
 name = "either"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1572,7 +1581,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "deliberation",
- "eflint-json",
+ "eflint-json 0.1.0",
  "humanlog",
  "log",
  "policy",
@@ -1751,7 +1760,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "clap 4.4.8",
- "eflint-json",
+ "eflint-json 0.1.0",
  "enum-debug",
  "error-trace",
  "humanlog",
@@ -3130,7 +3139,7 @@ dependencies = [
  "brane-ast",
  "brane-shr",
  "clap 4.4.8",
- "eflint-json",
+ "eflint-json 0.1.0 (git+https://gitlab.com/eflint/json-spec-rs)",
  "enum-debug",
  "error-trace",
  "humanlog",

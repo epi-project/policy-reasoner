@@ -18,7 +18,7 @@ transform = { git = "https://github.com/Lut99/transform-rs" }
 brane-ast = { git = "https://github.com/epi-project/brane" }
 specifications = { git = "https://github.com/epi-project/brane" }
 
-eflint-json = { path = "../eflint-json", optional = true }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", optional = true }
 
 
 [dev-dependencies]

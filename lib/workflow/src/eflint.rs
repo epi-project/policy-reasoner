@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    21 Nov 2023, 10:41:38
+//    29 Nov 2023, 14:25:36
 //  Auto updated?
 //    Yes
 //
@@ -13,7 +13,7 @@
 //!   Specification.
 //
 
-use eflint_json::json::{ConstructorApplication, Create, Expression, Phrase, Primitive, Statement};
+use eflint_json::spec::{ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate};
 use enum_debug::EnumDebug as _;
 use log::{trace, warn};
 
@@ -24,16 +24,16 @@ use crate::spec::{Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask
 /// Shorthand for creating an eFLINT JSON Specification true postulation.
 macro_rules! create {
     ($inst:expr) => {
-        Phrase::Statement(Statement::Create(Create { operand: $inst }))
+        Phrase::Create(PhraseCreate { operand: $inst })
     };
 }
 
 /// Shorthand for creating an eFLINT JSON Specification constructor application.
 macro_rules! constr_app {
     ($id:expr $(, $args:expr)* $(,)?) => {
-        Expression::ConstructorApplication(ConstructorApplication {
+        Expression::ConstructorApp(ExpressionConstructorApp {
             identifier: ($id).into(),
-            operands:   vec![ $($args),* ],
+            operands:   ConstructorInput::ArraySyntax(vec![ $($args),* ]),
         })
     };
 }
@@ -41,7 +41,7 @@ macro_rules! constr_app {
 /// Shorthand for creating an eFLINT JSON Specification string literal.
 macro_rules! str_lit {
     ($val:expr) => {
-        Expression::Primitive(Primitive::String(($val).into()))
+        Expression::Primitive(ExpressionPrimitive::String(($val).into()))
     };
 }
 
@@ -172,21 +172,11 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
             Elem::Stop(results) => {
                 // Mark the results as results of the workflow
                 for r in results {
-                    phrases.push(Phrase::Statement(Statement::Create(Create {
-                        operand: Expression::ConstructorApplication(ConstructorApplication {
-                            identifier: "result".into(),
-                            operands:   vec![
-                                Expression::ConstructorApplication(ConstructorApplication {
-                                    identifier: "workflow".into(),
-                                    operands:   vec![Expression::Primitive(Primitive::String(wf_id.into()))],
-                                }),
-                                Expression::ConstructorApplication(ConstructorApplication {
-                                    identifier: "dataset".into(),
-                                    operands:   vec![Expression::Primitive(Primitive::String(r.name.clone()))],
-                                }),
-                            ],
-                        }),
-                    })));
+                    phrases.push(create!(constr_app!(
+                        "result",
+                        constr_app!("workflow", str_lit!(wf_id)),
+                        constr_app!("dataset", str_lit!(r.name.clone()))
+                    )));
                 }
 
                 // Done
