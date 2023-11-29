@@ -1,6 +1,5 @@
 use brane_ast::Workflow;
-use serde::{Serialize, Deserialize};
-use uuid::Uuid;
+use serde::{Deserialize, Serialize};
 
 /// ExecuteTaskRequest represents the question if it is allowed to execute a
 /// certain task on this node
@@ -13,7 +12,7 @@ pub struct ExecuteTaskRequest {
     ///   - `usize::MAX` means main function (workflow.graph)
     ///   - otherwise, index into function table (workflow.funcs[...])
     /// - `1`: Pointer to the instruction (Edge) within the function indicated by `0`.
-    pub task_id: (usize, usize),
+    pub task_id:  (usize, usize),
 }
 
 /// AccessDataRequest represents the question if a certain dataset
@@ -22,7 +21,7 @@ pub struct ExecuteTaskRequest {
 pub struct AccessDataRequest {
     pub workflow: Workflow,
     /// Identifier for the requested dataset
-    pub data_id: String,
+    pub data_id:  String,
     /// Structured as follows:
     /// - `0`: Pointer to the particular function, where there are two cases:
     ///   - `usize::MAX` means main function (workflow.graph)
@@ -30,7 +29,7 @@ pub struct AccessDataRequest {
     /// - `1`: Pointer to the instruction (Edge) within the function indicated by `0`.
     /// Empty if the requested dataset is the
     /// result of the workflow
-    pub task_id: Option<(usize, usize)>,
+    pub task_id:  Option<(usize, usize)>,
 }
 
 /// WorkflowValidationRequest represents the question
@@ -46,14 +45,14 @@ pub struct WorkflowValidationRequest {
 #[serde(tag = "verdict")]
 pub enum Verdict {
     // Checker says yes
-    #[serde(rename="allow")]
+    #[serde(rename = "allow")]
     Allow(DeliberationAllowResponse),
     // Checker says no
-    #[serde(rename="deny")]
-    Deny(DeliberationDenyResponse)
+    #[serde(rename = "deny")]
+    Deny(DeliberationDenyResponse),
 }
 
-// DeliberationResponse represents the shared part of the the deliberation repsonses 
+// DeliberationResponse represents the shared part of the the deliberation repsonses
 // (Allow, Deny)
 #[derive(Serialize, Deserialize)]
 pub struct DeliberationResponse {
@@ -64,8 +63,8 @@ pub struct DeliberationResponse {
 #[derive(Serialize, Deserialize)]
 pub struct DeliberationAllowResponse {
     #[serde(flatten)]
-    pub shared: DeliberationResponse,
-    /// Signature by the checker 
+    pub shared:    DeliberationResponse,
+    /// Signature by the checker
     pub signature: String,
 }
 
@@ -87,4 +86,3 @@ pub type WorkflowValidationResponse = DeliberationResponse;
 // POST /v1/deliberation/execute-task
 // POST /v1/deliberation/access-data
 // POST /v1/deliberation/execute-workflow
-

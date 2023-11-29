@@ -1,3 +1,4 @@
-- [ ] Move sqlite implementation out of policy
-- [ ] Move eFlint connector out of reasonerconn
-- [ ] Swap eFlint json spec with Tim's implementation
+- [X] Move sqlite implementation out of policy
+- [X] Move eFlint connector out of reasonerconn
+- [X] Swap eFlint json spec with Tim's implementation
+- [ ] Add and implement deliberation api auth resolver

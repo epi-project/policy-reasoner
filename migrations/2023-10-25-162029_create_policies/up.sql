@@ -10,8 +10,9 @@
 
 -- Your SQL goes here
  CREATE TABLE active_version (
-    version bigint PRIMARY KEY NOT NULL,
+    version bigint NOT NULL,
     activated_on DATETIME NOT NULL,
     activated_by TEXT NOT NULL,
     FOREIGN KEY(version) REFERENCES policies(version)
+    PRIMARY KEY (version, activated_on)
  );

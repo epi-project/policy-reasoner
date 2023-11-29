@@ -19,12 +19,19 @@ humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
 log = "0.4"
 reasonerconn = { path = "./lib/reasonerconn" }
 policy = { path = "./lib/policy" }
-eflint-json = { path = "lib/eflint-json" }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs"}
 srv = { path = "lib/srv" }
 state-resolver = { path = "lib/state-resolver" }
+auth-resolver = {path = "lib/auth-resolver"}
 async-trait = "*"
 serde = {version="1.0", features=["derive"]}
 serde_json = {version = "1.0" , features = ["raw_value"]}
+serde_yaml = "*"
+warp = "0.3"
+jsonwebtoken = "9"
+diesel = { version = "*", features = ["sqlite", "chrono", "r2d2"] }
+chrono = "*"
+reqwest = "*"
 
 [workspace]
 resolver = "2"
@@ -33,9 +40,9 @@ members = [
     "lib/deliberation",
     "lib/reasonerconn",
     "lib/policy",
-    "lib/eflint-json",
     "lib/srv",
     "lib/state-resolver",
 
     "tools/policy-builder"
+    "lib/auth-resolver",
 ]
