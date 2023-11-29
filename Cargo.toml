@@ -36,4 +36,6 @@ members = [
     "lib/eflint-json",
     "lib/srv",
     "lib/state-resolver",
+
+    "tools/policy-builder"
 ]
