@@ -2,11 +2,15 @@ use std::{env, fs};
 
 use humanlog::{DebugMode, HumanLogger};
 use log::info;
-use policy::sqlite::SqlitePolicyDataStore;
 use reasonerconn::eflint::EFlintReasonerConnector;
 use srv::Srv;
 use state_resolver::{State, StateResolver};
 
+use crate::sqlite::SqlitePolicyDataStore;
+
+pub mod models;
+pub mod schema;
+pub mod sqlite;
 struct FileStateResolver {}
 
 #[async_trait::async_trait]
