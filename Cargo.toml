@@ -36,13 +36,14 @@ reqwest = "*"
 [workspace]
 resolver = "2"
 members = [
-    "lib/workflow",
+    "lib/auth-resolver",
     "lib/deliberation",
-    "lib/reasonerconn",
+    "lib/eflint-to-json",
     "lib/policy",
+    "lib/reasonerconn",
     "lib/srv",
     "lib/state-resolver",
+    "lib/workflow",
 
-    "tools/policy-builder"
-    "lib/auth-resolver",
+    "tools/policy-builder",
 ]

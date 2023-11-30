@@ -4,7 +4,7 @@
 //  Created:
 //    29 Nov 2023, 15:11:08
 //  Last edited:
-//    29 Nov 2023, 17:34:18
+//    30 Nov 2023, 11:05:07
 //  Auto updated?
 //    Yes
 //
@@ -12,21 +12,47 @@
 //!   Entrypoint for the `policy-builder` tool.
 //
 
-use std::collections::HashSet;
+use std::borrow::Cow;
 use std::error;
 use std::fmt::{Display, Formatter, Result as FResult};
-use std::fs::{File, Permissions};
-use std::io::{BufRead as _, BufReader, Read as _, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
 
 use clap::Parser;
 use console::Style;
+use eflint_to_json::compile;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
 use log::{debug, error, info};
-use policy_builder::compile::eflint_to_json;
-use policy_builder::download::{download_file_async, DownloadSecurity};
+
+
+/***** ERRORS *****/
+/// Defines errors originating in the binary itself.
+#[derive(Debug)]
+enum Error {
+    /// Failed to create the output file.
+    FileCreate { path: PathBuf, err: std::io::Error },
+}
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use Error::*;
+        match self {
+            FileCreate { path, .. } => write!(f, "Failed to create output file '{}'", path.display()),
+        }
+    }
+}
+impl error::Error for Error {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        use Error::*;
+        match self {
+            FileCreate { err, .. } => Some(err),
+        }
+    }
+}
+
+
+
 
 
 /***** ARGUMENTS *****/
@@ -77,13 +103,35 @@ async fn main() {
     }
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
+    // Resolve the input file
+    debug!("Resolving output file...");
+    let (output, output_dsc): (Box<dyn Write>, Cow<str>) = if let Some(output) = args.output {
+        if output != "-" {
+            let output_path: PathBuf = output.into();
+            match File::create(&output_path) {
+                Ok(handle) => (Box::new(handle), Cow::Owned(output_path.to_string_lossy().into())),
+                Err(err) => {
+                    error!("{}", Error::FileCreate { path: output_path, err }.trace());
+                    std::process::exit(1);
+                },
+            }
+        } else {
+            (Box::new(std::io::stdout()), "<stdout>".into())
+        }
+    } else {
+        (Box::new(std::io::stdout()), "<stdout>".into())
+    };
+
     // Run the thing, then
-    if let Err(err) = eflint_to_json(&args.path, args.output.as_ref(), args.compiler.as_ref()).await {}
+    if let Err(err) = compile(&args.path, output, args.compiler.as_ref().map(|c| c.as_path())).await {
+        error!("{}", err.trace());
+        std::process::exit(1);
+    }
 
     // Done
     println!(
         "Successfully compiled {} to {}",
         Style::new().bold().green().apply_to(args.path.display()),
-        Style::new().bold().green().apply_to(output_path)
+        Style::new().bold().green().apply_to(output_dsc),
     );
 }

@@ -1,0 +1,31 @@
+{
+  "version": "0.1.0",
+  "kind": "phrases",
+  "phrases": [
+    {
+      "kind": "afact",
+      "name": "foo",
+      "type": "String"
+    },
+    {
+      "kind": "cfact",
+      "name": "bar",
+      "identified-by": [
+        "foo"
+      ]
+    },
+    {
+      "kind": "afact",
+      "name": "foo",
+      "type": "String"
+    },
+    {
+      "kind": "cfact",
+      "name": "baz",
+      "identified-by": [
+        "bar"
+      ]
+    }
+  ],
+  "updates": true
+}

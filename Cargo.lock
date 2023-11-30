@@ -663,6 +663,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "eflint-to-json"
+version = "0.1.0"
+dependencies = [
+ "console",
+ "futures-util",
+ "hex",
+ "hex-literal",
+ "indicatif",
+ "log",
+ "reqwest",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
 name = "either"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1631,6 +1646,7 @@ version = "0.1.0"
 dependencies = [
  "clap 4.4.8",
  "console",
+ "eflint-to-json",
  "error-trace",
  "futures-util",
  "hex",

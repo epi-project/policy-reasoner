@@ -1,16 +1,21 @@
-//  COMPILE.rs
+//  LIB.rs
 //    by Lut99
 //
 //  Created:
-//    29 Nov 2023, 17:22:57
+//    30 Nov 2023, 10:38:50
 //  Last edited:
-//    29 Nov 2023, 17:30:47
+//    30 Nov 2023, 11:10:51
 //  Auto updated?
 //    Yes
 //
 //  Description:
-//!   Defines functions for working with Olaf's `eflint-to-json` compiler.
+//!   Defines a high-level wrapper around Olaf's
+//!   [`eflint-to-json`](https://github.com/Olaf-Erkemeij/eflint-server)
+//!   executable that compiles eFLINT to eFLINT JSON Specification.
 //
+
+// Declare modules
+pub mod download;
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -22,8 +27,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use console::Style;
-use error_trace::ErrorTrace as _;
-use log::{debug, error};
+use log::{debug, info};
 
 use crate::download::{download_file_async, DownloadSecurity};
 
@@ -58,8 +62,6 @@ pub enum Error {
     FilePermissions { path: PathBuf, err: std::io::Error },
     /// Failed to read the input file.
     FileRead { path: PathBuf, err: std::io::Error },
-    /// Failed to write to the output file.
-    FileWrite { path: String, err: std::io::Error },
     /// Failed to open included file.
     IncludeOpen { parent: PathBuf, path: PathBuf, err: std::io::Error },
     /// Missing a quote in the `#include`-string.
@@ -68,6 +70,8 @@ pub enum Error {
     PathCanonicalize { parent: PathBuf, path: PathBuf, err: std::io::Error },
     /// Failed to spawn the eflint-to-json compiler process.
     Spawn { cmd: Command, err: std::io::Error },
+    /// Failed to write to the output writer.
+    WriterWrite { err: std::io::Error },
 }
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -81,11 +85,11 @@ impl Display for Error {
             FileOpen { path, .. } => write!(f, "Failed to open input file '{}'", path.display()),
             FilePermissions { path, .. } => write!(f, "Failed to set permissions of file '{}'", path.display()),
             FileRead { path, .. } => write!(f, "Failed to read from input file '{}'", path.display()),
-            FileWrite { path, .. } => write!(f, "Failed to write to output file '{path}'"),
             IncludeOpen { parent, path, .. } => write!(f, "Failed to open included file '{}' (in file '{}')", path.display(), parent.display()),
             MissingQuote { parent, raw } => write!(f, "Missing quotes (\") in '{}' (in file '{}')", raw, parent.display()),
             PathCanonicalize { parent, path, .. } => write!(f, "Failed to canonicalize path '{}' (in file '{}')", path.display(), parent.display()),
             Spawn { cmd, .. } => write!(f, "Failed to spawn command {cmd:?}"),
+            WriterWrite { .. } => write!(f, "Failed to write to output writer"),
         }
     }
 }
@@ -101,11 +105,11 @@ impl error::Error for Error {
             FileOpen { err, .. } => Some(err),
             FilePermissions { err, .. } => Some(err),
             FileRead { err, .. } => Some(err),
-            FileWrite { err, .. } => Some(err),
             IncludeOpen { err, .. } => Some(err),
             MissingQuote { .. } => None,
             PathCanonicalize { err, .. } => Some(err),
             Spawn { err, .. } => Some(err),
+            WriterWrite { err, .. } => Some(err),
         }
     }
 }
@@ -132,7 +136,7 @@ fn potentially_include(imported: &mut HashSet<PathBuf>, path: &Path, line: &str)
     let line: &str = line.trim();
 
     // Check it's a line
-    if (line.len() >= 8 && &line[..8] == "#include") || (line.len() >= 8 && &line[..8] == "#require") {
+    if line.len() < 8 || (&line[..8] != "#include" && &line[..8] != "#require") || line.chars().last().map(|c| c != '.').unwrap_or(true) {
         return Ok(None);
     }
 
@@ -145,11 +149,11 @@ fn potentially_include(imported: &mut HashSet<PathBuf>, path: &Path, line: &str)
         Some(pos) => pos,
         None => return Err(Error::MissingQuote { parent: path.into(), raw: line.into() }),
     };
-    let incl_path: &str = &line[squote + 1..equote];
+    let incl_path: PathBuf = PathBuf::from(&line[squote + 1..equote]);
 
     // Build the path
-    let incl_path: PathBuf = incl_path.into();
-    let incl_path: PathBuf = if incl_path.is_absolute() { incl_path } else { path.join(incl_path) };
+    let parent: Option<&Path> = path.parent();
+    let incl_path: PathBuf = if incl_path.is_absolute() || parent.is_none() { incl_path } else { parent.unwrap().join(incl_path) };
     let incl_path: PathBuf = match incl_path.canonicalize() {
         Ok(path) => path,
         Err(err) => return Err(Error::PathCanonicalize { parent: path.into(), path: incl_path, err }),
@@ -159,6 +163,7 @@ fn potentially_include(imported: &mut HashSet<PathBuf>, path: &Path, line: &str)
     if &line[..8] == "#require" && imported.contains(&incl_path) {
         return Ok(Some(None));
     }
+    imported.insert(incl_path.clone());
 
     // Build the path and attempt to open it
     let handle: File = match File::open(&incl_path) {
@@ -216,12 +221,14 @@ fn load_input(imported: &mut HashSet<PathBuf>, path: &Path, handle: BufReader<Fi
 ///
 /// # Arguments
 /// - `input`: The input file to compile. Any `#include`s and `#require`s will be handled, building a tree of files to import.
-/// - `output`: Where to write the output to. Omit to use stdout.
+/// - `output`: Some writer to compile to.
 /// - `compiler`: If given, will not download a compiler to `/tmp/eflint-to-json` but will instead use the given one.
 ///
 /// # Errors
 /// This function may error for a plethora of reasons.
-pub async fn eflint_to_json(input_path: &Path, output_path: Option<&Path>, compiler_path: Option<&Path>) -> Result<(), Error> {
+pub async fn compile(input_path: &Path, mut output: impl Write, compiler_path: Option<&Path>) -> Result<(), Error> {
+    info!("Compiling input at '{}'", input_path.display());
+
     // Resolve the compiler
     let compiler_path: Cow<Path> = match compiler_path {
         Some(path) => Cow::Borrowed(path),
@@ -240,8 +247,7 @@ pub async fn eflint_to_json(input_path: &Path, output_path: Option<&Path>, compi
                 )
                 .await
                 {
-                    error!("{}", Error::CompilerDownload { from: COMPILER_URL.into(), to: compiler_path, err }.trace());
-                    std::process::exit(1);
+                    return Err(Error::CompilerDownload { from: COMPILER_URL.into(), to: compiler_path, err });
                 }
 
                 #[cfg(unix)]
@@ -251,15 +257,11 @@ pub async fn eflint_to_json(input_path: &Path, output_path: Option<&Path>, compi
                     // ...and make it executable
                     let mut perms: Permissions = match std::fs::metadata(&compiler_path) {
                         Ok(mdata) => mdata.permissions(),
-                        Err(err) => {
-                            error!("{}", Error::FileMetadata { path: compiler_path, err }.trace());
-                            std::process::exit(1);
-                        },
+                        Err(err) => return Err(Error::FileMetadata { path: compiler_path, err }),
                     };
                     perms.set_mode(perms.mode() | 0o500);
                     if let Err(err) = std::fs::set_permissions(&compiler_path, perms) {
-                        error!("{}", Error::FilePermissions { path: compiler_path, err }.trace());
-                        std::process::exit(1);
+                        return Err(Error::FilePermissions { path: compiler_path, err });
                     }
                 }
             }
@@ -274,22 +276,7 @@ pub async fn eflint_to_json(input_path: &Path, output_path: Option<&Path>, compi
     debug!("Opening input file '{}'", input_path.display());
     let input: File = match File::open(input_path) {
         Ok(input) => input,
-        Err(err) => {
-            error!("{}", Error::FileOpen { path: input_path.into(), err }.trace());
-            std::process::exit(1);
-        },
-    };
-
-    // Open the output file
-    let (mut output, output_path): (Box<dyn Write>, Cow<str>) = match output_path {
-        Some(path) => match File::create(path) {
-            Ok(input) => (Box::new(input), path.to_string_lossy()),
-            Err(err) => {
-                error!("{}", Error::FileCreate { path: path.into(), err }.trace());
-                std::process::exit(1);
-            },
-        },
-        None => (Box::new(std::io::stdout()), "<stdout>".into()),
+        Err(err) => return Err(Error::FileOpen { path: input_path.into(), err }),
     };
 
     // Alrighty well open a handle to the compiler
@@ -300,43 +287,33 @@ pub async fn eflint_to_json(input_path: &Path, output_path: Option<&Path>, compi
     cmd.stderr(Stdio::piped());
     let mut handle: Child = match cmd.spawn() {
         Ok(handle) => handle,
-        Err(err) => {
-            error!("{}", Error::Spawn { cmd, err }.trace());
-            std::process::exit(1);
-        },
+        Err(err) => return Err(Error::Spawn { cmd, err }),
     };
 
     // Feed the input to the compiler, analyzing for `#input(...)` and `#require(...)`
     debug!("Reading input to child process...");
     let mut stdin: ChildStdin = handle.stdin.take().unwrap();
     let mut included: HashSet<PathBuf> = HashSet::new();
-    if let Err(err) = load_input(&mut included, input_path, BufReader::new(input), &mut stdin) {
-        error!("{}", err.trace());
-        std::process::exit(1);
-    }
+    load_input(&mut included, input_path, BufReader::new(input), &mut stdin)?;
     drop(stdin);
 
     // Alrighty, now it's time to stream the output of the child to the output file
-    debug!("Writing child process output to '{output_path}'...");
+    debug!("Writing child process output to given output...");
     let mut chunk: [u8; 65535] = [0; 65535];
     let mut stdout: ChildStdout = handle.stdout.take().unwrap();
     loop {
         // Read the next chunk
         let chunk_len: usize = match stdout.read(&mut chunk) {
             Ok(len) => len,
-            Err(err) => {
-                error!("{}", Error::ChildRead { err }.trace());
-                std::process::exit(1);
-            },
+            Err(err) => return Err(Error::ChildRead { err }),
         };
         if chunk_len == 0 {
             break;
         }
 
         // Write to the file
-        if let Err(err) = output.write_all(&chunk) {
-            error!("{}", Error::FileWrite { path: output_path.into(), err }.trace());
-            std::process::exit(1);
+        if let Err(err) = output.write_all(&chunk[..chunk_len]) {
+            return Err(Error::WriterWrite { err });
         }
     }
 

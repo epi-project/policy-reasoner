@@ -1,0 +1,19 @@
+[package]
+name = "eflint-to-json"
+version = "0.1.0"
+edition = "2021"
+authors = [ "Bas Kloosterman", "Tim Müller" ]
+description = "Defines a high-level wrapper around Olaf's [`eflint-to-json`](https://github.com/Olaf-Erkemeij/eflint-server) executable that compiles eFLINT to eFLINT JSON Specification."
+repository = "https://github.com/epi-project/policy-reasoner"
+
+
+[dependencies]
+console = "0.15"
+futures-util = "0.3"
+hex = "0.4"
+hex-literal = "0.4"
+indicatif = "0.17"
+log = "0.4"
+reqwest = { version = "0.11", features = ["stream"] }
+sha2 = "0.10"
+tokio = { version = "1.34", default-features = false, features = ["fs"]}
