@@ -1,0 +1,49 @@
+// TEST WORKFLOW EXT.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 14:20:44
+// Last edited:
+//   30 Nov 2023, 14:28:41
+// Auto updated?
+//   Yes
+//
+// Description:
+//   File to test if the other files work.
+//
+
+#require "../workflow_ext.eflint".
+
+
+///// TESTS /////
++asset(A).
++asset(B).
++asset(C).
+
++asset(F).
++code(asset(F)).
++asset(G).
++code(asset(G)).
+
++user(Amy).
++domain(user(Amy)).
++asset-access(asset(A), user(Amy)).
++user(Bob).
++domain(user(Bob)).
++asset-access(asset(B), user(Bob)).
+
++workflow(W).
+
++node(workflow(W), X).
++task(node(workflow(W), X)).
++node-input(node(workflow(W), X), asset(A)).
++node-output(node(workflow(W), X), asset(B)).
++task-code(task(node(workflow(W), X)), code(asset(F))).
++task-at(task(node(workflow(W), X)), domain(user(Amy))).
+
++node(workflow(W), Y).
++task(node(workflow(W), Y)).
++node-input(node(workflow(W), Y), asset(B)).
++node-output(node(workflow(W), Y), asset(C)).
++task-code(task(node(workflow(W), Y)), code(asset(G))).
++task-at(task(node(workflow(W), Y)), domain(user(Bob))).

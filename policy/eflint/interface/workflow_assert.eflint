@@ -1,0 +1,39 @@
+// WORKFLOW ASSERT.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 11:55:00
+// Last edited:
+//   30 Nov 2023, 14:17:11
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines assertions that enforce particular assumptions on workflow
+//   predicates.
+//
+
+#require "workflow_base.eflint".
+
+
+// Asserts that every workflow has at most 1 result that is being received by someone.
+Invariant workflow-at-most-one-result-recipient When
+    (Forall workflow : Count(Foreach asset, user : workflow-result-recipient(workflow-result(workflow, asset), user) When Holds(workflow-result-recipient(workflow-result(workflow, asset), user))) <= 1).
+
+// Asserts that no node produces its own output.
+Invariant node-not-recursive-input-output When
+    (Forall node : Not(Exists asset : (node-input(node, asset) && node-output(node, asset)))).
+// Asserts that every node has at most 1 output.
+Invariant node-at-most-one-output When
+    (Forall node : Count(Foreach asset : node-output(node, asset) When Holds(node-output(node, asset))) <= 1).
+
+// Asserts that every task has at most 1 function.
+Invariant task-at-most-one-code When
+    (Forall task : Count(Foreach code : task-code(task, code) When Holds(task-code(task, code))) <= 1).
+// Asserts that every task has exactly 1 assigned function.
+Invariant task-exactly-one-at When
+    (Forall task : Count(Foreach domain : task-at(task, domain) When Holds(task-at(task, domain))) == 1).
+
+// Asserts that every commit has at most 1 assured input.
+Invariant commit-at-most-one-input-ensured When
+    (Forall commit : Count(Foreach asset : node-input-ensure(commit.node, asset) When Holds(node-input-ensure(commit.node, asset))) <= 1).

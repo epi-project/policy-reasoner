@@ -1,0 +1,55 @@
+// WORKFLOW EXT.eflint
+//   by Lut99
+//
+// Created:
+//   30 Nov 2023, 11:33:50
+// Last edited:
+//   30 Nov 2023, 16:06:49
+// Auto updated?
+//   Yes
+//
+// Description:
+//   Defines Facts that can be derived from every workflow. Not part of the
+//   standard interface, but more like standard library.
+//
+
+#require "workflow_base.eflint".
+
+
+// Unifies inputs and outputs of a node.
+Fact node-asset Identified by node * asset
+    Holds when (node-input(node, asset) || node-output(node, asset)).
+// Unifies asset inputs and code to a task.
+Fact task-input-asset Identified by task * asset
+    Holds when (node-input(task.node, asset) || task-code(task(node), code(asset))).
+// Unifies asset inputs, outputs and code to a task.
+Fact task-asset Identified by task * asset
+    Holds when (task-input-asset(task, asset) || node-output(task.node, asset)).
+
+// Defines that two nodes are connected by an output-to-input relationship.
+// 
+// This one notes that the link is _ensured_, i.e., the output of node1 _always_ ends up as output of node2, regardless of dynamic control flow.
+Fact link Identified by node1 * node2
+    Holds when ((Exists asset : node-output(node1, asset) && node-input-ensured(node-input(node2, asset))) && node1 != node2).
+// Defines that two nodes are connected by an output-to-input relationship.
+// 
+// This one notes that the link is _possible_, i.e., the output of node1 _may_ end up as output of node2. Whether this happens depends on dynamic control flow.
+Fact link-branch Identified by node1 * node2
+    Holds when ((Exists asset : node-output(node1, asset) && node-input(node2, asset)) && node1 != node2 && Not(link(node1, node2))).
+
+// Relates an asset to all of its "children"
+Fact asset-downstream Identified by asset1 * asset2
+    Holds when (asset1 == asset2)
+    Holds when (Exists node : node-input(node, asset1) && node-output(node, asset2))
+    // Editor's note: super slow, might comment-out if too slow
+    Holds when (Exists asset' : asset-downstream(asset1, asset') && asset-downstream(asset', asset2)).
+Fact asset-touches Identified by asset * domain
+    Derived from (Foreach  : ).
+
+// // Relates an asset to all locations that it touches based on the given workflow.
+// Fact asset-touches Identified by asset * domain
+//     Holds when (asset-access(asset, domain.user))
+//     Holds when (Exists task : (node-input(task.node, asset) || node-output(task.node, asset)) && task-at(task, domain)).
+// Fact asset-touches-tree Identified by asset * domain
+//     Holds when (asset-touches(asset, domain))
+//     Derived from (Foreach asset, domain, asset', domain' : asset-touched(asset, domain') When (Exists node1, node2 : node-output(node1, asset) && node-input(node2, asset') && node-at(node2, domain'))).

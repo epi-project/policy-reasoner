@@ -4,7 +4,7 @@
 //  Created:
 //    30 Nov 2023, 10:38:50
 //  Last edited:
-//    30 Nov 2023, 11:10:51
+//    30 Nov 2023, 13:50:37
 //  Auto updated?
 //    Yes
 //
@@ -22,9 +22,9 @@ use std::collections::HashSet;
 use std::error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs::{File, Permissions};
-use std::io::{BufRead as _, BufReader, Read as _, Write};
+use std::io::{BufRead as _, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
 
 use console::Style;
 use log::{debug, info};
@@ -43,11 +43,64 @@ const COMPILER_CHECKSUM: [u8; 32] = hex_literal::hex!("4e4e59b158ca31e532ec0a220
 
 
 /***** ERRORS *****/
+/// Defines a wrapper around multiple streams.
+#[derive(Debug)]
+pub struct ChildStreams(Vec<ChildStream>);
+impl Display for ChildStreams {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        for stream in &self.0 {
+            writeln!(f, "{stream}")?;
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+impl error::Error for ChildStreams {}
+
+/// Defines a wrapper around [`ChildStdout`]/[`ChildStderr`] that allow them to be serialized as errors in a trace.
+#[derive(Debug)]
+pub struct ChildStream(&'static str, String);
+impl ChildStream {
+    /// Constructor for the ChildStream.
+    ///
+    /// # Arguments
+    /// - `what`: The thing we're wrapping (e.g., `stdout`).
+    /// - `stream`: The stream(-like) to wrap the contents of.
+    ///
+    /// # Returns
+    /// A new ChildStream that either has the stream's contents, or some message saying the contents couldn't be retrieved.
+    fn new(what: &'static str, mut stream: impl Read) -> Self {
+        // Attempt to read it all
+        let mut buf: String = String::new();
+        match stream.read_to_string(&mut buf) {
+            Ok(_) => Self(what, buf),
+            Err(err) => Self(what, format!("<failed to read stream: {err}>")),
+        }
+    }
+}
+impl Display for ChildStream {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        // Write it over multiple lines
+        writeln!(f, "{}:", self.0)?;
+        writeln!(f, "{}", (0..80).map(|_| '-').collect::<String>())?;
+        writeln!(f, "{}", self.1)?;
+        writeln!(f, "{}", (0..80).map(|_| '-').collect::<String>())?;
+        Ok(())
+    }
+}
+impl error::Error for ChildStream {}
+
+
+
 /// Defines toplevel errors.
 #[derive(Debug)]
 pub enum Error {
+    /// The child failed
+    ChildFailed { cmd: Command, status: ExitStatus, output: ChildStreams },
     /// Failed to read from child stdout.
     ChildRead { err: std::io::Error },
+    /// Failed to wait for the child to be ready.
+    ChildWait { err: std::io::Error },
     /// Failed to write to child stdin.
     ChildWrite { err: std::io::Error },
     /// Failed to download the compiler.
@@ -77,7 +130,9 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Error::*;
         match self {
+            ChildFailed { cmd, status, .. } => write!(f, "Child process {cmd:?} failed with exit status {status}"),
             ChildRead { .. } => write!(f, "Failed to read from child stdin"),
+            ChildWait { .. } => write!(f, "Failed to wait for child"),
             ChildWrite { .. } => write!(f, "Failed to write to child stdin"),
             CompilerDownload { from, to, .. } => write!(f, "Failed to download 'eflint-to-json' compiler from '{}' to '{}'", from, to.display()),
             FileCreate { path, .. } => write!(f, "Failed to create output file '{}'", path.display()),
@@ -97,7 +152,9 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         use Error::*;
         match self {
+            ChildFailed { output, .. } => Some(output),
             ChildRead { err, .. } => Some(err),
+            ChildWait { err, .. } => Some(err),
             ChildWrite { err, .. } => Some(err),
             CompilerDownload { err, .. } => Some(err),
             FileCreate { err, .. } => Some(err),
@@ -296,6 +353,23 @@ pub async fn compile(input_path: &Path, mut output: impl Write, compiler_path: O
     let mut included: HashSet<PathBuf> = HashSet::new();
     load_input(&mut included, input_path, BufReader::new(input), &mut stdin)?;
     drop(stdin);
+
+    // Wait until the process is finished
+    debug!("Waiting for child process to complete...");
+    let status: ExitStatus = match handle.wait() {
+        Ok(status) => status,
+        Err(err) => return Err(Error::ChildWait { err }),
+    };
+    if !status.success() {
+        return Err(Error::ChildFailed {
+            cmd,
+            status: status.into(),
+            output: ChildStreams(vec![
+                ChildStream::new("stdout", handle.stdout.take().unwrap()),
+                ChildStream::new("stderr", handle.stderr.take().unwrap()),
+            ]),
+        });
+    }
 
     // Alrighty, now it's time to stream the output of the child to the output file
     debug!("Writing child process output to given output...");
