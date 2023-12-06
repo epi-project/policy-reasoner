@@ -244,7 +244,7 @@ where
     pub fn with_deliberation_api_auth(this: Arc<Self>) -> impl Filter<Extract = (AuthContext,), Error = warp::Rejection> + Clone {
         Self::with_self(this.clone()).and(warp::header::headers_cloned()).and_then(|_this: Arc<Self>, _headers| async move {
             // TODO implement!
-            Ok::<AuthContext, Rejection>(AuthContext { initiator: "TODO implement!".into() })
+            Ok::<AuthContext, Rejection>(AuthContext { initiator: "TODO implement!".into(), system: "TODO implement!".into() })
         })
     }
 }

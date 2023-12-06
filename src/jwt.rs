@@ -98,8 +98,8 @@ where
 
         match result.claims.get(&self.config.initiator_claim) {
             Some(initiator) => match initiator {
-                serde_json::Value::Number(v) => Ok(AuthContext { initiator: v.to_string() }),
-                serde_json::Value::String(v) => Ok(AuthContext { initiator: v.clone() }),
+                serde_json::Value::Number(v) => Ok(AuthContext { initiator: v.to_string(), system: "TODO implement!".into() }),
+                serde_json::Value::String(v) => Ok(AuthContext { initiator: v.clone(), system: "TODO implement!".into() }),
                 _ => Err(AuthResolverError::new(format!(
                     "Invalid type for initiator claim (only string or number allowed): {}",
                     self.config.initiator_claim
