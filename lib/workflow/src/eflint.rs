@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    06 Dec 2023, 15:48:22
+//    06 Dec 2023, 17:50:34
 //  Auto updated?
 //    Yes
 //
@@ -17,7 +17,7 @@ use eflint_json::spec::{ConstructorInput, Expression, ExpressionConstructorApp, 
 use enum_debug::EnumDebug as _;
 use log::{trace, warn};
 
-use crate::spec::{Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, Workflow};
+use crate::spec::{Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
 
 
 /***** HELPER MACROS *****/
@@ -55,8 +55,9 @@ macro_rules! str_lit {
 /// # Arguments
 /// - `elem`: The current [`Elem`] we're compiling.
 /// - `wf_id`: The identifier/name of the workflow we're working with.
+/// - `wf_user`: The identifier/name of the user who will see the workflow result.
 /// - `phrases`: The list of eFLINT [`Phrase`]s we're compiling to.
-fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
+fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, phrases: &mut Vec<Phrase>) {
     // Note we're doing a combination of actual recursion and looping, to minimize stack usage
     loop {
         trace!("Compiling {:?} to eFLINT", elem.variant());
@@ -112,7 +113,7 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
                             constr_app!("domain", constr_app!("user", str_lit!(at.clone())))
                         )));
                     } else {
-                        warn!("Encountered dataset '{}' without transfer source in task '{}' as part of workflow '{}'", i.name, id, wf_id);
+                        warn!("Encountered input dataset '{}' without transfer source in task '{}' as part of workflow '{}'", i.name, id, wf_id);
                     }
                 }
                 // Add the output, if any
@@ -151,7 +152,7 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
                 // OK, move to the next
                 elem = next;
             },
-            Elem::Commit(ElemCommit { id, data_name, input, next }) => {
+            Elem::Commit(ElemCommit { id, data_name, location, input, next }) => {
                 // Add the commit task
                 // ```eflint
                 // +node(workflow(#wf_id), #id).
@@ -164,27 +165,64 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
                 // Add the commits it (possibly!) does
                 for i in input {
                     // ```eflint
-                    //
+                    // +node-input(#node, asset(#i.name)).
                     // ```
-                    todo!();
-                    phrases.push(create!(constr_app!(
-                        "commits",
-                        constr_app!("commit", str_lit!(id.clone())),
-                        constr_app!("dataset", str_lit!(i.name.clone())),
-                        constr_app!("dataset", str_lit!(data_name.clone()))
-                    )));
+                    let node_input: Expression = constr_app!("node-input", node.clone(), constr_app!("asset", str_lit!(i.name.clone())));
+                    phrases.push(create!(node_input.clone()));
+
+                    // Add where this dataset lives if we know that
+                    if let Some(from) = &i.from {
+                        // It's planned to be transferred from this location
+                        // ```eflint
+                        // +node-input-from(#node-input, domain(user(#from))).
+                        // ```
+                        phrases.push(create!(constr_app!(
+                            "node-input-from",
+                            node_input,
+                            constr_app!("domain", constr_app!("user", str_lit!(from.clone())))
+                        )));
+                    } else {
+                        warn!("Encountered input dataset '{}' without transfer source in commit '{}' as part of workflow '{}'", i.name, id, wf_id);
+                    }
+                }
+                // Add the output of the node
+                // ```eflint
+                // +node-output(#node, asset(#data_name)).
+                // +workflow-result(workflow(#wf_id), asset(#data_name)).
+                // ```
+                phrases.push(create!(constr_app!("node-output", node.clone(), constr_app!("asset", str_lit!(data_name.clone())))));
+                phrases.push(create!(constr_app!(
+                    "workflow-result",
+                    constr_app!("workflow", str_lit!(wf_id)),
+                    constr_app!("asset", str_lit!(data_name.clone()))
+                )));
+
+                // Add the location of this commit
+                if let Some(location) = location {
+                    // ```eflint
+                    // +node-at(#node, domain(user(#at))).
+                    // ```
+                    phrases.push(create!(constr_app!("node-at", node, constr_app!("domain", constr_app!("user", str_lit!(location.clone()))))));
                 }
 
                 // Continue with the next
                 elem = next;
             },
 
-            Elem::Branch(ElemBranch { branches: _, next }) => {
-                warn!("Compilation from Elem::Branch to eFLINT is not yet implementated.");
+            Elem::Branch(ElemBranch { branches, next }) => {
+                // Do the branches in sequence
+                for branch in branches {
+                    compile_eflint(branch, wf_id, wf_user, phrases);
+                }
+                // Continue with the next one
                 elem = next;
             },
-            Elem::Parallel(ElemParallel { branches: _, merge: _, next }) => {
-                warn!("Compilation from Elem::Parallel to eFLINT is not yet implementated.");
+            Elem::Parallel(ElemParallel { branches, merge: _, next }) => {
+                // Do the branches in sequence
+                for branch in branches {
+                    compile_eflint(branch, wf_id, wf_user, phrases);
+                }
+                // Continue with the next one
                 elem = next;
             },
             Elem::Loop(ElemLoop { body: _, next }) => {
@@ -196,10 +234,13 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
             Elem::Stop(results) => {
                 // Mark the results as results of the workflow
                 for r in results {
+                    // ```eflint
+                    // +workflow-result-recipient(workflow-result(workflow(#wf_id), asset(#r.name)), user(#wf_user.name)).
+                    // ```
                     phrases.push(create!(constr_app!(
-                        "result",
-                        constr_app!("workflow", str_lit!(wf_id)),
-                        constr_app!("dataset", str_lit!(r.name.clone()))
+                        "workflow-result-recipient",
+                        constr_app!("workflow-result", constr_app!("workflow", str_lit!(wf_id)), constr_app!("asset", str_lit!(r.name.clone()))),
+                        constr_app!("user", str_lit!(wf_user.name.clone())),
                     )));
                 }
 
@@ -246,7 +287,7 @@ impl Workflow {
         }
 
         // Compile the 'flow to a list of phrases
-        compile_eflint(&self.start, &self.id, &mut phrases);
+        compile_eflint(&self.start, &self.id, &self.user, &mut phrases);
 
         // Done!
         phrases

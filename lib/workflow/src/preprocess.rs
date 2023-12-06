@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    16 Nov 2023, 17:05:16
+//    06 Dec 2023, 18:24:20
 //  Auto updated?
 //    Yes
 //
@@ -101,7 +101,7 @@ mod tests {
 
             // Analyse the inlinable funcs
             let mut pred: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
-            find_inlinable_funcs(&wir, &calls, &wir.table, ProgramCounter::new(), None, &mut pred);
+            find_inlinable_funcs(&wir, &calls, &mut vec![], ProgramCounter::new(), None, &mut pred);
             println!("Inlinable functions: {pred:?}");
             println!();
 
@@ -470,7 +470,7 @@ fn resolve_calls(
 /// # Arguments
 /// - `wir`: The input [WIR](Workflow) to analyse.
 /// - `calls`: The map of call indices to which function is actually called.
-/// - `table`: The [`VirtualSymTable`] keeping track of current definitions in scope.
+/// - `trace`: A trace of function IDs that we've "called".
 /// - `pc`: Points to the current [`Edge`] to analyse.
 /// - `breakpoint`: If given, then analysis should stop when this PC is hit.
 /// - `inlinable`: The result we're recursively building. This set simply collects all function IDs and maps them to inlinable or not. If they are, then their ID is mapped to a list of functions on which the call depends (or else [`None`]).
@@ -480,7 +480,7 @@ fn resolve_calls(
 fn find_inlinable_funcs(
     wir: &Workflow,
     calls: &HashMap<ProgramCounter, usize>,
-    table: &SymTable,
+    trace: &mut Vec<usize>,
     pc: ProgramCounter,
     breakpoint: Option<ProgramCounter>,
     inlinable: &mut HashMap<usize, Option<HashSet<usize>>>,
@@ -501,7 +501,7 @@ fn find_inlinable_funcs(
     match edge {
         Edge::Node { next, .. } | Edge::Linear { next, .. } => {
             // Doesn't call any functions, so just proceed with the next one
-            find_inlinable_funcs(wir, calls, table, pc.jump(*next), breakpoint, inlinable)
+            find_inlinable_funcs(wir, calls, trace, pc.jump(*next), breakpoint, inlinable)
         },
 
         Edge::Stop {} => return HashSet::new(),
@@ -509,14 +509,14 @@ fn find_inlinable_funcs(
         Edge::Branch { true_next, false_next, merge } => {
             // Analyse the left branch...
             let mut dependencies: HashSet<usize> =
-                find_inlinable_funcs(wir, calls, table, pc.jump(*true_next), merge.map(|merge| pc.jump(merge)), inlinable);
+                find_inlinable_funcs(wir, calls, trace, pc.jump(*true_next), merge.map(|merge| pc.jump(merge)), inlinable);
             // ...the right branch...
             if let Some(false_next) = false_next {
-                dependencies.extend(find_inlinable_funcs(wir, calls, table, pc.jump(*false_next), merge.map(|merge| pc.jump(merge)), inlinable));
+                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*false_next), merge.map(|merge| pc.jump(merge)), inlinable));
             }
             // ...and the merge!
             if let Some(merge) = merge {
-                dependencies.extend(find_inlinable_funcs(wir, calls, table, pc.jump(*merge), breakpoint, inlinable));
+                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*merge), breakpoint, inlinable));
             }
             dependencies
         },
@@ -525,24 +525,24 @@ fn find_inlinable_funcs(
             // Collect all the branches
             let mut dependencies: HashSet<usize> = HashSet::new();
             for branch in branches {
-                dependencies.extend(find_inlinable_funcs(wir, calls, table, pc.jump(*branch), Some(pc.jump(*merge)), inlinable));
+                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*branch), Some(pc.jump(*merge)), inlinable));
             }
 
             // Run merge and done is Cees
-            dependencies.extend(find_inlinable_funcs(wir, calls, table, pc.jump(*merge), breakpoint, inlinable));
+            dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*merge), breakpoint, inlinable));
             dependencies
         },
 
-        Edge::Join { next, .. } => find_inlinable_funcs(wir, calls, table, pc.jump(*next), breakpoint, inlinable),
+        Edge::Join { next, .. } => find_inlinable_funcs(wir, calls, trace, pc.jump(*next), breakpoint, inlinable),
 
         Edge::Loop { cond, body, next } => {
             // Traverse the condition...
-            let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, table, pc.jump(*cond), Some(pc.jump(*body - 1)), inlinable);
+            let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*cond), Some(pc.jump(*body - 1)), inlinable);
             // ...the body...
-            dependencies.extend(find_inlinable_funcs(wir, calls, table, pc.jump(*body), Some(pc.jump(*cond)), inlinable));
+            dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*body), Some(pc.jump(*cond)), inlinable));
             // ...and finally, the next step, if any
             if let Some(next) = next {
-                dependencies.extend(find_inlinable_funcs(wir, calls, table, pc.jump(*next), breakpoint, inlinable));
+                dependencies.extend(find_inlinable_funcs(wir, calls, trace, pc.jump(*next), breakpoint, inlinable));
             }
             dependencies
         },
@@ -557,26 +557,33 @@ fn find_inlinable_funcs(
                     panic!("Encountered unresolved call after running call analysis");
                 },
             };
-            let def: &FunctionDef = match catch_unwind(|| table.func(func_id)) {
+            let def: &FunctionDef = match catch_unwind(|| wir.table.func(func_id)) {
                 Ok(def) => def,
                 Err(_) => panic!("Failed to get definition of function {func_id} after call analysis"),
             };
 
             // Analyse next, since all codepaths do this always
-            let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, table, pc.jump(*next), None, inlinable);
+            let mut dependencies: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, pc.jump(*next), None, inlinable);
             dependencies.insert(func_id);
 
             // Functions are not inlinable if builtins; if so, return
             if BuiltinFunctions::is_builtin(&def.name) {
+                trace!("Function {} ('{}') is not inlinable because it is a builtin", func_id, def.name);
                 inlinable.insert(func_id, None);
                 return dependencies;
             }
 
             // Examine if this call would introduce a recursive problem
             if inlinable.contains_key(&func_id) {
-                // We've already seen this one! Change our mind about its inlinability
-                inlinable.insert(func_id, None);
+                // We've already seen this one! However, _don't_ change our mind about its inlinability because it means a repeated function call
                 // NOTE: No need to go into the call body, as we've done this the first time we saw it
+                return dependencies;
+            }
+            if trace.contains(&func_id) {
+                // It's been in our callstack before - that means recursion!
+                // Change our minds about its inlinability
+                trace!("Function {} ('{}') is not inlinable because it is recursive", func_id, def.name);
+                inlinable.insert(func_id, None);
                 return dependencies;
             }
 
@@ -584,7 +591,9 @@ fn find_inlinable_funcs(
             inlinable.insert(func_id, Some(HashSet::new()));
 
             // If we get this far, recurse into the body
-            let func_deps: HashSet<usize> = find_inlinable_funcs(wir, calls, table, ProgramCounter::call(func_id), None, inlinable);
+            trace.push(func_id);
+            let func_deps: HashSet<usize> = find_inlinable_funcs(wir, calls, trace, ProgramCounter::call(func_id), None, inlinable);
+            trace.pop();
 
             // Now we can inject the entries
             if let Some(deps) = inlinable.get_mut(&func_id).unwrap() {
@@ -605,10 +614,21 @@ fn find_inlinable_funcs(
 ///
 /// # Arguments
 /// - `edges`: The edges to traverse.
+/// - `calls`: The map of program counters to calls that we update with any nested call's' new position.
+/// - `func_id`: The ID of this function.
+/// - `start_idx`: The index to add all next indices.
 /// - `ret_idx`: The index to point the returning linears to.
 /// - `pc`: Points to the current [`Edge`] to replace potentially.
 /// - `breakpoint`: If given, then analysis should stop when this PC is hit.
-fn prep_func_body(edges: &mut [Edge], ret_idx: usize, pc: usize, breakpoint: Option<usize>) {
+fn prep_func_body(
+    edges: &mut [Edge],
+    calls: &mut HashMap<ProgramCounter, usize>,
+    func_id: usize,
+    start_idx: usize,
+    ret_idx: usize,
+    pc: usize,
+    breakpoint: Option<usize>,
+) {
     // Stop on the breakpoint
     if let Some(breakpoint) = breakpoint {
         if pc == breakpoint {
@@ -624,64 +644,103 @@ fn prep_func_body(edges: &mut [Edge], ret_idx: usize, pc: usize, breakpoint: Opt
     // Match on its kind
     match edge {
         Edge::Node { next, .. } | Edge::Linear { next, .. } => {
-            let next: usize = *next;
-            prep_func_body(edges, ret_idx, next, breakpoint);
+            // Update the nexts
+            let old_next: usize = *next;
+            *next += start_idx;
+
+            // Continue traversing
+            prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_next, breakpoint);
         },
 
         Edge::Stop {} => return,
 
         Edge::Branch { true_next, false_next, merge } => {
-            let (true_next, false_next, merge): (usize, Option<usize>, Option<usize>) = (*true_next, *false_next, *merge);
+            let (old_true_next, old_false_next, old_merge): (usize, Option<usize>, Option<usize>) = (*true_next, *false_next, *merge);
+
+            // Update the nexts
+            *true_next += start_idx;
+            if let Some(false_next) = false_next {
+                *false_next += start_idx;
+            }
+            if let Some(merge) = merge {
+                *merge += start_idx;
+            }
 
             // Analyse the left branch...
-            prep_func_body(edges, ret_idx, true_next, merge);
+            prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_true_next, old_merge);
             // ...the right branch...
-            if let Some(false_next) = false_next {
-                prep_func_body(edges, ret_idx, false_next, merge);
+            if let Some(old_false_next) = old_false_next {
+                prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_false_next, old_merge);
             }
             // ...and the merge!
-            if let Some(merge) = merge {
-                prep_func_body(edges, ret_idx, merge, breakpoint);
+            if let Some(old_merge) = old_merge {
+                prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_merge, breakpoint);
             }
         },
 
         Edge::Parallel { branches, merge } => {
-            let (branches, merge): (Vec<usize>, usize) = (branches.clone(), *merge);
+            let (old_branches, old_merge): (Vec<usize>, usize) = (branches.clone(), *merge);
+
+            // Update the nexts
+            for branch in branches {
+                *branch += start_idx;
+            }
+            *merge += start_idx;
 
             // Collect all the branches
-            for branch in branches {
-                prep_func_body(edges, ret_idx, branch, Some(merge));
+            for old_branch in old_branches {
+                prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_branch, Some(old_merge));
             }
 
             // Run merge and done is Cees
-            prep_func_body(edges, ret_idx, merge, breakpoint);
+            prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_merge, breakpoint);
         },
 
         Edge::Join { next, .. } => {
-            let next: usize = *next;
-            prep_func_body(edges, ret_idx, next, breakpoint);
+            let old_next: usize = *next;
+            *next += start_idx;
+            prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_next, breakpoint);
         },
 
         Edge::Loop { cond, body: lbody, next } => {
-            let (cond, lbody, next): (usize, usize, Option<usize>) = (*cond, *lbody, *next);
+            let (old_cond, old_lbody, old_next): (usize, usize, Option<usize>) = (*cond, *lbody, *next);
+
+            // Update the nexts
+            *cond += start_idx;
+            *lbody += start_idx;
+            if let Some(next) = next {
+                *next += start_idx;
+            }
 
             // Traverse the condition...
-            prep_func_body(edges, ret_idx, cond, Some(lbody - 1));
+            prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_cond, Some(old_lbody - 1));
             // ...the body...
-            prep_func_body(edges, ret_idx, lbody, Some(cond));
+            prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_lbody, Some(old_cond));
             // ...and finally, the next step, if any
-            if let Some(next) = next {
-                prep_func_body(edges, ret_idx, next, breakpoint);
+            if let Some(old_next) = old_next {
+                prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_next, breakpoint);
             }
         },
 
         Edge::Call { next, .. } => {
-            let next: usize = *next;
-            prep_func_body(edges, ret_idx, next, breakpoint);
+            let old_next: usize = *next;
+
+            // Update the next
+            *next += start_idx;
+
+            // Update the call list with this dude's new position
+            calls.insert(
+                ProgramCounter(usize::MAX, start_idx + pc),
+                *calls.get(&ProgramCounter(func_id, pc)).unwrap_or_else(|| panic!("Encountered unresolved call after call ID analysis")),
+            );
+
+            // Prepare the remainder
+            prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_next, breakpoint);
         },
 
         Edge::Return { result: _ } => {
             // Yank it
+            trace!("Yanking return edge at '{pc}' with a linear edge to '{ret_idx}'");
             *edge = Edge::Linear { instrs: vec![], next: ret_idx };
         },
     }
@@ -702,7 +761,7 @@ fn prep_func_body(edges: &mut [Edge], ret_idx: usize, pc: usize, breakpoint: Opt
 /// - `breakpoint`: If given, then analysis should stop when this PC is hit.
 fn inline_funcs_in_body(
     body: &mut Vec<Edge>,
-    calls: &HashMap<ProgramCounter, usize>,
+    calls: &mut HashMap<ProgramCounter, usize>,
     funcs: &HashMap<usize, Vec<Edge>>,
     inlinable: &HashMap<usize, Option<HashSet<usize>>>,
     table: &SymTable,
@@ -791,9 +850,11 @@ fn inline_funcs_in_body(
             // Assert this is an inlinable function (and not external)
             if inlinable.get(&call_id).map(|deps| deps.is_none()).unwrap_or(true) {
                 // Simply skip after doing the next
+                trace!("Not inlining function call to function {call_id} at {pc}");
                 inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, next, breakpoint);
                 return;
             }
+            trace!("Inlining function call to function {call_id} at {pc}");
 
             // Otherwise, yank the call with a linear that refers to the inlined body instead (we'll put it after all the other edges to avoid them moving)
             *edge = Edge::Linear { instrs: vec![], next: body_len };
@@ -805,7 +866,7 @@ fn inline_funcs_in_body(
                     panic!("Encountered function ID '{call_id}' without function body after inline analysis (might be an uninlined dependency)")
                 })
                 .clone();
-            prep_func_body(&mut call_body, next, 0, None);
+            prep_func_body(&mut call_body, calls, call_id, body_len, next, 0, None);
 
             // Append it to the main body and the inlining is complete
             body.extend(call_body);
@@ -839,10 +900,10 @@ fn inline_funcs_in_body(
 ///
 /// # Errors
 /// This function may error if the input workflow is incoherent.
-pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize>) -> Workflow {
+pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, usize>) -> Workflow {
     // Analyse which functions in the WIR are non-recursive
     let mut inlinable: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
-    find_inlinable_funcs(&wir, calls, &wir.table, ProgramCounter::new(), None, &mut inlinable);
+    find_inlinable_funcs(&wir, calls, &mut vec![], ProgramCounter::new(), None, &mut inlinable);
     debug!(
         "Inlinable functions: {}",
         inlinable
@@ -899,12 +960,14 @@ pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize
             let mut new_body: Vec<Edge> = funcs.get(&id).unwrap().clone();
 
             // Inline the functions in this body
+            debug!("Inlining functions in function {id}");
             inline_funcs_in_body(&mut new_body, calls, &new_funcs, &inlinable, &table, id, 0, None);
             new_funcs.insert(id, new_body);
         }
         funcs = new_funcs;
 
         // Now inline the main with all function bodies inlined correctly
+        debug!("Inlining functions in main");
         inline_funcs_in_body(&mut graph, calls, &funcs, &inlinable, &table, usize::MAX, 0, None);
 
         // Write the functions and graphs back
@@ -940,11 +1003,11 @@ pub fn inline_functions(mut wir: Workflow, calls: &HashMap<ProgramCounter, usize
 /// This function may error if the input workflow is incoherent.
 pub fn simplify(mut wir: Workflow) -> Result<(Workflow, HashMap<ProgramCounter, usize>), Error> {
     // Analyse call dependencies first
-    let (calls, _): (HashMap<ProgramCounter, usize>, _) = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::new(), None, None)?;
+    let (mut calls, _): (HashMap<ProgramCounter, usize>, _) = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::new(), None, None)?;
     debug!("Resolved calls as: {:?}", calls.iter().map(|(pc, id)| (format!("{}", pc.display(&wir.table)), *id)).collect::<HashMap<String, usize>>());
 
     // Simplify functions as much as possible
-    wir = inline_functions(wir, &calls);
+    wir = inline_functions(wir, &mut calls);
 
     // Done!
     Ok((wir, calls))

@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:56:55
 //  Last edited:
-//    15 Nov 2023, 10:39:52
+//    06 Dec 2023, 16:26:38
 //  Auto updated?
 //    Yes
 //
@@ -20,230 +20,6 @@ use brane_ast::MergeStrategy;
 use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
 use specifications::version::Version;
-
-
-/***** HELPER MACROS *****/
-/// Implements all the boolean checks for the [`NextElem`]-variants.
-///
-/// # Variants
-/// - `next_elem_checks_impl($name:ident)`
-///   - `$name`: The name of the type for which to implement them.
-/// - `next_elem_checks_impl($($l:lifetime),+), $name:ident)`
-///   - `$l`: A list of lifetimes for this type.
-///   - `$name`: The name of the type for which to implement them.
-macro_rules! next_elem_checks_impl {
-    ($name:ident) => {
-        impl $name {
-            next_elem_checks_impl!(body_impl $name);
-        }
-    };
-    ($($l:lifetime),+, $name:ident) => {
-        impl<$($l),+> $name<$($l),+> {
-            next_elem_checks_impl!(body_impl $name);
-        }
-    };
-
-
-
-    // Private
-    (body_impl $name:ident) => {
-        #[doc = concat!("Checks if there is a next node or not.\n\nAlias for `Self::is_elem()`.\n\n# Returns\nTrue if we are [Self::Elem](", stringify!($name), "::Elem), or false otherwise.")]
-        #[inline]
-        pub fn is_some(&self) -> bool { self.is_elem() }
-        #[doc = concat!("Checks if a terminator has been reached or not.\n\n# Returns\nTrue if we are [Self::Next](", stringify!($name), "::Next) or [Self::Stop](", stringify!($name), "::Stop), or false otherwise.")]
-        #[inline]
-        pub fn is_term(&self) -> bool { self.is_next() || self.is_stop() }
-
-        #[doc = concat!("Checks if there is a next node or not.\n\n# Returns\nTrue if we are [Self::Elem](", stringify!($name), "::Elem), or false otherwise.")]
-        #[inline]
-        pub fn is_elem(&self) -> bool { matches!(self, Self::Elem(_)) }
-        #[doc = concat!("Checks if a `Next`-terminator has been reached.\n\n# Returns\nTrue if we are [Self::Next](", stringify!($name), "::Next), or false otherwise.")]
-        #[inline]
-        pub fn is_next(&self) -> bool { matches!(self, Self::Next) }
-        #[doc = concat!("Checks if a `Stop`-terminator has been reached.\n\n# Returns\nTrue if we are [Self::Stop](", stringify!($name), "::Stop), or false otherwise.")]
-        #[inline]
-        pub fn is_stop(&self) -> bool { matches!(self, Self::Stop(_)) }
-    };
-}
-
-/// Implements all the inner-by-references for the [`NextElem`]-variants.
-///
-/// # Variants
-/// - `next_elem_checks_impl($name:ident)`
-///   - `$name`: The name of the type for which to implement them.
-/// - `next_elem_checks_impl($($l:lifetime),+), $name:ident)`
-///   - `$l`: A list of lifetimes for this type.
-///   - `$name`: The name of the type for which to implement them.
-macro_rules! next_elem_ref_impl {
-    ($name:ident) => {
-        impl $name {
-            next_elem_ref_impl!(body_impl $name);
-        }
-        impl<'e_> From<&'e_ $name> for NextElemRef<'e_> {
-            #[inline]
-            fn from(value: &'e_ $name) -> NextElemRef<'e_> { value.as_ref() }
-        }
-    };
-    ($($l:lifetime),+, $name:ident) => {
-        impl<$($l),+> $name<$($l),+> {
-            next_elem_ref_impl!(body_impl $name);
-        }
-        impl<'e_, $($l),+> From<&'e_ $name<$($l),+>> for NextElemRef<'e_> {
-            #[inline]
-            fn from(value: &'e_ $name<$($l),+>) -> NextElemRef<'e_> { value.as_ref() }
-        }
-    };
-
-
-
-    // Private
-    (body_impl $name:ident) => {
-        #[doc = concat!("Returns the inner next graph element.\n\n# Returns\nA reference to the [`Elem`] that is contained within.\n\n#Panics\nThis function panics if we are not a [`Self::Elem`](", stringify!($name), "::Elem).")]
-        #[inline]
-        pub fn elem(&self) -> &Elem { if let Self::Elem(e) = self { e } else { panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Elem"), self.variant()); } }
-
-        #[doc = concat!("Returns the inner next value if this is a terminator.\n\n# Returns\nA reference to the [`Option<Dataset>`] that is contained within.\n\n# Panics\nThis function panics if we are not a [`Self::Stop](", stringify!($name), "::Stop).")]
-        #[inline]
-        pub fn returns(&self) -> &HashSet<Dataset> { match self { Self::Stop(r) => r, this => panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Stop"), this.variant()), } }
-
-        #[doc = concat!("Return a [`NextElemRef`] from this ", stringify!($name), ".\n\n# Returns\nA [`NextElemRef`] that contains a reference to the element in Self, if any.")]
-        #[inline]
-        pub fn as_ref(&self) -> NextElemRef {
-            match self {
-                Self::Elem(e) => NextElemRef::Elem(e),
-                Self::Next    => NextElemRef::Next,
-                Self::Stop(r) => NextElemRef::Stop(r),
-            }
-        }
-    };
-}
-
-/// Implements all the inner-by-mutable-references for the [`NextElem`]-variants.
-///
-/// # Variants
-/// - `next_elem_checks_impl($name:ident)`
-///   - `$name`: The name of the type for which to implement them.
-/// - `next_elem_checks_impl($($l:lifetime),+), $name:ident)`
-///   - `$l`: A list of lifetimes for this type.
-///   - `$name`: The name of the type for which to implement them.
-macro_rules! next_elem_mut_impl {
-    ($name:ident) => {
-        impl $name {
-            next_elem_mut_impl!(body_impl $name);
-        }
-        impl<'e_> From<&'e_ mut $name> for NextElemMut<'e_> {
-            #[inline]
-            fn from(value: &'e_ mut $name) -> NextElemMut<'e_> { value.as_mut() }
-        }
-    };
-    ($($l:lifetime),+, $name:ident) => {
-        impl<$($l),+> $name<$($l),+> {
-            next_elem_mut_impl!(body_impl $name);
-        }
-        impl<'e_, $($l),+> From<&'e_ mut $name<$($l),+>> for NextElemMut<'e_> {
-            #[inline]
-            fn from(value: &'e_ mut $name<$($l),+>) -> NextElemMut<'e_> { value.as_mut() }
-        }
-    };
-
-
-
-    // Private
-    (body_impl $name:ident) => {
-        #[doc = concat!("Returns the inner next graph element.\n\n# Returns\nA mutable reference to the [`Elem`] that is contained within.\n\n#Panics\nThis function panics if we are not a [`Self::Elem`](", stringify!($name), "::Elem).")]
-        #[inline]
-        pub fn elem_mut(&mut self) -> &mut Elem { if let Self::Elem(e) = self { e } else { panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Elem"), self.variant()); } }
-
-        #[doc = concat!("Returns the inner next value if this is a terminator.\n\n# Returns\nA mutable reference to the [`Option<Dataset>`] that is contained within.\n\n# Panics\nThis function panics if we are not a [`Self::Stop](", stringify!($name), "::Stop).")]
-        #[inline]
-        pub fn returns_mut(&mut self) -> &mut HashSet<Dataset> { match self { Self::Stop(r) => r, this => panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Stop"), this.variant()), } }
-
-        #[doc = concat!("Return a [`NextElemMut`] from this ", stringify!($name), ".\n\n# Returns\nA [`NextElemMut`] that contains a mutable reference to the element in Self, if any.")]
-        #[inline]
-        pub fn as_mut(&mut self) -> NextElemMut {
-            match self {
-                Self::Elem(e) => NextElemMut::Elem(e),
-                Self::Next    => NextElemMut::Next,
-                Self::Stop(r) => NextElemMut::Stop(r),
-            }
-        }
-    };
-}
-
-/// Implements all the into-inner for the [`NextElem`]-variants.
-///
-/// # Variants
-/// - `next_elem_checks_impl($name:ident)`
-///   - `$name`: The name of the type for which to implement them.
-macro_rules! next_elem_into_impl {
-    ($name:ident) => {
-        impl $name {
-            #[doc = concat!("Returns the inner next graph element.\n\n# Returns\nThe [`Elem`] that is contained within.\n\n#Panics\nThis function panics if we are not a [`Self::Elem`](", stringify!($name), "::Elem).")]
-            #[inline]
-            pub fn into_elem(self) -> Elem { if let Self::Elem(e) = self { e } else { panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Elem"), self.variant()); } }
-
-            #[doc = concat!("Returns the inner next value if this is a terminator.\n\n# Returns\nThe [`Option<Dataset>`] that is contained within.\n\n# Panics\nThis function panics if we are not a [`Self::Stop](", stringify!($name), "::Stop).")]
-            #[inline]
-            pub fn into_returns(self) -> HashSet<Dataset> { match self { Self::Stop(r) => r, this => panic!(concat!("Cannot unwrap {:?} as a ", stringify!($name), "::Stop"), this.variant()), } }
-        }
-    };
-}
-
-
-
-
-
-/***** AUXILLARY *****/
-/// Describes the next node from the current one; which is either the node or a particular terminator that was reached.
-///
-/// This version provides ownership of the next element. See [`NextElemRef`] for a shared reference, or [`NextElemMut`] for a mutable reference.
-#[derive(Clone, Debug, EnumDebug)]
-pub enum NextElem {
-    /// An element is next.
-    Elem(Elem),
-    /// An [`Elem::Next`]-terminator was encountered.
-    Next,
-    /// An [`Elem::Stop`]-terminator was encountered.
-    Stop(HashSet<Dataset>),
-}
-next_elem_checks_impl!(NextElem);
-next_elem_ref_impl!(NextElem);
-next_elem_mut_impl!(NextElem);
-next_elem_into_impl!(NextElem);
-
-/// Describes the next node from the current one; which is either the node or a particular terminator that was reached.
-///
-/// This version provides a shared reference of the next element. See [`NextElemRef`] for ownership, or [`NextElemMut`] for a mutable reference.
-#[derive(Clone, Copy, Debug, EnumDebug)]
-pub enum NextElemRef<'e> {
-    /// An element is next.
-    Elem(&'e Elem),
-    /// An [`Elem::Next`]-terminator was encountered.
-    Next,
-    /// An [`Elem::Stop`]-terminator was encountered.
-    Stop(&'e HashSet<Dataset>),
-}
-next_elem_checks_impl!('e, NextElemRef);
-next_elem_ref_impl!('e, NextElemRef);
-
-/// Describes the next node from the current one; which is either the node or a particular terminator that was reached.
-///
-/// This version provides a mutable reference of the next element. See [`NextElemRef`] for ownership, or [`NextElemRef`] for a shared reference.
-#[derive(Debug, EnumDebug)]
-pub enum NextElemMut<'e> {
-    /// An element is next.
-    Elem(&'e mut Elem),
-    /// An [`Elem::Next`]-terminator was encountered.
-    Next,
-    /// An [`Elem::Stop`]-terminator was encountered.
-    Stop(&'e mut HashSet<Dataset>),
-}
-next_elem_checks_impl!('e, NextElemMut);
-next_elem_ref_impl!('e, NextElemMut);
-next_elem_mut_impl!('e, NextElemMut);
-
-
-
 
 
 /***** AUXILLARY DATA *****/
@@ -345,67 +121,6 @@ pub enum Elem {
     /// The option indicates if any data is carried to the remaining code.
     Stop(HashSet<Dataset>),
 }
-impl Elem {
-    /// Retrieves the `next` element of ourselves.
-    ///
-    /// If this Elem is a terminating element, then it returns which of the ones is reached.
-    ///
-    /// # Returns
-    /// A [`NextElemRef`]-enum that either gives the next element in [`NextElemRef::Elem`], or a terminator as [`NextElemRef::Next`] or [`NextElemRef::Stop`].
-    pub fn next(&self) -> NextElemRef {
-        match self {
-            Self::Task(ElemTask { next, .. }) => NextElemRef::Elem(next),
-            Self::Commit(ElemCommit { next, .. }) => NextElemRef::Elem(next),
-
-            Self::Branch(ElemBranch { next, .. }) | Self::Parallel(ElemParallel { next, .. }) | Self::Loop(ElemLoop { next, .. }) => {
-                NextElemRef::Elem(next)
-            },
-
-            Self::Next => NextElemRef::Next,
-            Self::Stop(returns) => NextElemRef::Stop(returns),
-        }
-    }
-
-    /// Retrieves the `next` element of ourselves.
-    ///
-    /// If this Elem is a terminating element, then it returns which of the ones is reached.
-    ///
-    /// # Returns
-    /// A [`NextElemMut`]-enum that either gives the next element in [`NextElemMut::Elem`], or a terminator as [`NextElemMut::Next`] or [`NextElemMut::Stop`].
-    pub fn next_mut(&mut self) -> NextElemMut {
-        match self {
-            Self::Task(ElemTask { next, .. }) => NextElemMut::Elem(next),
-            Self::Commit(ElemCommit { next, .. }) => NextElemMut::Elem(next),
-
-            Self::Branch(ElemBranch { next, .. }) | Self::Parallel(ElemParallel { next, .. }) | Self::Loop(ElemLoop { next, .. }) => {
-                NextElemMut::Elem(next)
-            },
-
-            Self::Next => NextElemMut::Next,
-            Self::Stop(returns) => NextElemMut::Stop(returns),
-        }
-    }
-
-    /// Retrieves the `next` element of ourselves.
-    ///
-    /// If this Elem is a terminating element, then it returns which of the ones is reached.
-    ///
-    /// # Returns
-    /// A [`NextElem`]-enum that either gives the next element in [`NextElem::Elem`], or a terminator as [`NextElem::Next`] or [`NextElem::Stop`].
-    pub fn into_next(self) -> NextElem {
-        match self {
-            Self::Task(ElemTask { next, .. }) => NextElem::Elem(*next),
-            Self::Commit(ElemCommit { next, .. }) => NextElem::Elem(*next),
-
-            Self::Branch(ElemBranch { next, .. }) | Self::Parallel(ElemParallel { next, .. }) | Self::Loop(ElemLoop { next, .. }) => {
-                NextElem::Elem(*next)
-            },
-
-            Self::Next => NextElem::Next,
-            Self::Stop(returns) => NextElem::Stop(returns),
-        }
-    }
-}
 
 /// Defines a task node in the graph consisting of [`Elem`]s, which defines data access.
 ///
@@ -448,6 +163,10 @@ pub struct ElemCommit {
 
     /// The name after committing.
     pub data_name: String,
+    /// The location where the commit is planned to be "executed", if any.
+    ///
+    /// Note that this location is a little bit weird in the context of a commit, as it's just an adminstrative procedure. It can thus be interpreted purely as: "the location where the new output will be advertised".
+    pub location:  Option<Location>,
     /// Any input datasets used by the task.
     ///
     /// Note that this denotes a set of **possible** input sets. One or more of these may actually be used at runtime.

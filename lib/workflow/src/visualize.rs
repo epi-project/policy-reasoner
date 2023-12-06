@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:30:00
 //  Last edited:
-//    15 Nov 2023, 11:14:02
+//    06 Dec 2023, 16:32:58
 //  Auto updated?
 //    Yes
 //
@@ -123,9 +123,12 @@ fn print_elem(f: &mut Formatter, elem: &Elem, prefix: &dyn Display) -> FResult {
             // Do next
             print_elem(f, next, prefix)
         },
-        Elem::Commit(ElemCommit { id, data_name, input, next }) => {
+        Elem::Commit(ElemCommit { id, data_name, location, input, next }) => {
             writeln!(f, "{prefix}commit <{} as '{}'>", write_iter!(input.iter().map(|data| format!("'{}'", data.name)), " or "), data_name)?;
-            writeln!(f, "{prefix}  - id : {id}")?;
+            writeln!(f, "{prefix}  - id {}: {id}", if location.is_some() { (0..13).map(|_| ' ').collect::<String>() } else { String::new() })?;
+            if let Some(location) = location {
+                writeln!(f, "{prefix}  - output location : {location}")?;
+            }
 
             // Do next
             print_elem(f, next, prefix)

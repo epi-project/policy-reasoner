@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:20:54
 //  Last edited:
-//    16 Nov 2023, 17:11:05
+//    06 Dec 2023, 17:52:26
 //  Auto updated?
 //    Yes
 //
@@ -175,7 +175,7 @@ struct Arguments {
     #[clap(
         short,
         long,
-        default_value = "",
+        default_value = "workflow",
         help = "The language of the output. Options are: `wf` or `workflow` for the workflow visualisation; `json` for JSON or `eflint` for eFLINT \
                 phrases. Note that the letter is only available when compiled with the `eflint`-feature."
     )]
