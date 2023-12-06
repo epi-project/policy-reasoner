@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 14:20:44
 // Last edited:
-//   30 Nov 2023, 14:28:41
+//   06 Dec 2023, 12:25:22
 // Auto updated?
 //   Yes
 //
@@ -19,6 +19,7 @@
 +asset(A).
 +asset(B).
 +asset(C).
++asset(D).
 
 +asset(F).
 +code(asset(F)).
@@ -47,3 +48,8 @@
 +node-output(node(workflow(W), Y), asset(C)).
 +task-code(task(node(workflow(W), Y)), code(asset(G))).
 +task-at(task(node(workflow(W), Y)), domain(user(Bob))).
+
++node(workflow(W), Z).
++commit(node(workflow(W), Z)).
++node-input(node(workflow(W), Z), asset(C)).
++node-output(node(workflow(W), Z), asset(D)).

@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:55:00
 // Last edited:
-//   30 Nov 2023, 14:17:11
+//   06 Dec 2023, 12:07:01
 // Auto updated?
 //   Yes
 //
@@ -15,6 +15,38 @@
 
 #require "workflow_base.eflint".
 
+
+// Asserts that users exist when mentioned somewhere.
+Invariant user-exists-workflow When
+    (Forall workflow-result-recipient : workflow-result-recipient.user).
+// Asserts that domains exist when mentioned somewhere.
+Invariant domain-exists-workflow When
+    (Forall task-at : task-at.domain).
+// Asserts that assets exist when mentioned somewhere.
+Invariant asset-exists-workflow When
+    (Forall workflow-result : workflow-result.asset) &&
+    (Forall node-input : node-input.asset) && (Forall node-output : node-output.asset).
+// Asserts that codes exist when mentioned somewhere.
+Invariant code-exists-workflow When
+    (Forall task-code : task-code.code).
+
+// Asserts that workflows exist when mentioned somewhere.
+Invariant workflow-exists When
+    (Forall workflow-result : workflow-result.workflow) && (Forall node : node.workflow).
+// Asserts that workflow-results exist when mentioned somewhere.
+Invariant workflow-result-exists When
+    (Forall workflow-result-recipient : workflow-result-recipient.workflow-result).
+// Asserts that nodes exist when mentioned somewhere.
+Invariant node-exists When
+    (Forall node-input : node-input.node) && (Forall node-output : node-output.node) &&
+    (Forall node-depends-on : node-depends-on.node1 && node-depends-on.node2) &&
+    (Forall task : task.node) && (Forall commit : commit.node).
+// // Asserts that node-depends-ons exist when mentioned somewhere
+// Invariant node-depends-on-exists When
+//     (Forall node-depends-on-ensured : node-depends-on-ensured.node-depends-on).
+// Asserts that tasks exist when mentioned somewhere
+Invariant task-exists When
+    (Forall task-code : task-code.task) && (Forall task-at : task-at.task).
 
 // Asserts that every workflow has at most 1 result that is being received by someone.
 Invariant workflow-at-most-one-result-recipient When

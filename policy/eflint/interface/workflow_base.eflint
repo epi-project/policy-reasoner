@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:14:15
 // Last edited:
-//   30 Nov 2023, 13:59:54
+//   06 Dec 2023, 12:23:23
 // Auto updated?
 //   Yes
 //
@@ -15,6 +15,7 @@
 #require "state.eflint".
 
 
+///// DEFINITIONS /////
 // Declares a particular workflow.
 Fact workflow.
 // Defines a dataset that is the product of this workflow.
@@ -26,9 +27,7 @@ Fact workflow-result-recipient Identified by workflow-result * user.
 Fact node Identified by workflow * string.
 // Relates _data_ as _possible_ input to a node. Whether this data is actually given as input depends on dynamic control flow. See `node-input-ensured` to find out which inputs are given in \*all\* control flow paths.
 Fact node-input Identified by node * asset.
-// A predicate over `node-input` that denotes it isn't a possible input dataset, but an ensured input dataset. Note that, for `commit`s, this can be at most 1, correctly implying `commit` can only commit a single dataset.
-Fact node-input-ensured Identified by node-input.
-// Relates _data_ as output to a node. Can be at most 1.
+// Relates asset as output to a node. Can be at most 1.
 Fact node-output Identified by node * asset.
 
 // Declares a particular call of a function.

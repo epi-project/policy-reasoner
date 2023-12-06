@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:15:54
 // Last edited:
-//   30 Nov 2023, 11:54:23
+//   06 Dec 2023, 11:02:35
 // Auto updated?
 //   Yes
 //
@@ -26,5 +26,5 @@ Fact asset.
 // Observations:
 // - If the `user` happens to be a `domain`, then the user may use their access to perform tasks on the data within Brane.
 Fact asset-access Identified by asset * user.
-// Defines assets that can be used in function-position in tasks (see `workflow_defs.eflint`).
+// Defines assets that can be used in function-position in tasks (see `workflow_base.eflint`).
 Fact code Identified by asset.

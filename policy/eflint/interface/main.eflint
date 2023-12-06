@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:13:01
 // Last edited:
-//   30 Nov 2023, 13:49:51
+//   06 Dec 2023, 12:01:39
 // Auto updated?
 //   Yes
 //
@@ -26,5 +26,8 @@
 
 
 ///// ASSERTIONS /////
+// Add state assertions
+#require "state_assert.eflint".
+
 // Add workflow assertions
 #require "workflow_assert.eflint".
