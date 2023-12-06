@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:14:15
 // Last edited:
-//   06 Dec 2023, 12:23:23
+//   06 Dec 2023, 15:01:16
 // Auto updated?
 //   Yes
 //
@@ -29,13 +29,11 @@ Fact node Identified by workflow * string.
 Fact node-input Identified by node * asset.
 // Relates asset as output to a node. Can be at most 1.
 Fact node-output Identified by node * asset.
+// Defines where a particular node is executed. Can be at most 1.
+Fact node-at Identified by node * domain.
 
 // Declares a particular call of a function.
 Fact task Identified by node.
-// Relates _code_ as what is being executed in a task. Can be at most 1.
-Fact task-code Identified by task * code.
-// Defines where a particular task is executed. Can be at most 1.
-Fact task-at Identified by task * domain.
 
 // Declares the publication of a particular dataset.
 Fact commit Identified by node.

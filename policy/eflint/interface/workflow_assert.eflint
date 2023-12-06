@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:55:00
 // Last edited:
-//   06 Dec 2023, 12:07:01
+//   06 Dec 2023, 15:07:19
 // Auto updated?
 //   Yes
 //
@@ -39,33 +39,29 @@ Invariant workflow-result-exists When
 // Asserts that nodes exist when mentioned somewhere.
 Invariant node-exists When
     (Forall node-input : node-input.node) && (Forall node-output : node-output.node) &&
-    (Forall node-depends-on : node-depends-on.node1 && node-depends-on.node2) &&
+    (Forall node-at : node-at.node) &&
     (Forall task : task.node) && (Forall commit : commit.node).
 // // Asserts that node-depends-ons exist when mentioned somewhere
 // Invariant node-depends-on-exists When
 //     (Forall node-depends-on-ensured : node-depends-on-ensured.node-depends-on).
-// Asserts that tasks exist when mentioned somewhere
-Invariant task-exists When
-    (Forall task-code : task-code.task) && (Forall task-at : task-at.task).
+// // Asserts that tasks exist when mentioned somewhere
+// Invariant task-exists When
+//     (Forall task-code : task-code.task).
 
 // Asserts that every workflow has at most 1 result that is being received by someone.
 Invariant workflow-at-most-one-result-recipient When
-    (Forall workflow : Count(Foreach asset, user : workflow-result-recipient(workflow-result(workflow, asset), user) When Holds(workflow-result-recipient(workflow-result(workflow, asset), user))) <= 1).
+    (Forall workflow : Count(Foreach asset, user : workflow-result-recipient(workflow-result(workflow, asset), user) When workflow-result-recipient(workflow-result(workflow, asset), user)) <= 1).
 
 // Asserts that no node produces its own output.
 Invariant node-not-recursive-input-output When
     (Forall node : Not(Exists asset : (node-input(node, asset) && node-output(node, asset)))).
 // Asserts that every node has at most 1 output.
 Invariant node-at-most-one-output When
-    (Forall node : Count(Foreach asset : node-output(node, asset) When Holds(node-output(node, asset))) <= 1).
+    (Forall node : Count(Foreach asset : node-output(node, asset) When node-output(node, asset)) <= 1).
+// Asserts that every node has exactly 1 assigned domain.
+Invariant node-exactly-one-at When
+    (Forall node : Count(Foreach domain : node-at(node, domain) When node-at(node, domain)) == 1).
 
 // Asserts that every task has at most 1 function.
 Invariant task-at-most-one-code When
-    (Forall task : Count(Foreach code : task-code(task, code) When Holds(task-code(task, code))) <= 1).
-// Asserts that every task has exactly 1 assigned function.
-Invariant task-exactly-one-at When
-    (Forall task : Count(Foreach domain : task-at(task, domain) When Holds(task-at(task, domain))) == 1).
-
-// Asserts that every commit has at most 1 assured input.
-Invariant commit-at-most-one-input-ensured When
-    (Forall commit : Count(Foreach asset : node-input-ensure(commit.node, asset) When Holds(node-input-ensure(commit.node, asset))) <= 1).
+    (Forall task : Count(Foreach code : node-input(task.node, code.asset) When node-input(task.node, code.asset)) <= 1).

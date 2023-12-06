@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:33:50
 // Last edited:
-//   06 Dec 2023, 12:31:13
+//   06 Dec 2023, 15:05:54
 // Auto updated?
 //   Yes
 //
@@ -24,48 +24,34 @@ Extend Fact node
 // Unifies inputs and outputs of a node.
 Fact node-asset Identified by node * asset
     Holds when (node-input(node, asset) || node-output(node, asset)).
-// Unifies asset inputs and code to a task.
-Fact task-input-asset Identified by task * asset
-    Holds when (node-input(task.node, asset) || task-code(task(node), code(asset))).
 // Unifies asset inputs, outputs and code to a task.
 Fact task-asset Identified by task * asset
     Holds when (task-input-asset(task, asset) || node-output(task.node, asset)).
+// Relates _code_ as what is being executed in a task. Can be at most 1.
+Fact task-code Identified by task * code
+    Derived from (Foreach node-input : task-code(task(node-input.node), code(node-input.asset)) When (task(node-input.node) && code(node-input.asset))).
 
 // Compute the assets on all domains that compute stuff
 Extend Fact asset-access
-    Holds when (Exists task : task-asset(task, asset) && task-at(task, domain)).
+    Derived from (Foreach node, asset, domain : asset-access(asset, domain.user) When ((node-asset(node, asset) || (task(node) && task-code(task(node), code(asset)))) && node-at(node, domain))).
 
 // Indicates that the input of the first node \*might\* depend on the output of the second. Whether this is actually the case depends on dynamic control flow.
 Fact node-depends-on Identified by node1 * node2
+    Conditioned by node1.workflow == node2.workflow
     Holds when node1 == node2
     Holds when (Exists asset : node-input(node1, asset) && node-output(node2, asset))
     Holds when (Exists node' : node-depends-on(node1, node') && node-depends-on(node', node2)).
 // Derives a concrete relation of all the assets upon which a node depends.
 Fact node-depends-on-asset Identified by node * asset
-    Derived from (Foreach node-depends-on, asset : node-depends-on-asset(node-depends-on.node1, asset) When node-input(node-depends-on.node2, asset)).
+    Derived from (Foreach node-depends-on, asset :
+        node-depends-on-asset(node-depends-on.node1, asset)
+            When node-input(node-depends-on.node2, asset)
+    ).
 
+// Derives all nodes that are dependencies of particular assets
+Fact asset-dependency-of-node Identified by asset * node
+    Derived from (Foreach node-depends-on-asset : asset-dependency-of-node(node-depends-on-asset.asset, node-depends-on-asset.node)).
 // Derives all the domains to which an asset downstreams.
 Fact asset-downstream-domain Identified by asset * domain
-    Derived from (Foreach node-depends-on-asset, domain : asset-downstream-domain(node-depends-on-asset.asset, domain) When task(node-depends-on-asset.node) && task-at(task(node-depends-on-asset.node), domain)).
-
-// // A predicate over `node-input` that denotes it isn't a _possible_ input dataset, but an _ensured_ input dataset. Note that, for `commit`s, this can be at most 1, (correctly) implying `commit` can only commit a single dataset at a time.
-// Fact node-input-ensured Identified by node-input
-//     Derived from (Foreach node, asset : node-input-ensured(node-input(node, asset)) When node-input(node, asset)).
-
-// // Relates an asset to all of its "children"
-// Fact asset-downstream Identified by asset1 * asset2
-//     Holds when (asset1 == asset2)
-//     Holds when (Exists node : node-input(node, asset1) && node-output(node, asset2))
-//     // Editor's note: super slow, might comment-out if too slow
-//     Holds when (Exists asset' : asset-downstream(asset1, asset') && asset-downstream(asset', asset2)).
-// Fact asset-touches Identified by asset * domain
-//     Holds when asset-access(asset, domain.user)
-//     Holds when (Exists commit, asset' : node-output(commit.node, asset')).
-
-// // Relates an asset to all locations that it touches based on the given workflow.
-// Fact asset-touches Identified by asset * domain
-//     Holds when (asset-access(asset, domain.user))
-//     Holds when (Exists task : (node-input(task.node, asset) || node-output(task.node, asset)) && task-at(task, domain)).
-// Fact asset-touches-tree Identified by asset * domain
-//     Holds when (asset-touches(asset, domain))
-//     Derived from (Foreach asset, domain, asset', domain' : asset-touched(asset, domain') When (Exists node1, node2 : node-output(node1, asset) && node-input(node2, asset') && node-at(node2, domain'))).
+    Derived from (Foreach node-asset, domain : asset-downstream-domain(node-asset.asset, domain) When node-at(node-asset.node, domain))
+    Derived from (Foreach asset-dependency-of-node, domain : asset-downstream-domain(asset-dependency-of-node.asset, domain) When node-at(asset-dependency-of-node.node, domain)).

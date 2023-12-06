@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 14:20:44
 // Last edited:
-//   06 Dec 2023, 12:25:22
+//   06 Dec 2023, 15:05:03
 // Auto updated?
 //   Yes
 //
@@ -28,28 +28,29 @@
 
 +user(Amy).
 +domain(user(Amy)).
-+asset-access(asset(A), user(Amy)).
 +user(Bob).
 +domain(user(Bob)).
-+asset-access(asset(B), user(Bob)).
++user(Cho).
++domain(user(Cho)).
 
 +workflow(W).
 
 +node(workflow(W), X).
 +task(node(workflow(W), X)).
 +node-input(node(workflow(W), X), asset(A)).
++node-input(node(workflow(W), X), asset(F)).
 +node-output(node(workflow(W), X), asset(B)).
-+task-code(task(node(workflow(W), X)), code(asset(F))).
-+task-at(task(node(workflow(W), X)), domain(user(Amy))).
++node-at(node(workflow(W), X), domain(user(Amy))).
 
 +node(workflow(W), Y).
 +task(node(workflow(W), Y)).
 +node-input(node(workflow(W), Y), asset(B)).
++node-input(node(workflow(W), Y), asset(G)).
 +node-output(node(workflow(W), Y), asset(C)).
-+task-code(task(node(workflow(W), Y)), code(asset(G))).
-+task-at(task(node(workflow(W), Y)), domain(user(Bob))).
++node-at(node(workflow(W), Y), domain(user(Bob))).
 
 +node(workflow(W), Z).
 +commit(node(workflow(W), Z)).
 +node-input(node(workflow(W), Z), asset(C)).
 +node-output(node(workflow(W), Z), asset(D)).
++node-at(node(workflow(W), Z), domain(user(Cho))).
