@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:14:15
 // Last edited:
-//   06 Dec 2023, 15:01:16
+//   06 Dec 2023, 15:24:44
 // Auto updated?
 //   Yes
 //
@@ -27,6 +27,8 @@ Fact workflow-result-recipient Identified by workflow-result * user.
 Fact node Identified by workflow * string.
 // Relates _data_ as _possible_ input to a node. Whether this data is actually given as input depends on dynamic control flow. See `node-input-ensured` to find out which inputs are given in \*all\* control flow paths.
 Fact node-input Identified by node * asset.
+// Relates an input to a domain where it will be downloaded from. Can be at most 1.
+Fact node-input-from Identified by node-input * domain.
 // Relates asset as output to a node. Can be at most 1.
 Fact node-output Identified by node * asset.
 // Defines where a particular node is executed. Can be at most 1.
@@ -34,6 +36,8 @@ Fact node-at Identified by node * domain.
 
 // Declares a particular call of a function.
 Fact task Identified by node.
+// Determines that a particular input asset acts as the code for that asset. Given as the input and the name of the function to call in that input.
+Fact function Identified by node-input * string.
 
 // Declares the publication of a particular dataset.
 Fact commit Identified by node.

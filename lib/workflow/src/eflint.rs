@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    29 Nov 2023, 14:25:36
+//    06 Dec 2023, 15:48:22
 //  Auto updated?
 //    Yes
 //
@@ -63,73 +63,87 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
         match elem {
             Elem::Task(ElemTask { id, name, package, version, input, output, location, metadata, next }) => {
                 // Define a new task call and make it part of the workflow
-                phrases.push(create!(constr_app!("task", str_lit!(id.clone()))));
-                phrases.push(create!(constr_app!("task-in", constr_app!("workflow", str_lit!(wf_id)), constr_app!("task", str_lit!(id.clone())))));
+                // ```eflint
+                // +node(workflow(#wf_id), #id).
+                // +task(node(workflow(#wf_id), #id)).
+                // ```
+                let node: Expression = constr_app!("node", constr_app!("workflow", str_lit!(wf_id)), str_lit!(id.clone()));
+                phrases.push(create!(node.clone()));
+                phrases.push(create!(constr_app!("task", node.clone())));
 
-                // Add the container
-                phrases.push(create!(constr_app!(
-                    "function",
-                    constr_app!("task", str_lit!(id.clone())),
-                    str_lit!(name.clone()),
-                    constr_app!("dataset", str_lit!(format!("{}-{}", package, version)))
-                )));
-                // Add its inputs and outputs
+                // Link the code input
+                // ```eflint
+                // +node-input(#node, asset("#package-#version")).
+                // +function(node-input(#node, asset("#package-#version")), #name).
+                // ```
+                let code_input: Expression =
+                    constr_app!("node-input", node.clone(), constr_app!("asset", str_lit!(format!("{}-{}", package, version))));
+                phrases.push(create!(code_input.clone()));
+                phrases.push(create!(constr_app!("function", code_input.clone(), str_lit!(name.clone()))));
+
+                // Add its inputs
                 for i in input {
                     // Link this input to the task
-                    phrases.push(create!(constr_app!(
-                        "argument",
-                        constr_app!("task", str_lit!(id.clone())),
-                        constr_app!("dataset", str_lit!(i.name.clone()))
-                    )));
+                    // ```eflint
+                    // +node-input(#node, asset(#i.name)).
+                    // ```
+                    let node_input: Expression = constr_app!("node-input", node.clone(), constr_app!("asset", str_lit!(i.name.clone())));
+                    phrases.push(create!(node_input.clone()));
 
                     // Add where this dataset lives if we know that
                     if let Some(from) = &i.from {
+                        // It's planned to be transferred from this location
+                        // ```eflint
+                        // +node-input-from(#node-input, domain(user(#from))).
+                        // ```
                         phrases.push(create!(constr_app!(
-                            "data-at",
-                            constr_app!("dataset", str_lit!(i.name.clone())),
-                            constr_app!("user", str_lit!(from.clone()))
+                            "node-input-from",
+                            node_input,
+                            constr_app!("domain", constr_app!("user", str_lit!(from.clone())))
                         )));
                     } else if let Some(at) = location {
+                        // It's present on the task's location
+                        // ```eflint
+                        // +node-input-from(#node-input, domain(user(#at))).
+                        // ```
                         phrases.push(create!(constr_app!(
-                            "data-at",
-                            constr_app!("dataset", str_lit!(i.name.clone())),
-                            constr_app!("user", str_lit!(at.clone()))
+                            "node-input-from",
+                            node_input,
+                            constr_app!("domain", constr_app!("user", str_lit!(at.clone())))
                         )));
+                    } else {
+                        warn!("Encountered dataset '{}' without transfer source in task '{}' as part of workflow '{}'", i.name, id, wf_id);
                     }
                 }
                 // Add the output, if any
                 if let Some(o) = &output {
-                    phrases.push(create!(constr_app!(
-                        "output",
-                        constr_app!("task", str_lit!(id.clone())),
-                        constr_app!("dataset", str_lit!(o.name.clone()))
-                    )));
+                    // ```eflint
+                    // +node-output(#node, asset(#o.name)).
+                    // ```
+                    phrases.push(create!(constr_app!("node-output", node.clone(), constr_app!("asset", str_lit!(o.name.clone())))));
                 }
                 // Add the location of the task execution
                 if let Some(at) = location {
-                    phrases.push(create!(constr_app!(
-                        "task-at",
-                        constr_app!("task", str_lit!(id.clone())),
-                        constr_app!("domain", constr_app!("user", str_lit!(at.clone())))
-                    )));
+                    // ```eflint
+                    // +node-at(#node, domain(user(#at))).
+                    // ```
+                    phrases.push(create!(constr_app!("task-at", node.clone(), constr_app!("domain", constr_app!("user", str_lit!(at.clone()))))));
                 } else {
                     warn!("Encountered unplanned task '{id}' part of workflow '{wf_id}'");
                 }
 
                 // Finally, add any task metadata
                 for m in metadata {
+                    // ```eflint
+                    // +node-metadata(#node, metadata(tag(user(#m.owner), #m.tag), signature(user(#m.assigner), #m.signature)))).
+                    // ```
                     phrases.push(create!(constr_app!(
-                        "task-metadata",
-                        constr_app!("task", str_lit!(id.clone())),
+                        "node-metadata",
+                        node.clone(),
                         constr_app!(
                             "metadata",
-                            constr_app!(
-                                "metadata",
-                                constr_app!("owner", constr_app!("user", str_lit!(m.owner.clone()))),
-                                constr_app!("tag", str_lit!(m.tag.clone())),
-                                constr_app!("assigner", constr_app!("user", str_lit!(m.assigner.clone()))),
-                                constr_app!("signature", str_lit!(m.signature.clone()))
-                            )
+                            constr_app!("tag", constr_app!("user", str_lit!(m.owner.clone())), str_lit!(m.tag.clone())),
+                            constr_app!("signature", constr_app!("user", str_lit!(m.assigner.clone())), str_lit!(m.signature.clone())),
                         )
                     )));
                 }
@@ -139,10 +153,20 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, phrases: &mut Vec<Phrase>) {
             },
             Elem::Commit(ElemCommit { id, data_name, input, next }) => {
                 // Add the commit task
-                phrases.push(create!(constr_app!("commit", str_lit!(id.clone()))));
+                // ```eflint
+                // +node(workflow(#wf_id), #id).
+                // +commit(node(workflow(#wf_id), #id)).
+                // ```
+                let node: Expression = constr_app!("node", constr_app!("workflow", str_lit!(wf_id)), str_lit!(id.clone()));
+                phrases.push(create!(node.clone()));
+                phrases.push(create!(constr_app!("commit", node.clone())));
 
                 // Add the commits it (possibly!) does
                 for i in input {
+                    // ```eflint
+                    //
+                    // ```
+                    todo!();
                     phrases.push(create!(constr_app!(
                         "commits",
                         constr_app!("commit", str_lit!(id.clone())),

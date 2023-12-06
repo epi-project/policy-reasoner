@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:55:00
 // Last edited:
-//   06 Dec 2023, 15:07:19
+//   06 Dec 2023, 15:26:57
 // Auto updated?
 //   Yes
 //
@@ -52,6 +52,9 @@ Invariant node-exists When
 Invariant workflow-at-most-one-result-recipient When
     (Forall workflow : Count(Foreach asset, user : workflow-result-recipient(workflow-result(workflow, asset), user) When workflow-result-recipient(workflow-result(workflow, asset), user)) <= 1).
 
+// Asserts that every input has exactly one source location.
+Invariant node-input-exactly-one-from When
+    (Forall node-input : Count(Foreach domain : node-input-from(node-input, domain) When node-input-from(node-input, domain)) == 1).
 // Asserts that no node produces its own output.
 Invariant node-not-recursive-input-output When
     (Forall node : Not(Exists asset : (node-input(node, asset) && node-output(node, asset)))).
@@ -62,6 +65,9 @@ Invariant node-at-most-one-output When
 Invariant node-exactly-one-at When
     (Forall node : Count(Foreach domain : node-at(node, domain) When node-at(node, domain)) == 1).
 
-// Asserts that every task has at most 1 function.
-Invariant task-at-most-one-code When
-    (Forall task : Count(Foreach code : node-input(task.node, code.asset) When node-input(task.node, code.asset)) <= 1).
+// Asserts that every task has exactly 1 function.
+Invariant task-exactly-one-function When
+    (Forall task : Count(Foreach function : function When (function.node-input.node == task.node)) <= 1).
+// Asserts that every function is only linking code.
+Invariant function-over-code When
+    (Forall function : code(function.node-input.asset)).
