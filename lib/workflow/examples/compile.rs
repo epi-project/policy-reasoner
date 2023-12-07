@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:20:54
 //  Last edited:
-//    07 Dec 2023, 10:13:05
+//    07 Dec 2023, 11:30:00
 //  Auto updated?
 //    Yes
 //
@@ -129,6 +129,9 @@ enum OutputLanguage {
     Workflow,
     /// JSON serialization
     Json,
+    /// eFLINT JSON phrases
+    #[cfg(feature = "eflint")]
+    EFlintJson,
     /// eFLINT phrases
     #[cfg(feature = "eflint")]
     EFlint,
@@ -141,6 +144,8 @@ impl FromStr for OutputLanguage {
         match s {
             "wf" | "workflow" => Ok(Self::Workflow),
             "json" => Ok(Self::Json),
+            #[cfg(feature = "eflint")]
+            "eflint-json" => Ok(Self::EFlintJson),
             #[cfg(feature = "eflint")]
             "eflint" => Ok(Self::EFlint),
             raw => Err(OutputLanguageParseError::Unknown { raw: raw.into() }),
@@ -177,8 +182,8 @@ struct Arguments {
         short,
         long,
         default_value = "workflow",
-        help = "The language of the output. Options are: `wf` or `workflow` for the workflow visualisation; `json` for JSON or `eflint` for eFLINT \
-                phrases. Note that the letter is only available when compiled with the `eflint`-feature."
+        help = "The language of the output. Options are: `wf` or `workflow` for the workflow visualisation; `json` for JSON; `eflint-json` for \
+                eFLINT JSON; or 'eflint' for eFLINT phrases. Note that the latter two are only available when compiled with the `eflint`-feature."
     )]
     output: OutputLanguage,
     /// Whether to plan inputs.
@@ -319,12 +324,18 @@ fn main() {
                 },
             },
             #[cfg(feature = "eflint")]
-            OutputLanguage::EFlint => match serde_json::to_string_pretty(&wf.to_eflint()) {
+            OutputLanguage::EFlintJson => match serde_json::to_string_pretty(&wf.to_eflint()) {
                 Ok(phrases) => println!("{phrases}"),
                 Err(err) => {
                     error!("{}", err.trace());
                     std::process::exit(1);
                 },
+            },
+            #[cfg(feature = "eflint")]
+            OutputLanguage::EFlint => {
+                for phrase in wf.to_eflint() {
+                    print!("{:#}", <eflint_json::spec::Phrase as eflint_json::DisplayEFlint>::display_syntax(&phrase));
+                }
             },
         }
     }

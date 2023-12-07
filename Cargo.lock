@@ -697,7 +697,9 @@ name = "eflint-json"
 version = "0.1.0"
 source = "git+https://gitlab.com/eflint/json-spec-rs#f00314a4772411dcb08a1d38509228059b726d43"
 dependencies = [
+ "console",
  "enum-debug",
+ "lazy_static",
  "serde",
 ]
 
