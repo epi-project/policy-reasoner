@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:13:01
 // Last edited:
-//   06 Dec 2023, 12:01:39
+//   07 Dec 2023, 16:51:38
 // Auto updated?
 //   Yes
 //
@@ -20,8 +20,11 @@
 // Add in the workflow definitions
 #require "workflow_base.eflint".
 
-// add in the metadata
+// Add in the metadata
 #require "metadata.eflint".
+
+// Add in the queries
+#require "queries.eflint"
 
 
 
