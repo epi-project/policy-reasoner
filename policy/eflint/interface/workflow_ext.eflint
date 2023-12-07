@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:33:50
 // Last edited:
-//   06 Dec 2023, 15:39:41
+//   07 Dec 2023, 13:41:10
 // Auto updated?
 //   Yes
 //
@@ -16,17 +16,15 @@
 #require "workflow_base.eflint".
 
 
-// Automatically derives that a node exists if a task or commit exists.
+// Automatically derives that a node exists if a task, commit or loop exists.
 Extend Fact node
     Derived from (Foreach task : task.node)
-    Derived from (Foreach commit : commit.node).
+    Derived from (Foreach commit : commit.node)
+    Derived from (Foreach loop : loop.node).
 
 // Unifies inputs and outputs of a node.
 Fact node-asset Identified by node * asset
     Holds when (node-input(node, asset) || node-output(node, asset)).
-// Unifies asset inputs, outputs and code to a task.
-Fact task-asset Identified by task * asset
-    Holds when (task-input-asset(task, asset) || node-output(task.node, asset)).
 // Relates _code_ as what is being executed in a task. Can be at most 1.
 Fact task-code Identified by task * code
     Derived from (Foreach node-input : task-code(task(node-input.node), code(node-input.asset)) When (task(node-input.node) && code(node-input.asset))).

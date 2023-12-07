@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:55:00
 // Last edited:
-//   06 Dec 2023, 15:26:57
+//   07 Dec 2023, 13:38:17
 // Auto updated?
 //   Yes
 //
@@ -40,7 +40,10 @@ Invariant workflow-result-exists When
 Invariant node-exists When
     (Forall node-input : node-input.node) && (Forall node-output : node-output.node) &&
     (Forall node-at : node-at.node) &&
-    (Forall task : task.node) && (Forall commit : commit.node).
+    (Forall task : task.node) && (Forall commit : commit.node) && (Forall loop : loop.node) && (Forall loop-body : loop-body.node).
+// Asserts that loops exist when mentioned somewhere.
+Invariant loop-exists When
+    (Forall loop-body : loop-body.loop).
 // // Asserts that node-depends-ons exist when mentioned somewhere
 // Invariant node-depends-on-exists When
 //     (Forall node-depends-on-ensured : node-depends-on-ensured.node-depends-on).
@@ -71,3 +74,10 @@ Invariant task-exactly-one-function When
 // Asserts that every function is only linking code.
 Invariant function-over-code When
     (Forall function : code(function.node-input.asset)).
+
+// Asserts every loop has exactly one body
+Invariant loop-exactly-one-body When
+    (Forall loop : Count(Foreach node : loop-body(loop, node) When loop-body(loop, node)) == 1).
+// Asserts that the input of a loop matches the first node in the loop's body
+Invariant loop-input-equals-body-input When
+    (Forall loop-body : (Forall asset' : (node-input(loop-body.loop.node, asset') && node-input(loop-body.node, asset')) When (node-input(loop-body.loop.node, asset') || node-input(loop-body.node, asset')))).

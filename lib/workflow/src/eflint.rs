@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    07 Dec 2023, 11:43:48
+//    07 Dec 2023, 16:26:35
 //  Auto updated?
 //    Yes
 //
@@ -13,11 +13,15 @@
 //!   Specification.
 //
 
+use std::collections::{HashMap, HashSet};
+
 use eflint_json::spec::{ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate};
 use enum_debug::EnumDebug as _;
 use log::{trace, warn};
+use rand::distributions::Alphanumeric;
+use rand::Rng as _;
 
-use crate::spec::{Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
+use crate::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
 
 
 /***** HELPER MACROS *****/
@@ -50,14 +54,151 @@ macro_rules! str_lit {
 
 
 /***** HELPER FUNCTIONS *****/
+/// Simple traversal that names all [`ElemLoop`]s.
+///
+/// # Arguments
+/// - `elem`: The graph [`Elem`]ent to analyse.
+/// - `wf_id`: The identifier of the workflow to use for new loop IDs.
+/// - `loops`: A map of pointers to their IDs.
+fn name_loops(mut elem: &Elem, wf_id: &str, loops: &mut HashMap<*const ElemLoop, String>) {
+    // Note we're doing a combination of actual recursion and looping, to minimize stack usage
+    loop {
+        match elem {
+            Elem::Task(ElemTask { id: _, name: _, package: _, version: _, input: _, output: _, location: _, metadata: _, next }) => elem = next,
+            Elem::Commit(ElemCommit { id: _, data_name: _, location: _, input: _, next }) => elem = next,
+
+            Elem::Branch(ElemBranch { branches, next }) => {
+                for branch in branches {
+                    name_loops(branch, wf_id, loops);
+                }
+                elem = next;
+            },
+            Elem::Parallel(ElemParallel { merge: _, branches, next }) => {
+                for branch in branches {
+                    name_loops(branch, wf_id, loops);
+                }
+                elem = next;
+            },
+            Elem::Loop(l) => {
+                let ElemLoop { body, next } = l;
+
+                // Generate a name for this loop
+                loops.insert(
+                    l as *const ElemLoop,
+                    format!("{wf_id}-{}-loop", rand::thread_rng().sample_iter(Alphanumeric).take(4).map(char::from).collect::<String>()),
+                );
+
+                // Continue
+                name_loops(body, wf_id, loops);
+                elem = next;
+            },
+
+            Elem::Stop(_) => return,
+            Elem::Next => return,
+        }
+    }
+}
+
+/// Analyses the given loop's body branch of the graph to find various details.
+///
+/// # Arguments
+/// - `elem`: The graph [`Elem`]ent to analyse.
+/// - `loop_names`: A map of [`ElemLoop`]s to names we computed beforehand.
+/// - `first`: The first node(s) (node, commit or loop) in the subgraph.
+/// - `last`: The last node(s) (node, commit or loop) in the subgraph.
+///
+/// If no nodes are within this body, [`None`] is returned instead.
+fn analyse_loop_body(
+    mut elem: &Elem,
+    loop_names: &HashMap<*const ElemLoop, String>,
+    first: &mut Vec<(String, HashSet<Dataset>)>,
+    last: &mut HashSet<Dataset>,
+) {
+    // Note we're doing a combination of actual recursion and looping, to minimize stack usage
+    loop {
+        match elem {
+            Elem::Task(ElemTask { id, name: _, package: _, version: _, input, output, location: _, metadata: _, next }) => {
+                // Add it if it's the first one we encounter
+                if first.is_empty() {
+                    *first = vec![(id.clone(), input.iter().cloned().collect())];
+                }
+                // Always add as the last one
+                *last = output.iter().cloned().collect();
+
+                // Continue with iteration
+                elem = next;
+            },
+            Elem::Commit(ElemCommit { id, data_name, location, input, next }) => {
+                // Add it if it's the first one we encounter
+                if first.is_empty() {
+                    *first = vec![(id.clone(), input.iter().cloned().collect())];
+                }
+                // Always add as the last one
+                *last = HashSet::from([Dataset { name: data_name.clone(), from: location.clone() }]);
+
+                // Continue with iteration
+                elem = next;
+            },
+
+            Elem::Branch(ElemBranch { branches, next }) | Elem::Parallel(ElemParallel { merge: _, branches, next }) => {
+                // Aggregate the inputs & outputs of the branches
+                let mut branch_firsts: Vec<(String, HashSet<Dataset>)> = Vec::new();
+                let mut branch_lasts: HashSet<Dataset> = HashSet::new();
+                for branch in branches {
+                    let mut branch_first: Vec<(String, HashSet<Dataset>)> = Vec::new();
+                    let mut branch_last: HashSet<Dataset> = HashSet::new();
+                    analyse_loop_body(branch, loop_names, &mut branch_first, &mut branch_last);
+                    branch_firsts.extend(branch_first);
+                    branch_lasts.extend(branch_last);
+                }
+
+                // Add them to this branch' result
+                if first.is_empty() {
+                    *first = branch_firsts;
+                }
+                *last = branch_lasts;
+
+                // Continue with iteration
+                elem = next;
+            },
+            Elem::Loop(l) => {
+                let ElemLoop { body, next } = l;
+
+                // We recurse to find the inputs- and outputs
+                let mut body_first: Vec<(String, HashSet<Dataset>)> = vec![];
+                let mut body_last: HashSet<Dataset> = HashSet::new();
+                analyse_loop_body(body, loop_names, &mut body_first, &mut body_last);
+
+                // Propagate these
+                if first.is_empty() {
+                    // Get the loop's name
+                    let id: &String =
+                        loop_names.get(&(l as *const ElemLoop)).unwrap_or_else(|| panic!("Encountered loop without name after loop naming"));
+
+                    // Set this loop as the first node, combining all the input dataset from the children
+                    *first = vec![(id.clone(), body_first.into_iter().map(|(_, data)| data).flatten().collect::<HashSet<Dataset>>())]
+                }
+                *last = body_last;
+
+                // Continue with iteration
+                elem = next;
+            },
+
+            Elem::Stop(_) => return,
+            Elem::Next => return,
+        }
+    }
+}
+
 /// Compiles the given [`Elem`] onwards to a series of eFLINT [`Phrase`]s.
 ///
 /// # Arguments
 /// - `elem`: The current [`Elem`] we're compiling.
 /// - `wf_id`: The identifier/name of the workflow we're working with.
 /// - `wf_user`: The identifier/name of the user who will see the workflow result.
+/// - `loop_names`: A map of [`ElemLoop`]s to names we computed beforehand.
 /// - `phrases`: The list of eFLINT [`Phrase`]s we're compiling to.
-fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, phrases: &mut Vec<Phrase>) {
+fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, loop_names: &HashMap<*const ElemLoop, String>, phrases: &mut Vec<Phrase>) {
     // Note we're doing a combination of actual recursion and looping, to minimize stack usage
     loop {
         trace!("Compiling {:?} to eFLINT", elem.variant());
@@ -212,7 +353,7 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, phrases: &mut Ve
             Elem::Branch(ElemBranch { branches, next }) => {
                 // Do the branches in sequence
                 for branch in branches {
-                    compile_eflint(branch, wf_id, wf_user, phrases);
+                    compile_eflint(branch, wf_id, wf_user, loop_names, phrases);
                 }
                 // Continue with the next one
                 elem = next;
@@ -220,13 +361,81 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, phrases: &mut Ve
             Elem::Parallel(ElemParallel { branches, merge: _, next }) => {
                 // Do the branches in sequence
                 for branch in branches {
-                    compile_eflint(branch, wf_id, wf_user, phrases);
+                    compile_eflint(branch, wf_id, wf_user, loop_names, phrases);
                 }
                 // Continue with the next one
                 elem = next;
             },
-            Elem::Loop(ElemLoop { body: _, next }) => {
-                warn!("Compilation from Elem::Loop to eFLINT is not yet implementated.");
+            Elem::Loop(ElemLoop { body, next }) => {
+                // Serialize the body phrases first
+                compile_eflint(&**body, wf_id, wf_user, loop_names, phrases);
+
+                // Serialize the node
+                // ```eflint
+                // +node(workflow(#wf_id), #id).
+                // +commit(node(workflow(#wf_id), #id)).
+                // ```
+                let id: String =
+                    format!("{}-{}-loop", wf_id, rand::thread_rng().sample_iter(Alphanumeric).take(4).map(char::from).collect::<String>());
+                let node: Expression = constr_app!("node", constr_app!("workflow", str_lit!(wf_id)), str_lit!(id.clone()));
+                phrases.push(create!(node.clone()));
+                phrases.push(create!(constr_app!("loop", node.clone())));
+
+                // Collect the inputs & outputs of the body
+                let mut first: Vec<(String, HashSet<Dataset>)> = Vec::new();
+                let mut last: HashSet<Dataset> = HashSet::new();
+                analyse_loop_body(body, loop_names, &mut first, &mut last);
+
+                // Post-process the input into a list of body nodes and a list of data input
+                let (bodies, inputs): (Vec<String>, Vec<HashSet<Dataset>>) = first.into_iter().unzip();
+                let inputs: HashSet<Dataset> = inputs.into_iter().flatten().collect();
+
+                // Add the loop inputs
+                for input in inputs {
+                    // ```eflint
+                    // +node-input(#node, asset(#i.name)).
+                    // ```
+                    let node_input: Expression = constr_app!("node-input", node.clone(), constr_app!("asset", str_lit!(input.name.clone())));
+                    phrases.push(create!(node_input.clone()));
+
+                    // Add where this dataset lives if we know that
+                    if let Some(from) = &input.from {
+                        // It's planned to be transferred from this location
+                        // ```eflint
+                        // +node-input-from(#node-input, domain(user(#from))).
+                        // ```
+                        phrases.push(create!(constr_app!(
+                            "node-input-from",
+                            node_input,
+                            constr_app!("domain", constr_app!("user", str_lit!(from.clone())))
+                        )));
+                    } else {
+                        warn!(
+                            "Encountered input dataset '{}' without transfer source in commit '{}' as part of workflow '{}'",
+                            input.name, id, wf_id
+                        );
+                    }
+                }
+                // Add the loop outputs
+                for output in last {
+                    // ```eflint
+                    // +node-output(#node, asset(#output.name)).
+                    // ```
+                    phrases.push(create!(constr_app!("node-output", node.clone(), constr_app!("asset", str_lit!(output.name.clone())))));
+                }
+                // Add the loop's bodies
+                for body in bodies {
+                    // ```eflint
+                    // +loop-body(loop(#node), node(workflow(#wf_id), #body)).
+                    // ```
+                    phrases.push(create!(constr_app!(
+                        "loop-body",
+                        constr_app!("loop", node.clone()),
+                        constr_app!("node", constr_app!("workflow", str_lit!(wf_id)), str_lit!(body))
+                    )));
+                }
+
+                // Done, continue with the next one
                 elem = next;
             },
 
@@ -266,28 +475,35 @@ impl Workflow {
     pub fn to_eflint(&self) -> Vec<Phrase> {
         let mut phrases: Vec<Phrase> = vec![];
 
-        // First, add the notion of the workflow as a whole
-        phrases.push(create!(constr_app!("workflow", str_lit!(self.id.clone()))));
+        // First, we shall name all loops
+        let mut loop_names: HashMap<*const ElemLoop, String> = HashMap::new();
+        name_loops(&self.start, &self.id, &mut loop_names);
+
+        // Kick off the first phrase(s) by adding the notion of the workflow as a whole
+        // ```eflint
+        // +workflow(#self.id).
+        // ```
+        let workflow: Expression = constr_app!("workflow", str_lit!(self.id.clone()));
+        phrases.push(create!(workflow.clone()));
+
         // Add workflow metadata
         for m in &self.metadata {
+            // ```eflint
+            // +workflow-metadata(#workflow, metadata(tag(user(#m.owner), #m.tag), signature(user(#m.assigner), #m.signature)))).
+            // ```
             phrases.push(create!(constr_app!(
-                "workflow-metadata",
-                constr_app!("workflow", str_lit!(self.id.clone())),
+                "node-metadata",
+                workflow.clone(),
                 constr_app!(
                     "metadata",
-                    constr_app!(
-                        "metadata",
-                        constr_app!("owner", constr_app!("user", str_lit!(m.owner.clone()))),
-                        constr_app!("tag", str_lit!(m.tag.clone())),
-                        constr_app!("assigner", constr_app!("user", str_lit!(m.assigner.clone()))),
-                        constr_app!("signature", str_lit!(m.signature.clone()))
-                    )
+                    constr_app!("tag", constr_app!("user", str_lit!(m.owner.clone())), str_lit!(m.tag.clone())),
+                    constr_app!("signature", constr_app!("user", str_lit!(m.assigner.clone())), str_lit!(m.signature.clone())),
                 )
             )));
         }
 
         // Compile the 'flow to a list of phrases
-        compile_eflint(&self.start, &self.id, &self.user, &mut phrases);
+        compile_eflint(&self.start, &self.id, &self.user, &loop_names, &mut phrases);
 
         // Done!
         phrases

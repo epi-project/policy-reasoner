@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:14:15
 // Last edited:
-//   06 Dec 2023, 15:24:44
+//   07 Dec 2023, 13:32:48
 // Auto updated?
 //   Yes
 //
@@ -41,3 +41,10 @@ Fact function Identified by node-input * string.
 
 // Declares the publication of a particular dataset.
 Fact commit Identified by node.
+
+// Declares a node that is a stand-in for a subgraph that is repeatedly executed.
+// 
+// The input of the loop acts as the input of the `loop-body`'s first node, and the output corresponds to the output of the `loop-body`'s last node(s).
+Fact loop Identified by node.
+// Links a `loop` node to the body that is repeatedly executed.
+Fact loop-body Identified by loop * node.
