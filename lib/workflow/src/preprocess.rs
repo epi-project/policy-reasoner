@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    06 Dec 2023, 18:24:20
+//    07 Dec 2023, 11:21:10
 //  Auto updated?
 //    Yes
 //
@@ -47,16 +47,29 @@ mod tests {
     /// Runs checks to verify the workflow inlining analysis
     #[test]
     fn test_checker_workflow_inline_analysis() {
+        // Setup logger if told
+        if std::env::var("TEST_LOGGER").map(|value| value == "1" || value == "true").unwrap_or(false) {
+            if let Err(err) = HumanLogger::terminal(DebugMode::Full).init() {
+                eprintln!("WARNING: Failed to setup test logger: {err} (no logging for this session)");
+            }
+        }
+
         // Defines a few test files with expected inlinable functions
-        let tests: [(&str, HashMap<usize, Option<HashSet<usize>>>); 5] = [
-            (r#"println("Hello, world!");"#, HashMap::from([(1, None)])),
-            (r#"func hello_world() { return "Hello, world!"; } println(hello_world());"#, HashMap::from([(1, None), (4, Some(HashSet::new()))])),
+        let tests: [(&str, &str, HashMap<usize, Option<HashSet<usize>>>); 5] = [
+            ("case1", r#"println("Hello, world!");"#, HashMap::from([(1, None)])),
             (
+                "case2",
+                r#"func hello_world() { return "Hello, world!"; } println(hello_world());"#,
+                HashMap::from([(1, None), (4, Some(HashSet::new()))]),
+            ),
+            (
+                "case3",
                 r#"func foo() { return "Foo"; } func foobar() { return foo() + "Bar"; } println(foobar());"#,
                 HashMap::from([(1, None), (4, Some(HashSet::new())), (5, Some(HashSet::from([4])))]),
             ),
-            (r#"import hello_world; println(hello_world());"#, HashMap::from([(1, None)])),
+            ("case4", r#"import hello_world; println(hello_world());"#, HashMap::from([(1, None)])),
             (
+                "case5",
                 r#"func hello_world(n) { if (n <= 0) { return "Hello, world!"; } else { return "Hello, " + hello_world(n - 1) + "\n"; } } println(hello_world(3));"#,
                 HashMap::from([(1, None), (4, None)]),
             ),
@@ -68,18 +81,18 @@ mod tests {
         let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
 
         // Test them each
-        for (i, (test, gold)) in tests.into_iter().enumerate() {
+        for (id, test, gold) in tests.into_iter() {
             // Compile to BraneScript (we'll assume this works)
             let wir: Workflow = match compile_program(test.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
                 CompileResult::Workflow(wir, _) => wir,
                 CompileResult::Err(errs) => {
                     for err in errs {
-                        err.prettyprint(format!("<test {i}>"), test);
+                        err.prettyprint(format!("<{id}>"), test);
                     }
                     panic!("Failed to compile BraneScript (see error above)");
                 },
                 CompileResult::Eof(err) => {
-                    err.prettyprint(format!("<test {i}>"), test);
+                    err.prettyprint(format!("<{id}>"), test);
                     panic!("Failed to compile BraneScript (see error above)");
                 },
 
@@ -89,6 +102,8 @@ mod tests {
             };
             // Emit the compiled workflow
             println!("{}", (0..80).map(|_| '-').collect::<String>());
+            println!("Test '{id}'");
+            println!();
             ast::do_traversal(&wir, std::io::stdout()).unwrap();
             println!();
 
@@ -574,11 +589,6 @@ fn find_inlinable_funcs(
             }
 
             // Examine if this call would introduce a recursive problem
-            if inlinable.contains_key(&func_id) {
-                // We've already seen this one! However, _don't_ change our mind about its inlinability because it means a repeated function call
-                // NOTE: No need to go into the call body, as we've done this the first time we saw it
-                return dependencies;
-            }
             if trace.contains(&func_id) {
                 // It's been in our callstack before - that means recursion!
                 // Change our minds about its inlinability
@@ -586,6 +596,13 @@ fn find_inlinable_funcs(
                 inlinable.insert(func_id, None);
                 return dependencies;
             }
+            if inlinable.contains_key(&func_id) {
+                // We've already seen this one! However, _don't_ change our mind about its inlinability because it means a repeated function call
+                // NOTE: No need to go into the call body, as we've done this the first time we saw it
+                trace!("Function {} ('{}') is skipped because we have seen it before", func_id, def.name);
+                return dependencies;
+            }
+            trace!("Function {} ('{}') is assumed as inlinable until we see it recursive", func_id, def.name);
 
             // For now assume that the function exist with no deps; we inject these later
             inlinable.insert(func_id, Some(HashSet::new()));
@@ -606,6 +623,65 @@ fn find_inlinable_funcs(
 
         Edge::Return { result: _ } => return HashSet::new(),
     }
+}
+
+/// Orders a given map of inlinable functions such that, when ordered inline, every function will have its calls inlined if possible.
+///
+/// More specifically, the order makes sure that functions on which other functions depend (i.e., they make calls to it) are inlined first so that they can be inlined properly in the functions calling them.
+///
+/// # Arguments
+/// - `ordered`: The vector of ordered function IDs that is being populated. The inline order is left-to-right (i.e., the leftmost function should never have a dependency, the second-to-left can only depend on the leftmost, etc).
+/// - `inlinable`: The map of inlinable functions to their dependencies.
+fn order_inlinable<'i>(ordered: &mut Vec<usize>, inlinable: &HashMap<usize, Option<HashSet<usize>>>, mut next: impl Iterator<Item = &'i usize>) {
+    // Get a function to inline
+    let func_id: usize = match next.next() {
+        Some(id) => *id,
+        None => return,
+    };
+    let deps: &HashSet<usize> = match inlinable.get(&func_id).unwrap() {
+        Some(deps) => deps,
+        None => {
+            // No need to inline this one, so just continue
+            trace!("order_inlinable(): Not considering function {func_id} because it is not inlinable (deps is None)");
+            order_inlinable(ordered, inlinable, next);
+            return;
+        },
+    };
+
+    // Examine the dependencies
+    if deps.is_empty() {
+        // Base-case; add to the list first before any other
+        trace!("order_inlinable(): Function {func_id} is inlinable but has no dependencies");
+        ordered.push(func_id);
+        order_inlinable(ordered, inlinable, next);
+        trace!("order_inlinable(): New result: {ordered:?}");
+    } else {
+        // Recursive case: add all the dependencies first
+        trace!("order_inlinable(): Function {func_id} is inlinable and has dependencies");
+        order_inlinable(ordered, inlinable, deps.iter());
+        ordered.push(func_id);
+        trace!("order_inlinable(): New result: {ordered:?}");
+        order_inlinable(ordered, inlinable, next);
+    }
+}
+
+/// Given a vector, removes all duplicates from it.
+///
+/// Retains the **first** occurrences.
+///
+/// # Arguments
+/// - `data`: The vector to deduplicate.
+fn keep_unique_first(data: &mut Vec<usize>) {
+    // A buffer of seen elements
+    let mut seen: HashSet<usize> = HashSet::new();
+    data.retain(|elem| {
+        if seen.contains(elem) {
+            false
+        } else {
+            seen.insert(*elem);
+            true
+        }
+    });
 }
 
 /// Traverses the given function body and replaces all [`Edge::Return`] with an [`Edge::Linear`] pointing to the given edge index.
@@ -754,7 +830,7 @@ fn prep_func_body(
 /// - `body`: A [WIR](Workflow) function body to inline functions _in_.
 /// - `calls`: The map of call indices to which function is actually called.
 /// - `funcs`: A map of call IDs to function bodies ready to be substituted in the `body`.
-/// - `inlinable`: A map of functions that determines if functions are inlinable. If they are, then their ID is mapped to a list of functions on which the call depends (or else [`None`]).
+/// - `inlinable`: A collection of functions that determines if functions are inlinable. If the set of `deps` is [`Some`], it's inlinable; else it's not.
 /// - `table`: The parent scope's [`SymTable`] we use to resolve definitions.
 /// - `func_id`: The ID of the function we're inlining.
 /// - `pc`: Points to the current [`Edge`] to analyse.
@@ -857,7 +933,8 @@ fn inline_funcs_in_body(
             trace!("Inlining function call to function {call_id} at {pc}");
 
             // Otherwise, yank the call with a linear that refers to the inlined body instead (we'll put it after all the other edges to avoid them moving)
-            *edge = Edge::Linear { instrs: vec![], next: body_len };
+            // Note: we insert a pop to consume the function reference pushed on the stack to execute the call
+            *edge = Edge::Linear { instrs: vec![EdgeInstr::Pop {}], next: body_len };
 
             // Prepare the call body by replacing returns with normal links and by bumping all definitions
             let mut call_body: Vec<Edge> = funcs
@@ -925,13 +1002,14 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
     );
 
     // Order them so that we satisfy function dependencies
-    let mut inline_order: Vec<(usize, usize)> = inlinable.iter().filter_map(|(id, deps)| deps.as_ref().map(|deps| (*id, deps.len()))).collect();
-    inline_order.sort_by_key(|(_, n_deps)| *n_deps);
+    let mut inline_order: Vec<usize> = Vec::with_capacity(inlinable.len());
+    order_inlinable(&mut inline_order, &inlinable, inlinable.keys());
+    keep_unique_first(&mut inline_order);
     debug!(
         "Inline order: {}",
         inline_order
             .iter()
-            .map(|(id, _)| format!("'{}'", catch_unwind(|| wir.table.func(*id)).map(|def| def.name.as_str()).unwrap_or("???"),))
+            .map(|id| format!("'{}'", catch_unwind(|| wir.table.func(*id)).map(|def| def.name.as_str()).unwrap_or("???"),))
             .collect::<Vec<String>>()
             .join(", ")
     );
@@ -955,7 +1033,7 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
 
         // Inline non-main function bodies first
         let mut new_funcs: HashMap<usize, Vec<Edge>> = HashMap::new();
-        for (id, _) in inline_order {
+        for id in inline_order {
             // Acquire the body
             let mut new_body: Vec<Edge> = funcs.get(&id).unwrap().clone();
 

@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:20:54
 //  Last edited:
-//    06 Dec 2023, 17:52:26
+//    07 Dec 2023, 10:13:05
 //  Auto updated?
 //    Yes
 //
@@ -14,6 +14,7 @@
 //!   [checker workflows](workflow::workflow::spec::Workflow).
 //
 
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -180,6 +181,9 @@ struct Arguments {
                 phrases. Note that the letter is only available when compiled with the `eflint`-feature."
     )]
     output: OutputLanguage,
+    /// Whether to plan inputs.
+    #[clap(long, help = "If given, plans tasks and input locations on the 'localhost' location.")]
+    plan: bool,
     /// Whether to skip optimisation or not.
     #[clap(long, alias = "no-optimize", global = true, help = "If given, does not optimise the workflow before printing.")]
     no_optimise: bool,
@@ -230,6 +234,8 @@ fn main() {
 
         // If it's a BraneScript file, compile to WIR first
         let wir: ast::Workflow = if args.input == InputLanguage::BraneScript {
+            debug!("Input BraneScript:\n\n{raw}\n");
+
             // Get the package and data index
             debug!("Reading package index from '{}'...", args.packages_path.display());
             let pindex: PackageIndex = create_package_index_from(&args.packages_path);
@@ -267,6 +273,7 @@ fn main() {
             }
         } else {
             // Simply deserialize the JSON
+            debug!("Input JSON:\n\n{raw}\n");
             match serde_json::from_str(&raw) {
                 Ok(wir) => wir,
                 Err(err) => {
@@ -275,6 +282,9 @@ fn main() {
                 },
             }
         };
+
+        // Plan using the dummy planner of Brane
+        let wir: ast::Workflow = if args.plan { brane_exe::dummy::DummyPlanner::plan(&mut HashMap::new(), wir) } else { wir };
 
         // If debug, write the representation
         if log::max_level() >= Level::Debug {

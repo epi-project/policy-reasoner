@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    06 Dec 2023, 18:17:24
+//    07 Dec 2023, 10:03:04
 //  Auto updated?
 //    Yes
 //
@@ -22,7 +22,7 @@ use std::panic::catch_unwind;
 use brane_ast::spec::BuiltinFunctions;
 use brane_ast::{ast, MergeStrategy};
 use enum_debug::EnumDebug as _;
-use log::{debug, trace, warn, Level};
+use log::{debug, trace, Level};
 use rand::Rng as _;
 use specifications::data::{AvailabilityKind, PreprocessKind};
 
@@ -120,7 +120,7 @@ fn generate_id(len: usize) -> String { rand::thread_rng().sample_iter(rand::dist
 /// - `pc`: The [`ProgramCounter`] pointing to the current edge we're analysing.
 /// - `breakpoint`: Some possible edge that, if encounters, halts the analysis and returns immediately.
 fn analyse_data_lkls(
-    lkls: &mut HashMap<usize, HashMap<ast::DataName, HashSet<String>>>,
+    lkls: &mut HashMap<ast::DataName, HashSet<String>>,
     wir: &ast::Workflow,
     pc: ProgramCounter,
     breakpoint: Option<ProgramCounter>,
@@ -153,23 +153,21 @@ fn analyse_data_lkls(
                 match access {
                     Some(AvailabilityKind::Available { .. }) => {
                         // It's available at the location of the node
-                        *lkls.entry(pc.1).or_default().entry(i.clone()).or_default() = HashSet::from([at
-                            .as_ref()
-                            .cloned()
-                            .unwrap_or_else(|| panic!("Encountered node without planned location after preprocessing"))]);
+                        if let Some(at) = at {
+                            *lkls.entry(i.clone()).or_default() = HashSet::from([at.clone()]);
+                        }
                     },
                     Some(AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, address: _ } }) => {
                         // It's available at the planned location
-                        *lkls.entry(pc.1).or_default().entry(i.clone()).or_default() = HashSet::from([location.clone()]);
+                        *lkls.entry(i.clone()).or_default() = HashSet::from([location.clone()]);
                     },
                     None => continue,
                 }
             }
 
             // Mark where the output is, if any
-            if let Some(result) = result {
-                *lkls.entry(pc.1).or_default().entry(ast::DataName::IntermediateResult(result.clone())).or_default() =
-                    HashSet::from([at.as_ref().cloned().unwrap_or_else(|| panic!("Encountered node without planned location after preprocessing"))]);
+            if let (Some(result), Some(at)) = (result, at) {
+                *lkls.entry(ast::DataName::IntermediateResult(result.clone())).or_default() = HashSet::from([at.clone()]);
             }
 
             // Continue the analysis
@@ -222,7 +220,7 @@ fn analyse_data_lkls(
         ast::Edge::Return { result } => {
             for res in result {
                 // Assume the end location
-                lkls.entry(pc.1).or_default().entry(res.clone()).or_default().insert("Danny Data Scientist".into());
+                lkls.entry(res.clone()).or_default().insert("Danny Data Scientist".into());
             }
         },
     }
@@ -248,7 +246,7 @@ fn reconstruct_graph(
     wir: &ast::Workflow,
     wf_id: &str,
     calls: &HashMap<ProgramCounter, usize>,
-    lkls: &mut HashMap<usize, HashMap<ast::DataName, HashSet<String>>>,
+    lkls: &mut HashMap<ast::DataName, HashSet<String>>,
     pc: ProgramCounter,
     plug: Elem,
     breakpoint: Option<ProgramCounter>,
@@ -396,44 +394,19 @@ fn reconstruct_graph(
             // Only allow calls to builtins
             if func_def.name == BuiltinFunctions::CommitResult.name() {
                 // Deduce the commit's location (or rather, the output location) based on the inputs
-                let mut new_input: Vec<Dataset> = Vec::with_capacity(input.len());
                 let mut locs: HashSet<String> = HashSet::with_capacity(input.len());
-                'input: for i in input {
-                    // Consider this input in the LKLs
-                    let mut edge: usize = pc.1;
-                    let datas: &HashMap<ast::DataName, HashSet<String>> = loop {
-                        match lkls.get(&edge) {
-                            Some(data) => break data,
-                            None => {
-                                if edge == 0 {
-                                    warn!(
-                                        "Encountered input '{}' to commit that has no location (in fact, none exist with edge smaller than or equal \
-                                         to '{}')",
-                                        i, pc.1
-                                    );
-                                    continue 'input;
-                                }
-                                edge -= 1;
-                                continue;
-                            },
-                        }
-                    };
-                    let data_locs: &HashSet<String> = match datas.get(i) {
-                        Some(locs) => locs,
-                        None => {
-                            warn!("Encountered input '{i}' to commit that has no location");
-                            continue;
-                        },
-                    };
-                    if data_locs.is_empty() {
-                        warn!("Encountered input '{i}' to commit that has an empty set of last known locations");
-                        continue;
+                let mut new_input: Vec<Dataset> = Vec::with_capacity(input.len());
+                for i in input {
+                    // See if it has any known locations
+                    let location: Option<String> = lkls.get(&i).map(|locs| locs.iter().cloned().next()).flatten();
+
+                    // Add it to the list of possible input locations
+                    if let Some(location) = &location {
+                        locs.insert(location.clone());
                     }
 
-                    // Alright choose a location at random from that for the new input
-                    new_input.push(Dataset { name: i.name().into(), from: Some(data_locs.iter().next().unwrap().clone()) });
-                    // Add the possible locations to the global set
-                    locs.extend(data_locs.into_iter().cloned());
+                    // Then create a new Dataset with that
+                    new_input.push(Dataset { name: i.name().into(), from: location });
                 }
 
                 // Attempt to fetch the name of the dataset
@@ -499,7 +472,7 @@ impl TryFrom<ast::Workflow> for Workflow {
         }
 
         // Collect the map of data to Last Known Locations (LKL).
-        let mut lkls: HashMap<usize, HashMap<ast::DataName, HashSet<String>>> = HashMap::new();
+        let mut lkls: HashMap<ast::DataName, HashSet<String>> = HashMap::new();
         analyse_data_lkls(&mut lkls, &wir, ProgramCounter::new(), None);
 
         // Alright now attempt to re-build the graph in the new style
