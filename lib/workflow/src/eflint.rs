@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    06 Dec 2023, 17:50:34
+//    07 Dec 2023, 11:43:48
 //  Auto updated?
 //    Yes
 //
@@ -128,7 +128,7 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, phrases: &mut Ve
                     // ```eflint
                     // +node-at(#node, domain(user(#at))).
                     // ```
-                    phrases.push(create!(constr_app!("task-at", node.clone(), constr_app!("domain", constr_app!("user", str_lit!(at.clone()))))));
+                    phrases.push(create!(constr_app!("node-at", node.clone(), constr_app!("domain", constr_app!("user", str_lit!(at.clone()))))));
                 } else {
                     warn!("Encountered unplanned task '{id}' part of workflow '{wf_id}'");
                 }

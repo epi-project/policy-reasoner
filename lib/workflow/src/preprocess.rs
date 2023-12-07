@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    07 Dec 2023, 11:21:10
+//    07 Dec 2023, 11:40:34
 //  Auto updated?
 //    Yes
 //
@@ -513,6 +513,7 @@ fn find_inlinable_funcs(
     };
 
     // Match on its kind
+    trace!("Finding inlinable functions in {} ({:?})", pc.display(&wir.table), edge.variant());
     match edge {
         Edge::Node { next, .. } | Edge::Linear { next, .. } => {
             // Doesn't call any functions, so just proceed with the next one
