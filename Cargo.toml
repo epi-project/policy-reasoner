@@ -34,6 +34,14 @@ diesel = { version = "*", features = ["sqlite", "chrono", "r2d2"] }
 chrono = "*"
 reqwest = "*"
 
+
+[build-dependencies]
+base16ct = { version = "0.2", features = ["alloc"] }
+eflint-to-json = { path = "./lib/eflint-to-json" }
+error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
+sha2 = "0.10"
+
+
 [workspace]
 resolver = "2"
 members = [

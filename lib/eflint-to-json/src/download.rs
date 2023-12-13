@@ -4,7 +4,7 @@
 //  Created:
 //    29 Nov 2023, 15:11:58
 //  Last edited:
-//    29 Nov 2023, 15:58:07
+//    13 Dec 2023, 15:15:32
 //  Auto updated?
 //    Yes
 //
@@ -12,16 +12,17 @@
 //!   File to download stuff from the World Wide Web using [`reqwest`].
 //
 
-use std::error;
 use std::fmt::{Display, Formatter, Result as FResult};
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr as _;
+use std::{error, fs};
 
 use console::Style;
 use futures_util::StreamExt as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::debug;
-use reqwest::{Client, Request, Response, StatusCode, Url};
+use reqwest::{blocking, Client, Request, Response, StatusCode, Url};
 use sha2::{Digest as _, Sha256};
 use tokio::fs as tfs;
 use tokio::io::AsyncWriteExt as _;
@@ -187,6 +188,177 @@ impl<'c> Display for DownloadSecurity<'c> {
 
 
 /***** LIBRARY *****/
+/// Downloads some file from the interwebs to the given location.
+///
+/// Courtesy of the Brane project (<https://github.com/epi-project/brane/blob/master/brane-shr/src/fs.rs#L1285C1-L1463C2>).
+///
+/// # Arguments
+/// - `source`: The URL to download the file from.
+/// - `target`: The location to download the file to.
+/// - `verification`: Some method to verify the file is what we think it is. See the `VerifyMethod`-enum for more information.
+/// - `verbose`: If not `None`, will print to the output with accents given in the given `Style` (use a non-exciting Style to print without styles).
+///
+/// # Returns
+/// Nothing, except that when it does you can assume a file exists at the given location.
+///
+/// # Errors
+/// This function may error if we failed to download the file or write it (which may happen if the parent directory of `local` does not exist, among other things).
+pub fn download_file(source: impl AsRef<str>, target: impl AsRef<Path>, security: DownloadSecurity<'_>, verbose: Option<Style>) -> Result<(), Error> {
+    let source: &str = source.as_ref();
+    let target: &Path = target.as_ref();
+    debug!("Downloading '{}' to '{}' (Security: {})...", source, target.display(), security);
+    if let Some(style) = &verbose {
+        println!("Downloading {}...", style.apply_to(source));
+    }
+
+    // Assert the download directory exists
+    let dir: Option<&Path> = target.parent();
+    if dir.is_some() && !dir.unwrap().exists() {
+        return Err(Error::DirNotFound { path: dir.unwrap().into() });
+    }
+
+    // Open the target file for writing
+    let mut handle: fs::File = match fs::File::create(target) {
+        // Ok(handle) => {
+        //     // Prepare the permissions to set by reading the file's metadata
+        //     let mut permissions: Permissions = match handle.metadata() {
+        //         Ok(metadata) => metadata.permissions(),
+        //         Err(err)     => { return Err(Error::FileMetadataError{ what: "temporary binary", path: local.into(), err }); },
+        //     };
+        //     permissions.set_mode(permissions.mode() | 0o100);
+
+        //     // Set them
+        //     if let Err(err) = handle.set_permissions(permissions) { return Err(Error::FilePermissionsError{ what: "temporary binary", path: local.into(), err }); }
+
+        //     // Return the handle
+        //     handle
+        // },
+        Ok(handle) => handle,
+        Err(err) => {
+            return Err(Error::FileCreate { path: target.into(), err });
+        },
+    };
+
+    // Send a request
+    let res: blocking::Response = if security.https {
+        debug!("Sending download request to '{}' (HTTPS enabled)...", source);
+
+        // Assert the address starts with HTTPS first
+        if Url::parse(source).ok().map(|u| u.scheme() != "https").unwrap_or(true) {
+            return Err(Error::NotHttps { address: source.into() });
+        }
+
+        // Send the request with a user-agent header (to make GitHub happy)
+        let client: blocking::Client = blocking::Client::new();
+        let req: blocking::Request = match client.get(source).header("User-Agent", "reqwest").build() {
+            Ok(req) => req,
+            Err(err) => {
+                return Err(Error::Request { address: source.into(), err });
+            },
+        };
+        match client.execute(req) {
+            Ok(req) => req,
+            Err(err) => {
+                return Err(Error::Request { address: source.into(), err });
+            },
+        }
+    } else {
+        debug!("Sending download request to '{}'...", source);
+
+        // Send the request with a user-agent header (to make GitHub happy)
+        let client: blocking::Client = blocking::Client::new();
+        let req: blocking::Request = match client.get(source).header("User-Agent", "reqwest").build() {
+            Ok(req) => req,
+            Err(err) => {
+                return Err(Error::Request { address: source.into(), err });
+            },
+        };
+        match client.execute(req) {
+            Ok(req) => req,
+            Err(err) => {
+                return Err(Error::Request { address: source.into(), err });
+            },
+        }
+    };
+
+    // Assert it succeeded
+    if !res.status().is_success() {
+        return Err(Error::RequestFailure {
+            address: source.into(),
+            code:    res.status(),
+            err:     res.text().ok().map(|body| ResponseBodyError(body)),
+        });
+    }
+
+    // Create the progress bar based on whether if there is a length
+    debug!("Downloading response to file '{}'...", target.display());
+    let len: Option<u64> = res.headers().get("Content-Length").and_then(|len| len.to_str().ok()).and_then(|len| u64::from_str(len).ok());
+    let prgs: Option<ProgressBar> = if verbose.is_some() {
+        Some(if let Some(len) = len {
+            ProgressBar::new(len)
+                .with_style(ProgressStyle::with_template("    {bar:60} {bytes}/{total_bytes} {bytes_per_sec} ETA {eta_precise}").unwrap())
+        } else {
+            ProgressBar::new_spinner()
+                .with_style(ProgressStyle::with_template("    {elapsed_precise} {bar:60} {bytes} {binary_bytes_per_sec}").unwrap())
+        })
+    } else {
+        None
+    };
+
+    // Prepare getting a checksum if that is our method of choice
+    let mut hasher: Option<Sha256> = if security.checksum.is_some() { Some(Sha256::new()) } else { None };
+
+    // Download the response to the opened output file
+    let body = match res.bytes() {
+        Ok(body) => body,
+        Err(err) => return Err(Error::Download { address: source.into(), err }),
+    };
+    for next in body.chunks(16384) {
+        // Write it to the file
+        if let Err(err) = handle.write(&next) {
+            return Err(Error::FileWrite { path: target.into(), err });
+        }
+
+        // If desired, update the hash
+        if let Some(hasher) = &mut hasher {
+            hasher.update(&*next);
+        }
+
+        // Update what we've written if needed
+        if let Some(prgs) = &prgs {
+            prgs.update(|state| state.set_pos(state.pos() + next.len() as u64));
+        }
+    }
+    if let Some(prgs) = &prgs {
+        prgs.finish_and_clear();
+    }
+
+    // Assert the checksums are the same if we're doing that
+    if let Some(checksum) = security.checksum {
+        // Finalize the hasher first
+        let result = hasher.unwrap().finalize();
+        debug!("Verifying checksum...");
+
+        // Assert the checksums check out (wheezes)
+        if &result[..] != checksum {
+            return Err(Error::FileChecksum { path: target.into(), expected: hex::encode(checksum), got: hex::encode(&result[..]) });
+        }
+
+        // Print that the checksums are equal if asked
+        if let Some(style) = verbose {
+            // Create the dim styles
+            let dim: Style = Style::new().dim();
+            let accent: Style = style.dim();
+
+            // Write it with those styles
+            println!("{}{}{}", dim.apply_to(" > Checksum "), accent.apply_to(hex::encode(&result[..])), dim.apply_to(" OK"));
+        }
+    }
+
+    // Done
+    Ok(())
+}
+
 /// Downloads some file from the interwebs to the given location.
 ///
 /// Courtesy of the Brane project (<https://github.com/epi-project/brane/blob/master/brane-shr/src/fs.rs#L1285C1-L1463C2>).

@@ -151,6 +151,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "audit-logger"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "auth-resolver",
+ "deliberation",
+ "policy",
+ "serde_json",
+ "state-resolver",
+ "warp",
+ "workflow 0.1.0",
+]
+
+[[package]]
 name = "auth-resolver"
 version = "0.1.0"
 dependencies = [
@@ -223,6 +237,12 @@ dependencies = [
  "object",
  "rustc-demangle",
 ]
+
+[[package]]
+name = "base16ct"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
 name = "base64"
@@ -707,6 +727,7 @@ dependencies = [
 name = "eflint-to-json"
 version = "0.1.0"
 dependencies = [
+ "async-recursion",
  "console",
  "futures-util",
  "hex",
@@ -1700,6 +1721,7 @@ checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 name = "policy"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "clap 4.4.11",
  "enum-debug",
@@ -1719,15 +1741,8 @@ dependencies = [
  "console",
  "eflint-to-json",
  "error-trace",
- "futures-util",
- "hex",
- "hex-literal",
  "humanlog",
- "indicatif",
  "log",
- "reqwest",
- "sha2",
- "tokio",
 ]
 
 [[package]]
@@ -1735,11 +1750,15 @@ name = "policy-reasoner"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "audit-logger",
  "auth-resolver",
+ "base16ct",
  "chrono",
  "deliberation",
  "diesel",
  "eflint-json",
+ "eflint-to-json",
+ "error-trace",
  "humanlog",
  "jsonwebtoken",
  "log",
@@ -1749,6 +1768,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml 0.9.27",
+ "sha2",
  "srv",
  "state-resolver",
  "tokio",
@@ -1921,6 +1941,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "audit-logger",
  "clap 4.4.11",
  "eflint-json",
  "enum-debug",
@@ -2420,6 +2441,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 name = "srv"
 version = "0.1.0"
 dependencies = [
+ "audit-logger",
  "auth-resolver",
  "chrono",
  "deliberation",

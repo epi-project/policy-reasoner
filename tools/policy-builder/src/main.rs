@@ -4,7 +4,7 @@
 //  Created:
 //    29 Nov 2023, 15:11:08
 //  Last edited:
-//    30 Nov 2023, 11:05:07
+//    13 Dec 2023, 15:32:42
 //  Auto updated?
 //    Yes
 //
@@ -92,8 +92,7 @@ struct Arguments {
 
 
 /***** ENTRYPOINT *****/
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
+fn main() {
     // Parse the arguments
     let args: Arguments = Arguments::parse();
 
@@ -123,7 +122,7 @@ async fn main() {
     };
 
     // Run the thing, then
-    if let Err(err) = compile(&args.path, output, args.compiler.as_ref().map(|c| c.as_path())).await {
+    if let Err(err) = compile(&args.path, output, args.compiler.as_ref().map(|c| c.as_path())) {
         error!("{}", err.trace());
         std::process::exit(1);
     }

@@ -60,7 +60,8 @@ pub struct EFlintReasonerConnector {
     base_defs: Vec<Phrase>,
 }
 
-static JSON_BASE_SPEC: &str = include_str!("./base-defs.eflint.json");
+const JSON_BASE_SPEC: &str = include_str!(env!("BASE_DEFS_EFLINT_JSON"));
+const JSON_BASE_SPEC_HASH: &str = env!("BASE_DEFS_EFLINT_JSON_HASH");
 
 impl EFlintReasonerConnector {
     pub fn new(addr: String) -> Self {

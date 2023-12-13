@@ -10,14 +10,7 @@ description = "Tool for taking a collection of eFLINT files and compiling them t
 clap = { version = "4.4", features = ["derive"]}
 console = "0.15"
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
-futures-util = "0.3"
-hex = "0.4"
-hex-literal = "0.4"
 humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
-indicatif = "0.17"
 log = "0.4"
-reqwest = { version = "0.11", features = ["stream"] }
-sha2 = "0.10"
-tokio = { version = "1.34", default-features = false, features = ["fs", "macros", "rt"]}
 
 eflint-to-json = { path = "../../lib/eflint-to-json" }

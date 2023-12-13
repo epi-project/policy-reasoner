@@ -4,7 +4,7 @@
 // Created:
 //   30 Nov 2023, 11:55:00
 // Last edited:
-//   07 Dec 2023, 13:38:17
+//   13 Dec 2023, 16:11:25
 // Auto updated?
 //   Yes
 //
@@ -70,14 +70,14 @@ Invariant node-exactly-one-at When
 
 // Asserts that every task has exactly 1 function.
 Invariant task-exactly-one-function When
-    (Forall task : Count(Foreach function : function When (function.node-input.node == task.node)) <= 1).
+    (Forall task : Count(Foreach function : function When (((function.node-input).node) == (task.node))) <= 1).
 // Asserts that every function is only linking code.
 Invariant function-over-code When
-    (Forall function : code(function.node-input.asset)).
+    (Forall function : code((function.node-input).asset)).
 
 // Asserts every loop has exactly one body
 Invariant loop-exactly-one-body When
     (Forall loop : Count(Foreach node : loop-body(loop, node) When loop-body(loop, node)) == 1).
 // Asserts that the input of a loop matches the first node in the loop's body
 Invariant loop-input-equals-body-input When
-    (Forall loop-body : (Forall asset' : (node-input(loop-body.loop.node, asset') && node-input(loop-body.node, asset')) When (node-input(loop-body.loop.node, asset') || node-input(loop-body.node, asset')))).
+    (Forall loop-body : (Forall asset : (node-input((loop-body.loop).node, asset) && node-input(loop-body.node, asset)) When (node-input((loop-body.loop).node, asset) || node-input(loop-body.node, asset)))).
