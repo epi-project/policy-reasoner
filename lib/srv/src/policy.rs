@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use auth_resolver::{AuthContext, AuthResolver};
-use policy::{Context, PolicyDataAccess};
+use policy::{Context, PolicyDataAccess, Transactionable};
 use reasonerconn::ReasonerConnector;
 use state_resolver::StateResolver;
 use warp::Filter;
@@ -19,7 +19,7 @@ where
     // GET /v1/policies
 
     async fn handle_get_latest_policy(_auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.get_most_recent() {
+        match this.policystore.get_most_recent().await {
             Ok(v) => Ok(warp::reply::json(&v)),
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
@@ -32,7 +32,7 @@ where
     // - 404
 
     async fn handle_get_policy_version(_auth_ctx: AuthContext, version: i64, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.get_version(version) {
+        match this.policystore.get_version(version).await {
             Ok(v) => Ok(warp::reply::json(&v)),
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
@@ -44,7 +44,7 @@ where
     // - 200 Vec<PolicyVersionDescription>
 
     async fn handle_get_all_policies(_auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.get_versions() {
+        match this.policystore.get_versions().await {
             Ok(v) => Ok(warp::reply::json(&v)),
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
@@ -62,8 +62,18 @@ where
         this: Arc<Self>,
         body: models::AddPolicyPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.add_version(body.to_domain(), Context { initiator: auth_ctx.initiator }) {
-            Ok(v) => Ok(warp::reply::json(&v)),
+        match this.policystore.add_version(body.to_domain(), Context { initiator: auth_ctx.initiator }).await {
+            Ok(transaction) => {
+                // TODO try to log, if it fails reject
+                let policy = match transaction.accept().await {
+                    Ok(policy) => policy,
+                    Err(_) => {
+                        // Log and crash server, something ie really wrong
+                        todo!()
+                    },
+                };
+                Ok(warp::reply::json(&policy))
+            },
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
     }
@@ -73,7 +83,7 @@ where
     // out: 200 {version: string}
 
     async fn handle_get_active_policy(_auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.get_active() {
+        match this.policystore.get_active().await {
             Ok(v) => Ok(warp::reply::json(&v)),
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
@@ -91,8 +101,18 @@ where
         this: Arc<Self>,
         body: models::SetVersionPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.set_active(body.version, Context { initiator: auth_ctx.initiator }) {
-            Ok(v) => Ok(warp::reply::json(&v)),
+        match this.policystore.set_active(body.version, Context { initiator: auth_ctx.initiator }).await {
+            Ok(transaction) => {
+                // TODO try to log, if it fails reject
+                let policy = match transaction.accept().await {
+                    Ok(policy) => policy,
+                    Err(_) => {
+                        // Log and crash server, something ie really wrong
+                        todo!()
+                    },
+                };
+                Ok(warp::reply::json(&policy))
+            },
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
     }

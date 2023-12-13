@@ -57,7 +57,7 @@ where
         );
 
         debug!("Retrieving active policy...");
-        let policy = this.policystore.get_active().unwrap();
+        let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
 
         let verdict_reference = uuid::Uuid::new_v4().into();
@@ -117,7 +117,7 @@ where
         );
 
         debug!("Retrieving active policy...");
-        let policy = this.policystore.get_active().unwrap();
+        let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
 
         let verdict_reference = uuid::Uuid::new_v4().into();
@@ -187,7 +187,7 @@ where
         );
 
         debug!("Retrieving active policy...");
-        let policy = this.policystore.get_active().unwrap();
+        let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
 
         let verdict_reference = uuid::Uuid::new_v4().into();
