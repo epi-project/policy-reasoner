@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 pub struct AuthContext {
     pub initiator: String,
     pub system:    String,

@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::{env, fs};
 
 use humanlog::{DebugMode, HumanLogger};
@@ -5,12 +6,12 @@ use log::info;
 use srv::Srv;
 use state_resolver::{State, StateResolver};
 
+use crate::auth::{JwtConfig, JwtResolver, KidResolver, MockAuthResolver};
 use crate::eflint::EFlintReasonerConnector;
-use crate::jwt::{JwtResolver, KidResolver};
 use crate::sqlite::SqlitePolicyDataStore;
 
+pub mod auth;
 pub mod eflint;
-pub mod jwt;
 pub mod models;
 pub mod schema;
 pub mod sqlite;
@@ -25,6 +26,13 @@ impl StateResolver for FileStateResolver {
 
         return state;
     }
+}
+
+fn get_pauth_resolver() -> JwtResolver<KidResolver> {
+    let kid_resolver = KidResolver::new("./examples/config/jwk_set.json").unwrap();
+    let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
+    let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
+    JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
 }
 
 #[tokio::main]
@@ -43,8 +51,7 @@ async fn main() {
     }
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
-    let kid_resolver = KidResolver::new("./examples/config/jwk_set.json").unwrap();
-    let pauthresolver = JwtResolver::new("./examples/config/jwt_resolver.yaml", kid_resolver).unwrap();
+    let pauthresolver = get_pauth_resolver();
     let pstore = SqlitePolicyDataStore::new("./data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
     let sresolve = FileStateResolver {};
