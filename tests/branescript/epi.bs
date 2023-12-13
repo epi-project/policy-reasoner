@@ -8,7 +8,8 @@ let res_sta := local_compute(new Data{ name := "st_antonius_ect" });
 let res_umc := local_compute(new Data{ name := "umc_utrecht_ect" });
 
 // Do the aggregation step
-on "surf" {
+#[on("surf")]
+{
     let res := aggregate(res_sta, res_umc);
     return commit_result("surf_res", res);
 }

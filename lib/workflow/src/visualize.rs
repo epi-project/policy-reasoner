@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:30:00
 //  Last edited:
-//    07 Dec 2023, 10:05:31
+//    13 Dec 2023, 08:44:28
 //  Auto updated?
 //    Yes
 //
@@ -78,7 +78,12 @@ fn print_elem(f: &mut Formatter, elem: &Elem, prefix: &dyn Display) -> FResult {
                 "{}  - metadata  : {}",
                 prefix,
                 write_iter!(
-                    metadata.iter().map(|metadata| format!("{}.{} ({}:{})", metadata.owner, metadata.tag, metadata.assigner, metadata.signature,)),
+                    metadata.iter().map(|metadata| format!(
+                        "#{}.{}{}",
+                        metadata.owner,
+                        metadata.tag,
+                        if let Some((assigner, signature)) = &metadata.signature { format!("#{assigner}:{signature}") } else { String::new() }
+                    )),
                     ", "
                 )
             )?;
@@ -195,6 +200,25 @@ impl<'w> Display for WorkflowFormatter<'w> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         // Print some nice header thingy
         writeln!(f, "Workflow [")?;
+
+        // Print global metadata
+        if !self.wf.metadata.is_empty() {
+            writeln!(
+                f,
+                "{}{}",
+                Indent(4),
+                write_iter!(
+                    self.wf.metadata.iter().map(|metadata| format!(
+                        "#{}.{}{}",
+                        metadata.owner,
+                        metadata.tag,
+                        if let Some((assigner, signature)) = &metadata.signature { format!("#{assigner}:{signature}") } else { String::new() }
+                    )),
+                    ", "
+                )
+            )?;
+            writeln!(f)?;
+        }
 
         // Alright print the main elements
         print_elem(f, &self.wf.start, &Indent(4))?;

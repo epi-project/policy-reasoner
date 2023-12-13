@@ -7,7 +7,8 @@ import epi;
 let res_umc := local_compute(new Data{ name := "umc_utrecht_ect" });
 
 // Do the aggregation step with that same dataset twice lol
-on "surf" {
+#[on("surf")]
+{
     let res := aggregate(res_umc, res_umc);
     return commit_result("surf_res", res);
 }
