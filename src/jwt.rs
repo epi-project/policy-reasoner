@@ -54,11 +54,7 @@ impl<KR> JwtResolver<KR>
 where
     KR: KeyResolver + Sync,
 {
-    pub fn new(config: &str, key_resolver: KR) -> Result<Self, Box<dyn std::error::Error>> {
-        let r = File::open(config)?;
-        let cfg: JwtConfig = serde_yaml::from_reader(r)?;
-        return Ok(JwtResolver { config: cfg, key_resolver });
-    }
+    pub fn new(config: JwtConfig, key_resolver: KR) -> Result<Self, Box<dyn std::error::Error>> { return Ok(JwtResolver { config, key_resolver }); }
 
     pub fn extract_jwt(&self, auth_header: Option<&HeaderValue>) -> Result<String, AuthResolverError> {
         let header_val: &str = match auth_header {
