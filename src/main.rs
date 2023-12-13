@@ -8,10 +8,12 @@ use state_resolver::{State, StateResolver};
 
 use crate::auth::{JwtConfig, JwtResolver, KidResolver, MockAuthResolver};
 use crate::eflint::EFlintReasonerConnector;
+use crate::logger::MockLogger;
 use crate::sqlite::SqlitePolicyDataStore;
 
 pub mod auth;
 pub mod eflint;
+pub mod logger;
 pub mod models;
 pub mod schema;
 pub mod sqlite;
@@ -52,10 +54,12 @@ async fn main() {
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     let pauthresolver = get_pauth_resolver();
+    let logger = MockLogger::new();
+    let dauthresolver = MockAuthResolver::new("mock initiator".into(), "mock system".into());
     let pstore = SqlitePolicyDataStore::new("./data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
     let sresolve = FileStateResolver {};
-    let server = Srv::new(rconn, pstore, sresolve, pauthresolver);
+    let server = Srv::new(logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
 
     server.run().await;
 }

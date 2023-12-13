@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use audit_logger::AuditLogger;
 use auth_resolver::{AuthContext, AuthResolver};
 use policy::{Context, PolicyDataAccess, Transactionable};
 use reasonerconn::ReasonerConnector;
@@ -8,12 +9,14 @@ use warp::Filter;
 
 use crate::{models, Srv};
 
-impl<C, P, S, PA> Srv<C, P, S, PA>
+impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
+    L: 'static + AuditLogger + Send + Sync + Clone,
     C: 'static + ReasonerConnector + Send + Sync,
     P: 'static + PolicyDataAccess + Send + Sync,
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,
+    DA: 'static + AuthResolver + Send + Sync,
 {
     // Get Policy, default latest version
     // GET /v1/policies

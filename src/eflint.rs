@@ -1,13 +1,13 @@
 use std::collections::HashMap;
-use std::error::Error;
 
-use eflint_json::spec::auxillary::Version;
+use audit_logger::AuditLogger;
+use eflint_json::spec::auxillary::{AtomicType, Version};
 use eflint_json::spec::{
     ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, RequestCommon, RequestPhrases,
 };
 use log::{debug, info};
 use policy::{Policy, PolicyContent};
-use reasonerconn::{ReasonerConnector, ReasonerResponse};
+use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
 use state_resolver::State;
 use workflow::spec::Workflow;
 
@@ -188,10 +188,10 @@ impl EFlintReasonerConnector {
         phrases
     }
 
-    async fn process_phrases(&self, policy: &Policy, phrases: Vec<Phrase>) -> Result<ReasonerResponse, Box<dyn std::error::Error>> {
+    async fn process_phrases(&self, policy: &Policy, phrases: Vec<Phrase>) -> Result<ReasonerResponse, ReasonerConnError> {
         debug!("Full request:\n\n{}\n\n", serde_json::to_string_pretty(&phrases).unwrap_or_else(|_| "<serialization failure>".into()));
         debug!("Full request length: {} phrase(s)", phrases.len());
-        let version = self.extract_eflint_version(policy)?;
+        let version = self.extract_eflint_version(policy).map_err(|err| ReasonerConnError::new(err))?;
         let request = RequestPhrases { common: RequestCommon { version, extensions: HashMap::new() }, phrases, updates: true };
 
 
@@ -199,10 +199,10 @@ impl EFlintReasonerConnector {
         // Make request
         debug!("Sending eFLINT exec-task request to '{}'", self.addr);
         let client = reqwest::Client::new();
-        let res = client.post(&self.addr).json(&request).send().await?;
+        let res = client.post(&self.addr).json(&request).send().await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         debug!("Awaiting response...");
-        let response = res.json::<eflint_json::spec::ResponsePhrases>().await?;
+        let response = res.json::<eflint_json::spec::ResponsePhrases>().await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         debug!("Analysing response...");
         let errors: Vec<String> = response
@@ -235,20 +235,21 @@ impl EFlintReasonerConnector {
                 Ok(ReasonerResponse::new(success && response.common.success, errors))
             },
             // TODO better error handling
-            Err(err) => Err(err.into()),
+            Err(err) => Err(ReasonerConnError::new(err)),
         }
     }
 }
 
 #[async_trait::async_trait]
 impl ReasonerConnector for EFlintReasonerConnector {
-    async fn execute_task(
+    async fn execute_task<L: AuditLogger + Send + Sync>(
         &self,
+        logger: &L,
         policy: Policy,
         state: State,
         workflow: Workflow,
         task: String,
-    ) -> Result<ReasonerResponse, Box<dyn std::error::Error>> {
+    ) -> Result<ReasonerResponse, ReasonerConnError> {
         info!("Considering task '{}' in workflow '{}' for execution", task, workflow.id);
 
         // Add the question for this task
@@ -265,14 +266,15 @@ impl ReasonerConnector for EFlintReasonerConnector {
         self.process_phrases(&policy, phrases).await
     }
 
-    async fn access_data_request(
+    async fn access_data_request<L: AuditLogger + Send + Sync>(
         &self,
+        logger: &L,
         policy: Policy,
         state: State,
         workflow: Workflow,
         data: String,
         task: Option<String>,
-    ) -> Result<ReasonerResponse, Box<dyn Error>> {
+    ) -> Result<ReasonerResponse, ReasonerConnError> {
         // Determine if we're asking for a node-to-node data transfer (there's a task as context) or a node-to-user (there's no task).
         let question: Phrase = match task {
             Some(task_id) => {
@@ -311,7 +313,13 @@ impl ReasonerConnector for EFlintReasonerConnector {
         self.process_phrases(&policy, phrases).await
     }
 
-    async fn workflow_validation_request(&self, policy: Policy, state: State, workflow: Workflow) -> Result<ReasonerResponse, Box<dyn Error>> {
+    async fn workflow_validation_request<L: AuditLogger + Send + Sync>(
+        &self,
+        logger: &L,
+        policy: Policy,
+        state: State,
+        workflow: Workflow,
+    ) -> Result<ReasonerResponse, ReasonerConnError> {
         info!("Considering workflow '{}'", workflow.id);
 
         // Add the question for this task

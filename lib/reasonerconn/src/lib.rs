@@ -1,5 +1,6 @@
 use std::fmt;
 
+use audit_logger::AuditLogger;
 use policy::Policy;
 use serde::{Deserialize, Serialize};
 use state_resolver::State;
@@ -36,25 +37,28 @@ impl ReasonerResponse {
 
 #[async_trait::async_trait]
 pub trait ReasonerConnector {
-    async fn execute_task(
+    async fn execute_task<L: AuditLogger + Send + Sync>(
         &self,
+        logger: &L,
         policy: Policy,
         state: State,
         workflow: Workflow,
         task: String,
-    ) -> Result<ReasonerResponse, Box<dyn std::error::Error>>;
-    async fn access_data_request(
+    ) -> Result<ReasonerResponse, ReasonerConnError>;
+    async fn access_data_request<L: AuditLogger + Send + Sync>(
         &self,
+        logger: &L,
         policy: Policy,
         state: State,
         workflow: Workflow,
         data: String,
         task: Option<String>,
-    ) -> Result<ReasonerResponse, Box<dyn std::error::Error>>;
-    async fn workflow_validation_request(
+    ) -> Result<ReasonerResponse, ReasonerConnError>;
+    async fn workflow_validation_request<L: AuditLogger + Send + Sync>(
         &self,
+        logger: &L,
         policy: Policy,
         state: State,
         workflow: Workflow,
-    ) -> Result<ReasonerResponse, Box<dyn std::error::Error>>;
+    ) -> Result<ReasonerResponse, ReasonerConnError>;
 }

@@ -2,6 +2,7 @@ use std::convert::Infallible;
 use std::sync::Arc;
 
 use ::policy::{PolicyDataAccess, PolicyDataError};
+use audit_logger::AuditLogger;
 use auth_resolver::AuthResolver;
 use log::{debug, info};
 use reasonerconn::ReasonerConnector;
@@ -14,11 +15,13 @@ pub mod deliberation;
 pub mod models;
 pub mod policy;
 
-pub struct Srv<C, P, S, PA> {
-    reasonerconn:  C,
-    policystore:   P,
+pub struct Srv<L, C, P, S, PA, DA> {
+    logger: L,
+    reasonerconn: C,
+    policystore: P,
     stateresolver: S,
     pauthresolver: PA,
+    dauthresolver: DA,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -27,15 +30,17 @@ struct PingResponse {
     ping:    String,
 }
 
-impl<C, P, S, PA> Srv<C, P, S, PA>
+impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
+    L: 'static + AuditLogger + Send + Sync + Clone,
     C: 'static + ReasonerConnector + Send + Sync,
     P: 'static + PolicyDataAccess + Send + Sync,
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,
+    DA: 'static + AuthResolver + Send + Sync,
 {
-    pub fn new(reasonerconn: C, policystore: P, stateresolver: S, pauthresolver: PA) -> Self {
-        Srv { reasonerconn, policystore, stateresolver, pauthresolver }
+    pub fn new(logger: L, reasonerconn: C, policystore: P, stateresolver: S, pauthresolver: PA, dauthresolver: DA) -> Self {
+        Srv { logger, reasonerconn, policystore, stateresolver, pauthresolver, dauthresolver }
     }
 
     fn with_self(this: Arc<Self>) -> impl Filter<Extract = (Arc<Self>,), Error = Infallible> + Clone { warp::any().map(move || this.clone()) }
@@ -54,6 +59,8 @@ where
             } else if let Some(PolicyDataError::GeneralError(msg)) = err.find() {
                 // TODO implement problem+json for general error
                 Ok(warp::reply::with_status(warp::reply::json(msg), warp::http::StatusCode::BAD_REQUEST))
+            } else if let Some(audit_logger::Error::CouldNotDeliver { .. }) = err.find() {
+                Ok(warp::reply::with_status(warp::reply::json(&()), warp::http::StatusCode::INTERNAL_SERVER_ERROR))
             } else {
                 Err(err)
             }

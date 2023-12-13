@@ -1,31 +1,33 @@
 use std::sync::Arc;
 
+use audit_logger::AuditLogger;
 use auth_resolver::{AuthContext, AuthResolver};
 use deliberation::spec::{
-    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest, TaskExecResponse,
+    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest, TaskExecResponse, Verdict,
     WorkflowValidationRequest, WorkflowValidationResponse,
 };
 use log::{debug, info};
 use policy::PolicyDataAccess;
 use reasonerconn::ReasonerConnector;
 use state_resolver::StateResolver;
-use warp::reject::Rejection;
 use warp::Filter;
 use workflow::utils::ProgramCounter;
 use workflow::Workflow;
 
 use crate::Srv;
 
-impl<C, P, S, PA> Srv<C, P, S, PA>
+impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
+    L: 'static + AuditLogger + Send + Sync + Clone,
     C: 'static + ReasonerConnector + Send + Sync,
     P: 'static + PolicyDataAccess + Send + Sync,
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,
+    DA: 'static + AuthResolver + Send + Sync,
 {
     // POST /v1/deliberation/execute-task
     async fn handle_execute_task_request(
-        _auth_ctx: AuthContext,
+        auth_ctx: AuthContext,
         this: Arc<Self>,
         body: ExecuteTaskRequest,
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
@@ -60,28 +62,39 @@ where
         let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
 
-        let verdict_reference = uuid::Uuid::new_v4().into();
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
+
+        this.logger
+            .log_exec_task_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &task_id)
+            .await
+            .map_err(|err| {
+                debug!("Could not log exec task request to audit log : {:?} | request id: {}", err, verdict_reference);
+                warp::reject::custom(err)
+            })?;
 
         debug!("Consulting reasoner connector...");
-        match this.reasonerconn.execute_task(policy, state, workflow, task_id).await {
+        match this.reasonerconn.execute_task(&this.logger, policy, state, workflow, task_id).await {
             Ok(v) => {
+                let resp: Verdict;
                 if !v.success {
-                    return Ok(warp::reply::with_status(
-                        warp::reply::json(&deliberation::spec::Verdict::Deny(DeliberationDenyResponse {
-                            shared: TaskExecResponse { verdict_reference },
-                            reasons_for_denial: Some(v.errors),
-                        })),
-                        warp::hyper::StatusCode::OK,
-                    ));
+                    resp = Verdict::Deny(DeliberationDenyResponse {
+                        shared: TaskExecResponse { verdict_reference: verdict_reference.clone() },
+                        reasons_for_denial: Some(v.errors),
+                    });
+                } else {
+                    resp = Verdict::Allow(DeliberationAllowResponse {
+                        shared:    TaskExecResponse { verdict_reference: verdict_reference.clone() },
+                        // TODO implement signature
+                        signature: "signature".into(),
+                    })
                 }
 
-                Ok(warp::reply::with_status(
-                    warp::reply::json(&deliberation::spec::Verdict::Allow(DeliberationAllowResponse {
-                        shared:    TaskExecResponse { verdict_reference },
-                        signature: "signature".into(),
-                    })),
-                    warp::hyper::StatusCode::OK,
-                ))
+                this.logger.log_verdict(&verdict_reference, &resp).await.map_err(|err| {
+                    debug!("Could not log execute task verdict to audit log : {:?} | request id: {}", err, verdict_reference);
+                    warp::reject::custom(err)
+                })?;
+
+                Ok(warp::reply::with_status(warp::reply::json(&resp), warp::hyper::StatusCode::OK))
             },
             Err(err) => Ok(warp::reply::with_status(warp::reply::json(&format!("{}", err)), warp::hyper::StatusCode::OK)),
         }
@@ -89,7 +102,7 @@ where
 
     // POST /v1/deliberation/access-data
     async fn handle_access_data_request(
-        _auth_ctx: AuthContext,
+        auth_ctx: AuthContext,
         this: Arc<Self>,
         body: AccessDataRequest,
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
@@ -120,7 +133,7 @@ where
         let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
 
-        let verdict_reference = uuid::Uuid::new_v4().into();
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
 
         let task_id: Option<String> = match body.task_id {
             Some(task_id) => {
@@ -135,25 +148,36 @@ where
             None => None,
         };
 
-        match this.reasonerconn.access_data_request(policy, state, workflow, body.data_id, task_id).await {
+        this.logger
+            .log_data_access_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &body.data_id, &task_id)
+            .await
+            .map_err(|err| {
+                debug!("Could not log data access request to audit log : {:?} | request id: {}", err, verdict_reference);
+                warp::reject::custom(err)
+            })?;
+
+        match this.reasonerconn.access_data_request(&this.logger, policy, state, workflow, body.data_id, task_id).await {
             Ok(v) => {
+                let resp: Verdict;
                 if !v.success {
-                    return Ok(warp::reply::with_status(
-                        warp::reply::json(&deliberation::spec::Verdict::Deny(DeliberationDenyResponse {
-                            shared: DataAccessResponse { verdict_reference },
-                            reasons_for_denial: Some(v.errors),
-                        })),
-                        warp::hyper::StatusCode::OK,
-                    ));
+                    resp = Verdict::Deny(DeliberationDenyResponse {
+                        shared: DataAccessResponse { verdict_reference: verdict_reference.clone() },
+                        reasons_for_denial: Some(v.errors),
+                    });
+                } else {
+                    resp = Verdict::Allow(DeliberationAllowResponse {
+                        shared:    DataAccessResponse { verdict_reference: verdict_reference.clone() },
+                        // TODO implement signature
+                        signature: "signature".into(),
+                    })
                 }
 
-                Ok(warp::reply::with_status(
-                    warp::reply::json(&deliberation::spec::Verdict::Allow(DeliberationAllowResponse {
-                        shared:    DataAccessResponse { verdict_reference },
-                        signature: "signature".into(),
-                    })),
-                    warp::hyper::StatusCode::OK,
-                ))
+                this.logger.log_verdict(&verdict_reference, &resp).await.map_err(|err| {
+                    debug!("Could not log data access verdict to audit log : {:?} | request id: {}", err, verdict_reference);
+                    warp::reject::custom(err)
+                })?;
+
+                Ok(warp::reply::with_status(warp::reply::json(&resp), warp::hyper::StatusCode::OK))
             },
             Err(err) => Ok(warp::reply::with_status(warp::reply::json(&format!("{}", err)), warp::hyper::StatusCode::OK)),
         }
@@ -161,7 +185,7 @@ where
 
     // POST /v1/deliberation/validate-workflow
     async fn handle_validate_workflow_request(
-        _auth_ctx: AuthContext,
+        auth_ctx: AuthContext,
         this: Arc<Self>,
         body: WorkflowValidationRequest,
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
@@ -190,27 +214,37 @@ where
         let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
 
-        let verdict_reference = uuid::Uuid::new_v4().into();
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
 
-        match this.reasonerconn.workflow_validation_request(policy, state, workflow).await {
+        this.logger.log_validate_workflow_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow).await.map_err(
+            |err| {
+                debug!("Could not log validate workflow request to audit log : {:?} | request id: {}", err, verdict_reference);
+                warp::reject::custom(err)
+            },
+        )?;
+
+        match this.reasonerconn.workflow_validation_request(&this.logger, policy, state, workflow).await {
             Ok(v) => {
+                let resp: Verdict;
                 if !v.success {
-                    return Ok(warp::reply::with_status(
-                        warp::reply::json(&deliberation::spec::Verdict::Deny(DeliberationDenyResponse {
-                            shared: WorkflowValidationResponse { verdict_reference },
-                            reasons_for_denial: Some(v.errors),
-                        })),
-                        warp::hyper::StatusCode::OK,
-                    ));
+                    resp = Verdict::Deny(DeliberationDenyResponse {
+                        shared: WorkflowValidationResponse { verdict_reference: verdict_reference.clone() },
+                        reasons_for_denial: Some(v.errors),
+                    });
+                } else {
+                    resp = Verdict::Allow(DeliberationAllowResponse {
+                        shared:    WorkflowValidationResponse { verdict_reference: verdict_reference.clone() },
+                        // TODO implement signature
+                        signature: "signature".into(),
+                    })
                 }
 
-                Ok(warp::reply::with_status(
-                    warp::reply::json(&deliberation::spec::Verdict::Allow(DeliberationAllowResponse {
-                        shared:    WorkflowValidationResponse { verdict_reference },
-                        signature: "signature".into(),
-                    })),
-                    warp::hyper::StatusCode::OK,
-                ))
+                this.logger.log_verdict(&verdict_reference, &resp).await.map_err(|err| {
+                    debug!("Could not log workflow validation verdict to audit log : {:?} | request id: {}", err, verdict_reference);
+                    warp::reject::custom(err)
+                })?;
+
+                Ok(warp::reply::with_status(warp::reply::json(&resp), warp::hyper::StatusCode::OK))
             },
             Err(err) => Ok(warp::reply::with_status(warp::reply::json(&format!("{}", err)), warp::hyper::StatusCode::OK)),
         }
@@ -242,9 +276,11 @@ where
     }
 
     pub fn with_deliberation_api_auth(this: Arc<Self>) -> impl Filter<Extract = (AuthContext,), Error = warp::Rejection> + Clone {
-        Self::with_self(this.clone()).and(warp::header::headers_cloned()).and_then(|_this: Arc<Self>, _headers| async move {
-            // TODO implement!
-            Ok::<AuthContext, Rejection>(AuthContext { initiator: "TODO implement!".into(), system: "TODO implement!".into() })
+        Self::with_self(this.clone()).and(warp::header::headers_cloned()).and_then(|this: Arc<Self>, headers| async move {
+            match this.dauthresolver.authenticate(headers).await {
+                Ok(v) => Ok(v),
+                Err(err) => Err(warp::reject::custom(err)),
+            }
         })
     }
 }
