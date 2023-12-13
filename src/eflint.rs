@@ -1,16 +1,59 @@
 use std::collections::HashMap;
 use std::error::Error;
 
-use eflint_json::spec::auxillary::{AtomicType, Version};
+use eflint_json::spec::auxillary::Version;
 use eflint_json::spec::{
-    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseAtomicFact, PhraseCreate, RequestCommon,
-    RequestPhrases, TypeDefinitionCommon,
+    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, RequestCommon, RequestPhrases,
 };
 use log::{debug, info};
 use policy::{Policy, PolicyContent};
 use reasonerconn::{ReasonerConnector, ReasonerResponse};
 use state_resolver::State;
 use workflow::spec::Workflow;
+
+/// Shortcut for creating an eFLINT JSON Specification [`Phrase::Create`].
+///
+/// # Arguments
+/// - `inst`: A single eFLINT [`Expression`] that is an instance expression determining what to create; i.e., `foo(Amy, Bob)` in `+foo(Amy, Bob).`.
+///
+/// # Returns
+/// A new [`Phrase::Create`] (or rather, the Rust code to create it).
+macro_rules! create {
+    ($inst:expr) => {
+        Phrase::Create(PhraseCreate { operand: $inst })
+    };
+}
+
+/// Shortcut for creating an eFLINT JSON Specification [`Expression::ConstructorApp`].
+///
+/// # Arguments
+/// - _array syntax_
+///   - `id`: The (string) identifier of the relation to construct; i.e., `foo` in `foo(Amy, Bob)`.
+///   - `args...`: Zero or more addinitional [`Expression`]s that make up the arguments of the constructor application; i.e., `Amy` or `Bob` in `foo(Amy, Bob)`.
+///
+/// # Returns
+/// A new [`Expression::ConstructorApp`] (or rather, the Rust code to create it).
+macro_rules! constr_app {
+    ($id:expr $(, $args:expr)* $(,)?) => {
+        Expression::ConstructorApp(ExpressionConstructorApp {
+            identifier: ($id).into(),
+            operands:   ConstructorInput::ArraySyntax(vec![ $($args),* ]),
+        })
+    };
+}
+
+/// Shortcut for creating an eFLINT JSON Specification [`Expression::Primitive(ExpressionPrimitive::String)`].
+///
+/// # Arguments
+/// - `val`: The string value to put in the string primitive. Note that this is automatically `into()`d; so passing a `&str` will work, for example.
+///
+/// # Returns
+/// A new [`Expression::Primitive(ExpressionPrimitive::String)`] (or rather, the Rust code to create it).
+macro_rules! str_lit {
+    ($val:expr) => {
+        Expression::Primitive(ExpressionPrimitive::String(($val).into()))
+    };
+}
 
 pub struct EFlintReasonerConnector {
     pub addr:  String,
@@ -37,33 +80,23 @@ impl EFlintReasonerConnector {
         let mut result: Vec<Phrase> = Vec::<Phrase>::new();
 
         for user in state.users.iter() {
-            // PhraseCreate users
-            result.push(Phrase::Create(PhraseCreate {
-                operand: Expression::ConstructorApp(ExpressionConstructorApp {
-                    identifier: "user".into(),
-                    operands:   ConstructorInput::ArraySyntax(vec![Expression::Primitive(ExpressionPrimitive::String(user.name.clone().into()))]),
-                }),
-            }));
+            // ```eflint
+            // +user(#user.name).
+            // ```
+            let user_constr: Expression = constr_app!("user", str_lit!(user.name.clone()));
+            result.push(create!(user_constr.clone()));
         }
         let user_len: usize = result.len();
         debug!("Generated {} user phrases", user_len);
 
         for location in state.locations.iter() {
-            // PhraseCreate users
-            result.push(Phrase::Create(PhraseCreate {
-                operand: Expression::ConstructorApp(ExpressionConstructorApp {
-                    identifier: "user".into(),
-                    operands:   ConstructorInput::ArraySyntax(vec![Expression::Primitive(ExpressionPrimitive::String(location.name.clone().into()))]),
-                }),
-            }));
-
-            // PhraseCreate domains
-            result.push(Phrase::Create(PhraseCreate {
-                operand: Expression::ConstructorApp(ExpressionConstructorApp {
-                    identifier: "domain".into(),
-                    operands:   ConstructorInput::ArraySyntax(vec![Expression::Primitive(ExpressionPrimitive::String(location.name.clone().into()))]),
-                }),
-            }));
+            // ```eflint
+            // +user(#location.name).
+            // +domain(user(#location.name))
+            // ```
+            let user_constr: Expression = constr_app!("user", str_lit!(location.name.clone()));
+            result.push(create!(user_constr.clone()));
+            result.push(create!(constr_app!("domain", user_constr)));
 
             // add metadata
         }
@@ -71,23 +104,22 @@ impl EFlintReasonerConnector {
         debug!("Generated {} location phrases", location_len - user_len);
 
         for dataset in state.datasets.iter() {
-            result.push(Phrase::AtomicFact(PhraseAtomicFact {
-                name: dataset.name.clone(),
-                ty: AtomicType::String,
-                definition: TypeDefinitionCommon { derived_from: vec![], holds_when: vec![], conditioned_by: vec![] },
-                range: None,
-            }))
+            // ```eflint
+            // +asset(#data.name).
+            // ```
+            result.push(create!(constr_app!("asset", str_lit!(dataset.name.clone()))));
         }
         let dataset_len: usize = result.len();
         debug!("Generated {} dataset phrases", dataset_len - location_len);
 
         for function in state.functions.iter() {
-            result.push(Phrase::AtomicFact(PhraseAtomicFact {
-                name: function.name.clone(),
-                ty: AtomicType::String,
-                definition: TypeDefinitionCommon { derived_from: vec![], holds_when: vec![], conditioned_by: vec![] },
-                range: None,
-            }))
+            // ```eflint
+            // +asset(#function.name).
+            // +code(asset(#function.name)).
+            // ```
+            let asset_constr: Expression = constr_app!("asset", str_lit!(function.name.clone()));
+            result.push(create!(asset_constr.clone()));
+            result.push(create!(constr_app!("code", asset_constr)));
         }
         let function_len: usize = result.len();
         debug!("Generated {} function phrases", function_len - dataset_len);
@@ -218,13 +250,17 @@ impl ReasonerConnector for EFlintReasonerConnector {
         task: String,
     ) -> Result<ReasonerResponse, Box<dyn std::error::Error>> {
         info!("Considering task '{}' in workflow '{}' for execution", task, workflow.id);
-        let question = Phrase::Create(PhraseCreate {
-            operand: Expression::ConstructorApp(ExpressionConstructorApp {
-                identifier: "task-to-execute".into(),
-                operands:   ConstructorInput::ArraySyntax(vec![Expression::Primitive(ExpressionPrimitive::String(task))]),
-            }),
-        });
 
+        // Add the question for this task
+        // ```eflint
+        // +task-to-execute(task(node(workflow(#workflow.id), #task))).
+        // ```
+        let question: Phrase = create!(constr_app!(
+            "task-to-execute",
+            constr_app!("task", constr_app!("node", constr_app!("workflow", str_lit!(workflow.id.clone())), str_lit!(task)))
+        ));
+
+        // Build & submit the phrases with the given policy, state, workflow _and_ question
         let phrases = self.build_phrases(&policy, state, workflow, question);
         self.process_phrases(&policy, phrases).await
     }
@@ -237,24 +273,37 @@ impl ReasonerConnector for EFlintReasonerConnector {
         data: String,
         task: Option<String>,
     ) -> Result<ReasonerResponse, Box<dyn Error>> {
-        let question = match task {
+        // Determine if we're asking for a node-to-node data transfer (there's a task as context) or a node-to-user (there's no task).
+        let question: Phrase = match task {
             Some(task_id) => {
                 info!("Considering data access '{}' for task '{}' in workflow '{}'", data, task_id, workflow.id);
-                Phrase::Create(PhraseCreate {
-                    operand: Expression::ConstructorApp(ExpressionConstructorApp {
-                        identifier: "dataset-to-transfer".into(),
-                        operands:   ConstructorInput::ArraySyntax(vec![Expression::Primitive(ExpressionPrimitive::String(data))]),
-                    }),
-                })
+
+                // ```eflint
+                // +dataset-to-transfer(node-input(node(workflow(#workflow.id), #task), asset(#data))).
+                // ```
+                create!(constr_app!(
+                    "dataset-to-transfer",
+                    constr_app!(
+                        "node-input",
+                        constr_app!("node", constr_app!("workflow", str_lit!(workflow.id.clone())), str_lit!(task_id)),
+                        constr_app!("asset", str_lit!(data)),
+                    )
+                ))
             },
             None => {
                 info!("Considering data access '{}' for result of workflow '{}'", data, workflow.id);
-                Phrase::Create(PhraseCreate {
-                    operand: Expression::ConstructorApp(ExpressionConstructorApp {
-                        identifier: "result-to-transfer".into(),
-                        operands:   ConstructorInput::ArraySyntax(vec![Expression::Primitive(ExpressionPrimitive::String(data))]),
-                    }),
-                })
+
+                // ```eflint
+                // +result-to-transfer(workflow-result-recipient(workflow-result(workflow(#workflow.id), asset(#data)), user(#workflow.user))).
+                // ```
+                create!(constr_app!(
+                    "result-to-transfer",
+                    constr_app!(
+                        "workflow-result-recipient",
+                        constr_app!("workflow-result", constr_app!("workflow", str_lit!(workflow.id.clone())), constr_app!("asset", str_lit!(data))),
+                        constr_app!("user", str_lit!(workflow.user.name.clone()))
+                    )
+                ))
             },
         };
 
@@ -264,13 +313,14 @@ impl ReasonerConnector for EFlintReasonerConnector {
 
     async fn workflow_validation_request(&self, policy: Policy, state: State, workflow: Workflow) -> Result<ReasonerResponse, Box<dyn Error>> {
         info!("Considering workflow '{}'", workflow.id);
-        let question = Phrase::Create(PhraseCreate {
-            operand: Expression::ConstructorApp(ExpressionConstructorApp {
-                identifier: "workflow-to-execute".into(),
-                operands:   ConstructorInput::ArraySyntax(vec![Expression::Primitive(ExpressionPrimitive::String(workflow.id.clone()))]),
-            }),
-        });
 
+        // Add the question for this task
+        // ```eflint
+        // +workflow-to-execute(workflow(#workflow.id)).
+        // ```
+        let question = create!(constr_app!("workflow-to-execute", constr_app!("workflow", str_lit!(workflow.id.clone()))));
+
+        // Build & submit the phrases with the given policy, state, workflow _and_ question
         let phrases = self.build_phrases(&policy, state, workflow, question);
         self.process_phrases(&policy, phrases).await
     }

@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 15:56:55
 //  Last edited:
-//    06 Dec 2023, 16:26:38
+//    13 Dec 2023, 08:37:20
 //  Auto updated?
 //    Yes
 //
@@ -67,10 +67,8 @@ pub struct Metadata {
     pub owner: String,
     /// The tag itself.
     pub tag: String,
-    /// The person/domain who applied this tag to something and then signed the assignment.
-    pub assigner: String,
-    /// The signature verifying this metadata. It can be assumed that this is signed by the `assigner`.
-    pub signature: String,
+    /// The signature verifying this metadata. If present, it's given as a pair of the person signing it and their signature.
+    pub signature: Option<(String, String)>,
 }
 
 

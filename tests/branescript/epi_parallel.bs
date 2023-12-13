@@ -11,7 +11,8 @@ let res := parallel [all] [{
 }];
 
 // Do the aggregation step
-on "surf" {
+#[on("surf")]
+{
     let gres := aggregate(res[0], res[1]);
     return commit_result("surf_res", gres);
 }

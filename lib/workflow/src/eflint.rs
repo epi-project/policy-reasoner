@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    07 Dec 2023, 16:26:35
+//    13 Dec 2023, 08:41:26
 //  Auto updated?
 //    Yes
 //
@@ -276,6 +276,11 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, loop_names: &Has
 
                 // Finally, add any task metadata
                 for m in metadata {
+                    // Resolve the metadata's signature
+                    let (assigner, signature): (&str, &str) =
+                        m.signature.as_ref().map(|(assigner, signature)| (assigner.as_str(), signature.as_str())).unwrap_or(("", ""));
+
+                    // Write the phrase
                     // ```eflint
                     // +node-metadata(#node, metadata(tag(user(#m.owner), #m.tag), signature(user(#m.assigner), #m.signature)))).
                     // ```
@@ -285,7 +290,7 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, loop_names: &Has
                         constr_app!(
                             "metadata",
                             constr_app!("tag", constr_app!("user", str_lit!(m.owner.clone())), str_lit!(m.tag.clone())),
-                            constr_app!("signature", constr_app!("user", str_lit!(m.assigner.clone())), str_lit!(m.signature.clone())),
+                            constr_app!("signature", constr_app!("user", str_lit!(assigner)), str_lit!(signature)),
                         )
                     )));
                 }
@@ -488,6 +493,11 @@ impl Workflow {
 
         // Add workflow metadata
         for m in &self.metadata {
+            // Resolve the metadata's signature
+            let (assigner, signature): (&str, &str) =
+                m.signature.as_ref().map(|(assigner, signature)| (assigner.as_str(), signature.as_str())).unwrap_or(("", ""));
+
+            // Write the phrase
             // ```eflint
             // +workflow-metadata(#workflow, metadata(tag(user(#m.owner), #m.tag), signature(user(#m.assigner), #m.signature)))).
             // ```
@@ -497,7 +507,7 @@ impl Workflow {
                 constr_app!(
                     "metadata",
                     constr_app!("tag", constr_app!("user", str_lit!(m.owner.clone())), str_lit!(m.tag.clone())),
-                    constr_app!("signature", constr_app!("user", str_lit!(m.assigner.clone())), str_lit!(m.signature.clone())),
+                    constr_app!("signature", constr_app!("user", str_lit!(assigner)), str_lit!(signature)),
                 )
             )));
         }

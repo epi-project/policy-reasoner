@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    07 Dec 2023, 10:03:04
+//    13 Dec 2023, 08:41:44
 //  Auto updated?
 //    Yes
 //
@@ -29,6 +29,7 @@ use specifications::data::{AvailabilityKind, PreprocessKind};
 use super::preprocess;
 use super::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
 use super::utils::{self, PrettyProgramCounter, ProgramCounter};
+use crate::Metadata;
 
 
 /***** ERRORS *****/
@@ -147,7 +148,7 @@ fn analyse_data_lkls(
             analyse_data_lkls(lkls, wir, pc.jump(*next), breakpoint)
         },
 
-        ast::Edge::Node { task: _, locs: _, at, input, result, next } => {
+        ast::Edge::Node { task: _, locs: _, at, input, result, metadata: _, next } => {
             // Mark the locations we're getting the results from
             for (i, access) in input {
                 match access {
@@ -272,7 +273,7 @@ fn reconstruct_graph(
             reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)
         },
 
-        ast::Edge::Node { task, locs: _, at, input, result, next } => {
+        ast::Edge::Node { task, locs: _, at, input, result, metadata, next } => {
             // Resolve the task definition
             let def: &ast::ComputeTaskDef = match catch_unwind(|| wir.table.task(*task)) {
                 Ok(def) => {
@@ -308,7 +309,10 @@ fn reconstruct_graph(
                     .collect(),
                 output: result.as_ref().map(|name| Dataset { name: name.clone(), from: None }),
                 location: at.clone(),
-                metadata: vec![],
+                metadata: metadata
+                    .iter()
+                    .map(|md| Metadata { owner: md.owner.clone(), tag: md.tag.clone(), signature: md.signature.clone() })
+                    .collect(),
                 next: Box::new(reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)?),
             }))
         },
@@ -485,7 +489,11 @@ impl TryFrom<ast::Workflow> for Workflow {
             start: graph,
 
             user:      User { name: "Danny Data Scientist".into() },
-            metadata:  vec![],
+            metadata:  wir
+                .metadata
+                .iter()
+                .map(|md| Metadata { owner: md.owner.clone(), tag: md.tag.clone(), signature: md.signature.clone() })
+                .collect(),
             signature: "its_signed_i_swear_mom".into(),
         })
     }
