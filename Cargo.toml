@@ -23,6 +23,7 @@ eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs"}
 srv = { path = "lib/srv" }
 state-resolver = { path = "lib/state-resolver" }
 auth-resolver = {path = "lib/auth-resolver"}
+audit-logger = {path = "lib/audit-logger"}
 async-trait = "*"
 serde = {version="1.0", features=["derive"]}
 serde_json = {version = "1.0" , features = ["raw_value"]}
@@ -44,6 +45,7 @@ members = [
     "lib/srv",
     "lib/state-resolver",
     "lib/workflow",
+    "lib/audit-logger",
 
     "tools/policy-builder",
 ]
