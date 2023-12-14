@@ -31,8 +31,10 @@ serde_yaml = "*"
 warp = "0.3"
 jsonwebtoken = "9"
 diesel = { version = "*", features = ["sqlite", "chrono", "r2d2"] }
-chrono = "*"
+chrono = "0.4"
 reqwest = "*"
+enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
+error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 
 
 [build-dependencies]

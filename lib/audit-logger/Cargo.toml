@@ -13,5 +13,6 @@ policy = {path = "../policy"}
 deliberation = {path = "../deliberation"}
 state-resolver = {path = "../state-resolver"}
 workflow = {path = "../workflow"}
+serde = "1.0"
 serde_json = "1.0"
 warp = "0.3"

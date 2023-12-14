@@ -37,6 +37,20 @@ impl ReasonerResponse {
 
 #[async_trait::async_trait]
 pub trait ReasonerConnector {
+    /// The type returned by [`ReasonerConnector::context()`].
+    type Context;
+    /// The type returned by [`ReasonerConnector::full_context()`].
+    type FullContext;
+
+    /// Returns context about the reasoner connector that is relevant for the audit log.
+    ///
+    /// In particular, this should contain stuff like the name of the reasoner used, its version, base spec hash, etc.
+    fn context(&self) -> Self::Context;
+    /// Returns so-called "full context" about the reasoner connector that is relevant for the audit log.
+    ///
+    /// In particular, this should contain stuff like the name of the reasoner used, its version, base spec hash, etc, but also more details like the actual full base spec itself.
+    fn full_context(&self) -> Self::FullContext;
+
     async fn execute_task<L: AuditLogger + Send + Sync>(
         &self,
         logger: &L,
