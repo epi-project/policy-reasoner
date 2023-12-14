@@ -27,36 +27,36 @@ impl warp::reject::Reject for Error {}
 pub trait AuditLogger {
     async fn log_exec_task_request(
         &self,
-        reference: &String,
+        reference: &str,
         auth: &AuthContext,
         policy: i64,
         state: &State,
         workflow: &Workflow,
-        task: &String,
+        task: &str,
     ) -> Result<(), Error>;
 
     async fn log_data_access_request(
         &self,
-        reference: &String,
+        reference: &str,
         auth: &AuthContext,
         policy: i64,
         state: &State,
         workflow: &Workflow,
-        data: &String,
+        data: &str,
         task: &Option<String>,
     ) -> Result<(), Error>;
 
     async fn log_validate_workflow_request(
         &self,
-        reference: &String,
+        reference: &str,
         auth: &AuthContext,
         policy: i64,
         state: &State,
         workflow: &Workflow,
     ) -> Result<(), Error>;
 
-    async fn log_reasoner_response(&self, reference: &String, response: &serde_json::Value) -> Result<(), Error>;
-    async fn log_verdict(&self, reference: &String, verdict: &Verdict) -> Result<(), Error>;
+    async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), Error>;
+    async fn log_verdict(&self, reference: &str, verdict: &Verdict) -> Result<(), Error>;
 
     // Log base defs on startup
 
