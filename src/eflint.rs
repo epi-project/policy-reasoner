@@ -4,7 +4,7 @@ use std::future::Future;
 use audit_logger::{AuditLogger, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
 use eflint_json::spec::auxillary::{AtomicType, Version};
 use eflint_json::spec::{
-    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, RequestCommon, RequestPhrases,
+    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, Request, RequestCommon, RequestPhrases,
 };
 use log::{debug, info};
 use policy::{Policy, PolicyContent};
@@ -196,10 +196,10 @@ impl EFlintReasonerConnector {
         policy: &Policy,
         phrases: Vec<Phrase>,
     ) -> Result<ReasonerResponse, ReasonerConnError> {
-        debug!("Full request:\n\n{}\n\n", serde_json::to_string_pretty(&phrases).unwrap_or_else(|_| "<serialization failure>".into()));
-        debug!("Full request length: {} phrase(s)", phrases.len());
         let version = self.extract_eflint_version(policy).map_err(|err| ReasonerConnError::new(err))?;
-        let request = RequestPhrases { common: RequestCommon { version, extensions: HashMap::new() }, phrases, updates: true };
+        debug!("Full request length: {} phrase(s)", phrases.len());
+        let request = Request::Phrases(RequestPhrases { common: RequestCommon { version, extensions: HashMap::new() }, phrases, updates: true });
+        debug!("Full request:\n\n{}\n\n", serde_json::to_string_pretty(&request).unwrap_or_else(|_| "<serialization failure>".into()));
 
         // Make request
         debug!("Sending eFLINT exec-task request to '{}'", self.addr);
