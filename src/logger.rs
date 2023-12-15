@@ -21,7 +21,7 @@ use workflow::Workflow;
 /// Wraps a [`write!`]-macro to return its error as a [`FileLoggerError`].
 macro_rules! write_file {
     ($path:expr, $handle:expr, $($t:tt)+) => {
-        // Psych we actually don't, since we're doing async ofc
+        // Psych we actually don't wrap that macro, since we're doing async ofc
         async {
             use tokio::io::AsyncWriteExt as _;
             let contents: String = format!($($t)+);
@@ -33,17 +33,18 @@ macro_rules! write_file {
 /// Wraps a [`writeln!`]-macro to return its error as a [`FileLoggerError`].
 macro_rules! writeln_file {
     ($path:expr, $handle:expr) => {
-        // Psych we actually don't, since we're doing async ofc
+        // Psych we actually don't wrap that macro, since we're doing async ofc
         async {
             use tokio::io::AsyncWriteExt as _;
             $handle.write_all(b"\n").await.map_err(|err| FileLoggerError::FileWrite { path: ($path), err })
         }
     };
     ($path:expr, $handle:expr, $($t:tt)+) => {
-        // Psych we actually don't, since we're doing async ofc
+        // Psych we actually don't wrap that macro, since we're doing async ofc
         async {
             use tokio::io::AsyncWriteExt as _;
-            let contents: String = format!($($t)+);
+            let mut contents: String = format!($($t)*);
+            contents.push('\n');
             $handle.write_all(contents.as_bytes()).await.map_err(|err| FileLoggerError::FileWrite { path: ($path), err })
         }
     };
