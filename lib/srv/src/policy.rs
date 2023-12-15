@@ -1,9 +1,11 @@
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use audit_logger::AuditLogger;
 use auth_resolver::{AuthContext, AuthResolver};
 use policy::{Context, PolicyDataAccess, PolicyDataError};
 use reasonerconn::ReasonerConnector;
+use serde::Serialize;
 use state_resolver::StateResolver;
 use warp::Filter;
 
@@ -17,6 +19,7 @@ where
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,
     DA: 'static + AuthResolver + Send + Sync,
+    C::Context: Send + Sync + Debug + Serialize,
 {
     // Get Policy, default latest version
     // GET /v1/policies
@@ -65,10 +68,11 @@ where
         this: Arc<Self>,
         body: models::AddPolicyPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
+        let t: Arc<Self> = this.clone();
         match this
             .policystore
-            .add_version(body.to_domain(), Context { initiator: auth_ctx.initiator }, |policy| async move {
-                this.logger.log_add_policy_request(&auth_ctx, &this.reasonerconn.context(), &policy).await.map_err(|err| match err {
+            .add_version(body.to_domain(), Context { initiator: auth_ctx.initiator.clone() }, |policy| async move {
+                t.logger.log_add_policy_request(&auth_ctx, &t.reasonerconn.context(), &policy).await.map_err(|err| match err {
                     audit_logger::Error::CouldNotDeliver(err) => PolicyDataError::GeneralError(err),
                 })
             })

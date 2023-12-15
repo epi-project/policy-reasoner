@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use audit_logger::{AuditLogger, SessionedConnectorAuditLogger};
@@ -9,6 +10,7 @@ use deliberation::spec::{
 use log::{debug, info};
 use policy::PolicyDataAccess;
 use reasonerconn::ReasonerConnector;
+use serde::Serialize;
 use state_resolver::StateResolver;
 use warp::Filter;
 use workflow::utils::ProgramCounter;
@@ -24,6 +26,7 @@ where
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,
     DA: 'static + AuthResolver + Send + Sync,
+    C::Context: Send + Sync + Debug + Serialize,
 {
     // POST /v1/deliberation/execute-task
     async fn handle_execute_task_request(

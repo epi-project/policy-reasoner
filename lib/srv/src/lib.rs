@@ -1,4 +1,5 @@
 use std::convert::Infallible;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use ::policy::{PolicyDataAccess, PolicyDataError};
@@ -38,6 +39,7 @@ where
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,
     DA: 'static + AuthResolver + Send + Sync,
+    C::Context: Send + Sync + Debug + Serialize,
 {
     pub fn new(logger: L, reasonerconn: C, policystore: P, stateresolver: S, pauthresolver: PA, dauthresolver: DA) -> Self {
         Srv { logger, reasonerconn, policystore, stateresolver, pauthresolver, dauthresolver }
