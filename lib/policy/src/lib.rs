@@ -1,29 +1,31 @@
 use std::fmt::Display;
+use std::future::Future;
 
 use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PolicyContent {
     pub reasoner: String,
     pub reasoner_version: String,
     pub content: Box<serde_json::value::RawValue>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PolicyVersion {
     pub creator: Option<String>,
     pub created_at: DateTime<Local>,
     pub version: Option<i64>,
     pub version_description: String,
+    // TODO Add base def hash
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ActivePolicy {
     pub version: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Policy {
     pub description: String,
     #[serde(flatten)]
@@ -53,13 +55,6 @@ impl Display for PolicyDataError {
 //         }
 //     }
 // }
-
-#[async_trait::async_trait]
-pub trait Transactionable {
-    type Error;
-    async fn cancel(self) -> Result<(), Self::Error>;
-    async fn accept(self) -> Result<Policy, Self::Error>;
-}
 
 
 // pub trait Transaction {
@@ -91,13 +86,23 @@ pub struct Context {
 
 #[async_trait::async_trait]
 pub trait PolicyDataAccess {
-    type Transaction: Transactionable + Drop + Send;
+    type Error;
     #[must_use]
-    async fn add_version(&self, version: Policy, context: Context) -> Result<Self::Transaction, PolicyDataError>;
+    async fn add_version<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        version: Policy,
+        context: Context,
+        transaction: impl 'static + Send + FnOnce(Policy) -> F,
+    ) -> Result<Policy, PolicyDataError>;
     async fn get_version(&self, version: i64) -> Result<Policy, PolicyDataError>;
     async fn get_most_recent(&self) -> Result<Policy, PolicyDataError>;
     async fn get_versions(&self) -> Result<Vec<PolicyVersion>, PolicyDataError>;
     async fn get_active(&self) -> Result<Policy, PolicyDataError>;
     #[must_use]
-    async fn set_active(&self, version: i64, context: Context) -> Result<Self::Transaction, PolicyDataError>;
+    async fn set_active<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        version: i64,
+        context: Context,
+        transaction: impl 'static + Send + FnOnce(Policy) -> F,
+    ) -> Result<Policy, PolicyDataError>;
 }

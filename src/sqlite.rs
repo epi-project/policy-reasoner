@@ -1,14 +1,37 @@
+use std::future::Future;
+
 use ::policy::{Context, Policy, PolicyContent, PolicyDataAccess, PolicyDataError, PolicyVersion};
 use chrono::{Local, NaiveDateTime, TimeZone, Utc};
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::result::Error;
 use diesel::sqlite::SqliteConnection;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
-use policy::Transactionable;
+use tokio::runtime::Handle;
 
 use crate::models::{SqliteActiveVersion, SqlitePolicy};
 pub struct SqlitePolicyDataStore {
     pool: Pool<ConnectionManager<SqliteConnection>>,
+}
+
+struct SqlitePolicyDataStoreError {
+    msg: String,
+}
+
+impl From<PolicyDataError> for SqlitePolicyDataStoreError {
+    fn from(value: PolicyDataError) -> Self {
+        match value {
+            PolicyDataError::NotFound => SqlitePolicyDataStoreError { msg: "Not Found".into() },
+            PolicyDataError::GeneralError(msg) => SqlitePolicyDataStoreError { msg },
+        }
+    }
+}
+
+impl From<diesel::result::Error> for SqlitePolicyDataStoreError {
+    fn from(value: diesel::result::Error) -> Self { Self { msg: value.to_string() } }
+}
+
+impl From<SqlitePolicyDataStoreError> for PolicyDataError {
+    fn from(value: SqlitePolicyDataStoreError) -> Self { PolicyDataError::GeneralError(value.msg) }
 }
 
 impl SqlitePolicyDataStore {
@@ -21,34 +44,9 @@ impl SqlitePolicyDataStore {
     }
 }
 
-pub struct SqliteTransaction {}
-
-impl SqliteTransaction {
-    fn new(policy: Policy) -> Self { SqliteTransaction {} }
-}
-
-#[async_trait::async_trait]
-impl Transactionable for SqliteTransaction {
-    type Error = String;
-
-    async fn cancel(self) -> Result<(), String> {
-        todo!();
-        std::mem::forget(self);
-    }
-
-    async fn accept(self) -> Result<Policy, String> {
-        todo!();
-        std::mem::forget(self);
-    }
-}
-
-impl Drop for SqliteTransaction {
-    fn drop(&mut self) { panic!("should not be called implicit, user should execute cancel or accept") }
-}
-
 #[async_trait::async_trait]
 impl PolicyDataAccess for SqlitePolicyDataStore {
-    type Transaction = SqliteTransaction;
+    type Error = String;
 
     async fn get_most_recent(&self) -> Result<Policy, PolicyDataError> {
         use crate::schema::policies::dsl::policies;
@@ -81,9 +79,15 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         }
     }
 
-    async fn add_version(&self, mut version: Policy, ctx: Context) -> Result<Self::Transaction, PolicyDataError> {
+    async fn add_version<F: Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        mut version: Policy,
+        context: Context,
+        transaction: impl 'static + Send + FnOnce(Policy) -> F,
+    ) -> Result<Policy, PolicyDataError> {
         use crate::schema::policies::dsl::policies;
         let mut conn = self.pool.get().unwrap();
+
         // get last version
         let v: Result<Vec<i64>, Error> = policies::select(policies, crate::schema::policies::dsl::version)
             .order_by(crate::schema::policies::dsl::created_at.desc())
@@ -108,20 +112,33 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
             description: version.description.clone(),
             version: next_version.clone(),
             version_description: version.version.version_description.clone(),
-            creator: ctx.initiator,
+            creator: context.initiator,
             created_at: version.version.created_at.timestamp_micros(),
             content: str_content,
         };
 
-        match diesel::insert_into(policies).values(&model).execute(&mut conn) {
-            Ok(_) => {
-                version.version.version = Some(next_version);
-                return Ok(SqliteTransaction::new(version));
-            },
-            Err(err) => {
-                return Err(PolicyDataError::GeneralError(err.to_string()));
-            },
+        let rt_handle: Handle = Handle::current();
+        match tokio::task::spawn_blocking(move || {
+            conn.exclusive_transaction(|conn| -> Result<Policy, SqlitePolicyDataStoreError> {
+                let policy = match diesel::insert_into(policies).values(&model).execute(conn.into()) {
+                    Ok(_) => {
+                        version.version.version = Some(next_version);
+                        version
+                    },
+                    Err(err) => return Err(SqlitePolicyDataStoreError { msg: err.to_string() }),
+                };
+
+                rt_handle.block_on(transaction(policy.clone())).map_err(|err| SqlitePolicyDataStoreError::from(err))?;
+
+                Ok(policy)
+            })
+        })
+        .await
+        {
+            Ok(res) => res,
+            Err(err) => panic!(),
         }
+        .map_err(|err: SqlitePolicyDataStoreError| err.into())
     }
 
     async fn get_version(&self, version: i64) -> Result<Policy, PolicyDataError> {
@@ -166,6 +183,8 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
     async fn get_versions(&self) -> Result<Vec<PolicyVersion>, PolicyDataError> {
         use crate::schema::policies::dsl::{created_at, creator, policies, version, version_description};
         let mut conn = self.pool.get().unwrap();
+
+
 
         match policies.order_by(crate::schema::policies::dsl::created_at.desc()).select((version, version_description, creator, created_at)).load::<(
             i64,
@@ -217,25 +236,34 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         self.get_version(av).await
     }
 
-    async fn set_active(&self, version: i64, ctx: Context) -> Result<Self::Transaction, PolicyDataError> {
+    async fn set_active<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        version: i64,
+        context: Context,
+        transaction: impl 'static + Send + FnOnce(Policy) -> F,
+    ) -> Result<Policy, PolicyDataError> {
         use crate::schema::active_version::dsl::active_version;
         let mut conn = self.pool.get().unwrap();
 
-        let policy = match self.get_version(version).await {
-            Ok(policy) => SqliteTransaction::new(policy),
-            Err(err) => return Err(err),
-        };
+        let policy = self.get_version(version).await?;
 
-        let model = SqliteActiveVersion { version, activated_on: Utc::now().naive_local(), activated_by: ctx.initiator };
+        let model = SqliteActiveVersion { version, activated_on: Utc::now().naive_local(), activated_by: context.initiator };
 
-        match diesel::insert_into(active_version).values(&model).execute(&mut conn) {
-            Ok(_) => {
-                return Ok(policy);
-            },
-            Err(err) => Err(match err {
-                Error::NotFound => PolicyDataError::NotFound,
-                _ => PolicyDataError::GeneralError(err.to_string()),
-            }),
+        let rt_handle: Handle = Handle::current();
+        match tokio::task::spawn_blocking(move || {
+            conn.exclusive_transaction(|conn| {
+                diesel::insert_into(active_version).values(&model).execute(conn.into())?;
+
+                rt_handle.block_on(transaction(policy.clone())).map_err(|err| SqlitePolicyDataStoreError::from(err))?;
+
+                Ok(policy)
+            })
+        })
+        .await
+        {
+            Ok(res) => res,
+            Err(err) => panic!(),
         }
+        .map_err(|err: SqlitePolicyDataStoreError| err.into())
     }
 }

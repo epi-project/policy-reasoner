@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use audit_logger::AuditLogger;
 use auth_resolver::{AuthContext, AuthResolver};
-use policy::{Context, PolicyDataAccess, Transactionable};
+use policy::{Context, PolicyDataAccess, PolicyDataError};
 use reasonerconn::ReasonerConnector;
 use state_resolver::StateResolver;
 use warp::Filter;
@@ -65,18 +65,16 @@ where
         this: Arc<Self>,
         body: models::AddPolicyPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.add_version(body.to_domain(), Context { initiator: auth_ctx.initiator }).await {
-            Ok(transaction) => {
-                // TODO try to log, if it fails reject
-                let policy = match transaction.accept().await {
-                    Ok(policy) => policy,
-                    Err(_) => {
-                        // Log and crash server, something ie really wrong
-                        todo!()
-                    },
-                };
-                Ok(warp::reply::json(&policy))
-            },
+        match this
+            .policystore
+            .add_version(body.to_domain(), Context { initiator: auth_ctx.initiator }, |policy| async move {
+                this.logger.log_add_policy_request(&auth_ctx, &this.reasonerconn.context(), &policy).await.map_err(|err| match err {
+                    audit_logger::Error::CouldNotDeliver(err) => PolicyDataError::GeneralError(err),
+                })
+            })
+            .await
+        {
+            Ok(policy) => Ok(warp::reply::json(&policy)),
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
     }
@@ -104,18 +102,17 @@ where
         this: Arc<Self>,
         body: models::SetVersionPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.set_active(body.version, Context { initiator: auth_ctx.initiator }).await {
-            Ok(transaction) => {
-                // TODO try to log, if it fails reject
-                let policy = match transaction.accept().await {
-                    Ok(policy) => policy,
-                    Err(_) => {
-                        // Log and crash server, something ie really wrong
-                        todo!()
-                    },
-                };
-                Ok(warp::reply::json(&policy))
-            },
+        let t = this.clone();
+        match this
+            .policystore
+            .set_active(body.version, Context { initiator: auth_ctx.initiator.clone() }, |policy| async move {
+                t.logger.log_set_active_version_policy(&auth_ctx, &policy).await.map_err(|err| match err {
+                    audit_logger::Error::CouldNotDeliver(err) => PolicyDataError::GeneralError(err),
+                })
+            })
+            .await
+        {
+            Ok(policy) => Ok(warp::reply::json(&policy)),
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
         }
     }
