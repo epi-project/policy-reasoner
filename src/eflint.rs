@@ -67,8 +67,8 @@ const JSON_BASE_SPEC_HASH: &str = env!("BASE_DEFS_EFLINT_JSON_HASH");
 impl EFlintReasonerConnector {
     pub fn new(addr: String) -> Self {
         info!("Creating new EFlintReasonerConnector to '{addr}'");
-        let base_defs: Vec<Phrase> = serde_json::from_str(JSON_BASE_SPEC).unwrap();
-        EFlintReasonerConnector { addr, base_defs }
+        let base_defs: RequestPhrases = serde_json::from_str(JSON_BASE_SPEC).unwrap();
+        EFlintReasonerConnector { addr, base_defs: base_defs.phrases }
     }
 
     fn conv_state_to_eflint(&self, state: State) -> Vec<Phrase> {
