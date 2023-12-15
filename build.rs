@@ -4,7 +4,7 @@
 //  Created:
 //    13 Dec 2023, 11:45:11
 //  Last edited:
-//    13 Dec 2023, 16:13:25
+//    15 Dec 2023, 14:43:14
 //  Auto updated?
 //    Yes
 //
@@ -14,6 +14,7 @@
 //!   In particular, charged with compiling the eFLINT interface to eFLINT JSON before it can be included in the executable.
 //
 
+use std::env::VarError;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs::File;
 use std::io::Write;
@@ -29,17 +30,20 @@ use sha2::{Digest as _, Sha256};
 /// Defines errors originating from the buildscript
 #[derive(Debug)]
 enum Error {
-    /// Failed to create the output file
-    OutputCreate { path: PathBuf, err: std::io::Error },
+    /// Failed to get some environment variable.
+    EnvRetrieve { name: &'static str, err: std::env::VarError },
     /// Failed to compile the input
     InputCompile { path: PathBuf, err: eflint_to_json::Error },
+    /// Failed to create the output file
+    OutputCreate { path: PathBuf, err: std::io::Error },
 }
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Error::*;
         match self {
-            OutputCreate { path, .. } => write!(f, "Failed to create output file '{}'", path.display()),
+            EnvRetrieve { name, .. } => write!(f, "Failed to get environment variable '{name}'"),
             InputCompile { path, .. } => write!(f, "Failed to compile input file '{}'", path.display()),
+            OutputCreate { path, .. } => write!(f, "Failed to create output file '{}'", path.display()),
         }
     }
 }
@@ -47,8 +51,9 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         use Error::*;
         match self {
-            OutputCreate { err, .. } => Some(err),
+            EnvRetrieve { err, .. } => Some(err),
             InputCompile { err, .. } => Some(err),
+            OutputCreate { err, .. } => Some(err),
         }
     }
 }
@@ -99,9 +104,21 @@ impl<W: Write> Write for HashWriter<W> {
 
 /***** ENTRYPOINT *****/
 fn main() {
+    // Read some environment variables
+    let src_dir: PathBuf = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    let eflint_to_json_exe: Option<PathBuf> = match env::var("EFLINT_TO_JSON_PATH") {
+        Ok(path) => {
+            let path: PathBuf = path.into();
+            if path.is_relative() { Some(src_dir.join(path)) } else { Some(path) }
+        },
+        Err(VarError::NotPresent) => None,
+        Err(err) => panic!("{}", Error::EnvRetrieve { name: "EFLINT_TO_JSON_PATH", err }.trace()),
+    };
+
     // Mark the input files as source-dependent
-    let interface_dir: PathBuf = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("policy").join("eflint").join("interface");
+    let interface_dir: PathBuf = src_dir.join("policy").join("eflint").join("interface");
     println!("cargo:rerun-if-changed={}", interface_dir.display());
+    println!("cargo:rerun-if-env-changed=EFLINT_TO_JSON_PATH");
 
     // Compute the concrete input- and output paths
     let main_path: PathBuf = interface_dir.join("main.eflint");
@@ -116,7 +133,7 @@ fn main() {
     let mut handle: HashWriter<File> = HashWriter::new(handle);
 
     // Alright run the compiler, after which we reset the handle
-    if let Err(err) = compile(&main_path, &mut handle, None) {
+    if let Err(err) = compile(&main_path, &mut handle, eflint_to_json_exe.as_ref().map(|p| p.as_path())) {
         panic!("{}", Error::InputCompile { path: main_path, err }.trace());
     }
 
