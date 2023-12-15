@@ -33,7 +33,7 @@ struct PingResponse {
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
     L: 'static + AuditLogger + Send + Sync + Clone,
-    C: 'static + ReasonerConnector + Send + Sync,
+    C: 'static + ReasonerConnector<L> + Send + Sync,
     P: 'static + PolicyDataAccess + Send + Sync,
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use audit_logger::AuditLogger;
+use audit_logger::{AuditLogger, SessionedConnectorAuditLogger};
 use auth_resolver::{AuthContext, AuthResolver};
 use deliberation::spec::{
     AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest, TaskExecResponse, Verdict,
@@ -19,7 +19,7 @@ use crate::Srv;
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
     L: 'static + AuditLogger + Send + Sync + Clone,
-    C: 'static + ReasonerConnector + Send + Sync,
+    C: 'static + ReasonerConnector<L> + Send + Sync,
     P: 'static + PolicyDataAccess + Send + Sync,
     S: 'static + StateResolver + Send + Sync,
     PA: 'static + AuthResolver + Send + Sync,
@@ -73,7 +73,12 @@ where
             })?;
 
         debug!("Consulting reasoner connector...");
-        match this.reasonerconn.execute_task(&this.logger, policy, state, workflow, task_id).await {
+
+        match this
+            .reasonerconn
+            .execute_task(SessionedConnectorAuditLogger::new(verdict_reference.clone(), this.logger.clone()), policy, state, workflow, task_id)
+            .await
+        {
             Ok(v) => {
                 let resp: Verdict;
                 if !v.success {
@@ -156,7 +161,20 @@ where
                 warp::reject::custom(err)
             })?;
 
-        match this.reasonerconn.access_data_request(&this.logger, policy, state, workflow, body.data_id, task_id).await {
+        debug!("Consulting reasoner connector...");
+
+        match this
+            .reasonerconn
+            .access_data_request(
+                SessionedConnectorAuditLogger::new(verdict_reference.clone(), this.logger.clone()),
+                policy,
+                state,
+                workflow,
+                body.data_id,
+                task_id,
+            )
+            .await
+        {
             Ok(v) => {
                 let resp: Verdict;
                 if !v.success {
@@ -223,7 +241,13 @@ where
             },
         )?;
 
-        match this.reasonerconn.workflow_validation_request(&this.logger, policy, state, workflow).await {
+        debug!("Consulting reasoner connector...");
+
+        match this
+            .reasonerconn
+            .workflow_validation_request(SessionedConnectorAuditLogger::new(verdict_reference.clone(), this.logger.clone()), policy, state, workflow)
+            .await
+        {
             Ok(v) => {
                 let resp: Verdict;
                 if !v.success {

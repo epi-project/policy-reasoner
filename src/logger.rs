@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::io::SeekFrom;
 use std::path::PathBuf;
 
-use audit_logger::{AuditLogger, Error as AuditLoggerError};
+use audit_logger::{AuditLogger, Error as AuditLoggerError, ReasonerConnectorAuditLogger};
 use auth_resolver::AuthContext;
 use deliberation::spec::Verdict;
 use enum_debug::EnumDebug;
@@ -162,7 +162,8 @@ impl AuditLogger for MockLogger {
         _workflow: &Workflow,
         _task: &str,
     ) -> Result<(), AuditLoggerError> {
-        todo!()
+        println!("AUDIT LOG: log_exec_task_request");
+        Ok(())
     }
 
     async fn log_data_access_request(
@@ -175,39 +176,55 @@ impl AuditLogger for MockLogger {
         _data: &str,
         _task: &Option<String>,
     ) -> Result<(), AuditLoggerError> {
-        todo!()
+        println!("AUDIT LOG: log_data_access_request");
+        Ok(())
     }
 
     async fn log_validate_workflow_request(
         &self,
-        _reference: &str,
-        _auth: &AuthContext,
-        _policy: i64,
-        _state: &State,
-        _workflow: &Workflow,
+        reference: &str,
+        auth: &AuthContext,
+        policy: i64,
+        state: &State,
+        workflow: &Workflow,
     ) -> Result<(), AuditLoggerError> {
-        todo!()
+        println!("AUDIT LOG: log_validate_workflow_request");
+        Ok(())
     }
 
-    async fn log_reasoner_response(&self, _reference: &str, _response: &str) -> Result<(), AuditLoggerError> { todo!() }
-
-    async fn log_verdict(&self, _reference: &str, _verdict: &Verdict) -> Result<(), AuditLoggerError> { todo!() }
-
-    async fn log_reasoner_context<C: Sync + Debug + Serialize>(&self, _connector_context: &C) -> Result<(), AuditLoggerError> { todo!() }
+    async fn log_verdict(&self, reference: &str, verdict: &Verdict) -> Result<(), AuditLoggerError> {
+        println!("AUDIT LOG: log_verdict");
+        Ok(())
+    }
 
     async fn log_add_policy_request<C: Sync + Debug + Serialize>(
         &self,
-        _auth: &AuthContext,
-        _connector_context: &C,
-        _policy: &Policy,
+        auth: &AuthContext,
+        connector_context: &C,
+        policy: &Policy,
     ) -> Result<(), AuditLoggerError> {
-        todo!()
+        println!("AUDIT LOG: log_add_policy_request");
+        Ok(())
     }
 
-    async fn log_set_active_version_policy(&self, _auth: &AuthContext, _policy: &Policy) -> Result<(), AuditLoggerError> { todo!() }
+    async fn log_set_active_version_policy(&self, auth: &AuthContext, policy: &Policy) -> Result<(), AuditLoggerError> {
+        println!("AUDIT LOG: log_set_active_version_policy");
+        Ok(())
+    }
+
+    async fn log_reasoner_context<C: Sync + Debug + Serialize>(&self, connector_context: &C) -> Result<(), AuditLoggerError> {
+        println!("AUDIT LOG: log_reasoner_context");
+        Ok(())
+    }
 }
 
-
+#[async_trait::async_trait]
+impl ReasonerConnectorAuditLogger for MockLogger {
+    async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), AuditLoggerError> {
+        println!("AUDIT LOG: log_reasoner_response");
+        Ok(())
+    }
+}
 
 /// A more serious version of a logger that logs to a file.
 ///
@@ -330,14 +347,6 @@ impl AuditLogger for FileLogger {
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 
-    async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), AuditLoggerError> {
-        debug!("Handling request to log reasoner response");
-
-        // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<()> = LogStatement::ReasonerResponse { reference, response };
-        self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
-    }
-
     async fn log_verdict(&self, reference: &str, verdict: &Verdict) -> Result<(), AuditLoggerError> {
         debug!("Handling request to log reasoner verdict");
 
@@ -372,6 +381,17 @@ impl AuditLogger for FileLogger {
 
         // Construct the full message that we want to log, then log it (simple as that)
         let stmt: LogStatement<()> = LogStatement::PolicyActivate { auth, policy };
+        self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
+    }
+}
+
+#[async_trait::async_trait]
+impl ReasonerConnectorAuditLogger for FileLogger {
+    async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), AuditLoggerError> {
+        debug!("Handling request to log reasoner response");
+
+        // Construct the full message that we want to log, then log it (simple as that)
+        let stmt: LogStatement<()> = LogStatement::ReasonerResponse { reference, response };
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 }

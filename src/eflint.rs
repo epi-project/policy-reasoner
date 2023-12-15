@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::future::Future;
 
-use audit_logger::AuditLogger;
+use audit_logger::{AuditLogger, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
 use eflint_json::spec::auxillary::{AtomicType, Version};
 use eflint_json::spec::{
     ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, RequestCommon, RequestPhrases,
@@ -189,13 +190,16 @@ impl EFlintReasonerConnector {
         phrases
     }
 
-    async fn process_phrases(&self, policy: &Policy, phrases: Vec<Phrase>) -> Result<ReasonerResponse, ReasonerConnError> {
+    async fn process_phrases<L: ReasonerConnectorAuditLogger + Send + Sync>(
+        &self,
+        logger: SessionedConnectorAuditLogger<L>,
+        policy: &Policy,
+        phrases: Vec<Phrase>,
+    ) -> Result<ReasonerResponse, ReasonerConnError> {
         debug!("Full request:\n\n{}\n\n", serde_json::to_string_pretty(&phrases).unwrap_or_else(|_| "<serialization failure>".into()));
         debug!("Full request length: {} phrase(s)", phrases.len());
         let version = self.extract_eflint_version(policy).map_err(|err| ReasonerConnError::new(err))?;
         let request = RequestPhrases { common: RequestCommon { version, extensions: HashMap::new() }, phrases, updates: true };
-
-
 
         // Make request
         debug!("Sending eFLINT exec-task request to '{}'", self.addr);
@@ -203,7 +207,13 @@ impl EFlintReasonerConnector {
         let res = client.post(&self.addr).json(&request).send().await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         debug!("Awaiting response...");
-        let response = res.json::<eflint_json::spec::ResponsePhrases>().await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
+        let raw_body = res.text().await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
+
+        debug!("Log raw response...");
+        logger.log_reasoner_response(&raw_body).await.map_err(|err| todo!())?;
+
+        let response =
+            serde_json::from_str::<eflint_json::spec::ResponsePhrases>(&raw_body).map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         debug!("Analysing response...");
         let errors: Vec<String> = response
@@ -218,7 +228,6 @@ impl EFlintReasonerConnector {
             })
             .unwrap_or_else(Vec::new);
 
-
         // TODO proper handle invalid query and unexpected result
         let success: Result<bool, String> = response
             .results
@@ -229,6 +238,9 @@ impl EFlintReasonerConnector {
                 eflint_json::spec::PhraseResult::StateChange(r) => Ok(r.violated),
             })
             .unwrap_or_else(|| Err("Unexpected result".into()));
+
+
+
 
         match success {
             Ok(success) => {
@@ -241,8 +253,9 @@ impl EFlintReasonerConnector {
     }
 }
 
+
 #[async_trait::async_trait]
-impl ReasonerConnector for EFlintReasonerConnector {
+impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L> for EFlintReasonerConnector {
     type Context = &'static str;
     type FullContext = (&'static str, &'static str);
 
@@ -252,9 +265,9 @@ impl ReasonerConnector for EFlintReasonerConnector {
     #[inline]
     fn full_context(&self) -> Self::FullContext { (JSON_BASE_SPEC, JSON_BASE_SPEC_HASH) }
 
-    async fn execute_task<L: AuditLogger + Send + Sync>(
+    async fn execute_task(
         &self,
-        logger: &L,
+        logger: SessionedConnectorAuditLogger<L>,
         policy: Policy,
         state: State,
         workflow: Workflow,
@@ -273,12 +286,12 @@ impl ReasonerConnector for EFlintReasonerConnector {
 
         // Build & submit the phrases with the given policy, state, workflow _and_ question
         let phrases = self.build_phrases(&policy, state, workflow, question);
-        self.process_phrases(&policy, phrases).await
+        self.process_phrases(logger, &policy, phrases).await
     }
 
-    async fn access_data_request<L: AuditLogger + Send + Sync>(
+    async fn access_data_request(
         &self,
-        logger: &L,
+        logger: SessionedConnectorAuditLogger<L>,
         policy: Policy,
         state: State,
         workflow: Workflow,
@@ -320,12 +333,12 @@ impl ReasonerConnector for EFlintReasonerConnector {
         };
 
         let phrases = self.build_phrases(&policy, state, workflow, question);
-        self.process_phrases(&policy, phrases).await
+        self.process_phrases(logger, &policy, phrases).await
     }
 
-    async fn workflow_validation_request<L: AuditLogger + Send + Sync>(
+    async fn workflow_validation_request(
         &self,
-        logger: &L,
+        logger: SessionedConnectorAuditLogger<L>,
         policy: Policy,
         state: State,
         workflow: Workflow,
@@ -340,6 +353,6 @@ impl ReasonerConnector for EFlintReasonerConnector {
 
         // Build & submit the phrases with the given policy, state, workflow _and_ question
         let phrases = self.build_phrases(&policy, state, workflow, question);
-        self.process_phrases(&policy, phrases).await
+        self.process_phrases(logger, &policy, phrases).await
     }
 }

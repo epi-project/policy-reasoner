@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use auth_resolver::AuthContext;
 use deliberation::spec::Verdict;
@@ -27,7 +28,7 @@ impl std::error::Error for Error {}
 impl warp::reject::Reject for Error {}
 
 #[async_trait::async_trait]
-pub trait AuditLogger {
+pub trait AuditLogger: ReasonerConnectorAuditLogger {
     async fn log_exec_task_request(
         &self,
         reference: &str,
@@ -58,7 +59,6 @@ pub trait AuditLogger {
         workflow: &Workflow,
     ) -> Result<(), Error>;
 
-    async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), Error>;
     async fn log_verdict(&self, reference: &str, verdict: &Verdict) -> Result<(), Error>;
 
     /// Dumps the full context of the reasoner on startup.
@@ -75,4 +75,22 @@ pub trait AuditLogger {
         policy: &Policy,
     ) -> Result<(), Error>;
     async fn log_set_active_version_policy(&self, auth: &AuthContext, policy: &Policy) -> Result<(), Error>;
+}
+
+#[async_trait::async_trait]
+pub trait ReasonerConnectorAuditLogger {
+    async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), Error>;
+}
+
+
+pub struct SessionedConnectorAuditLogger<Logger: ReasonerConnectorAuditLogger> {
+    reference: String,
+    logger:    Logger,
+}
+impl<Logger: ReasonerConnectorAuditLogger> SessionedConnectorAuditLogger<Logger> {
+    pub fn new(reference: String, logger: Logger) -> Self { Self { reference, logger } }
+
+    pub async fn log_reasoner_response(&self, response: &str) -> Result<(), Error> {
+        self.logger.log_reasoner_response(&self.reference, response).await
+    }
 }
