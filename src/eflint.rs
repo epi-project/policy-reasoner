@@ -254,9 +254,6 @@ impl EFlintReasonerConnector {
             })
             .unwrap_or_else(|| Err("Unexpected result".into()));
 
-
-
-
         match success {
             Ok(success) => {
                 debug!(
