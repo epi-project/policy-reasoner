@@ -15,7 +15,7 @@ policy = { path = "../policy" }
 workflow = { path = "../workflow", features = ["eflint"]}
 state-resolver = { path = "../state-resolver" }
 audit-logger = { path = "../audit-logger" }
-eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs" }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant" }
 reqwest = {version = "*", features = ["blocking"]}
 anyhow = "*"
 serde = {version="1.0", features=["derive"]}

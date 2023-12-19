@@ -425,6 +425,7 @@ dependencies = [
  "audit-logger",
  "brane-ast",
  "brane-shr",
+ "chrono",
  "clap 4.4.11",
  "console",
  "deliberation",
@@ -746,7 +747,7 @@ dependencies = [
 [[package]]
 name = "eflint-json"
 version = "0.1.0"
-source = "git+https://gitlab.com/eflint/json-spec-rs#f00314a4772411dcb08a1d38509228059b726d43"
+source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#039b96b87e8f4abe98f7d52b8671c73544ca1b3b"
 dependencies = [
  "console",
  "enum-debug",

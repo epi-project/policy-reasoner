@@ -246,7 +246,7 @@ impl EFlintReasonerConnector {
             .map(|r| match r {
                 eflint_json::spec::PhraseResult::BooleanQuery(r) => Ok(r.result),
                 eflint_json::spec::PhraseResult::InstanceQuery(_) => Err("Invalid query".into()),
-                eflint_json::spec::PhraseResult::StateChange(r) => Ok(r.violated),
+                eflint_json::spec::PhraseResult::StateChange(r) => Ok(!r.violated),
             })
             .unwrap_or_else(|| Err("Unexpected result".into()));
 
@@ -255,7 +255,12 @@ impl EFlintReasonerConnector {
 
         match success {
             Ok(success) => {
-                debug!("Response judged as: {}", if success { "success" } else { "violated" });
+                debug!(
+                    "Response judged as: {} ({} && {})",
+                    if success && response.common.success { "success" } else { "violated" },
+                    success,
+                    response.common.success
+                );
                 Ok(ReasonerResponse::new(success && response.common.success, errors))
             },
             // TODO better error handling

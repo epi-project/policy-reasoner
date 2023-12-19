@@ -8,7 +8,7 @@ repository.workspace = true
 
 
 [dependencies]
-eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", optional = true }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", optional = true }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 log = "0.4"
 num-traits = "0.2"
@@ -22,7 +22,7 @@ specifications = { git = "https://github.com/epi-project/brane" }
 
 [dev-dependencies]
 clap = { version = "4.4", features = ["derive"] }
-eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", features = ["display_eflint"] }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", features = ["display_eflint"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
 log = "0.4"

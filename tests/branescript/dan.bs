@@ -15,7 +15,7 @@ let local_results := parallel [all] [{
 }];
 
 // Then we aggregate on a third party (our dearest Dan)
-#[on("dan")]
+#[on("Dan")]
 let central := aggregate(local_results[0], local_results[1]);
 
 // Return it to the user!

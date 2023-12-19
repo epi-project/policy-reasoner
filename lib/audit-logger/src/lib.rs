@@ -31,7 +31,7 @@ impl warp::reject::Reject for Error {}
 /// Collects everything we might want to log in an [`AuditLogger`].
 #[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]
 #[serde(tag = "kind", rename_all = "SCREAMING-KEBAB-CASE")]
-pub enum LogStatement<'a, C: Clone> {
+pub enum LogStatement<'a, C1: Clone, C2: Clone> {
     /// A request that asks if a task may be executed has been received.
     ExecuteTask {
         reference: Cow<'a, str>,
@@ -67,13 +67,13 @@ pub enum LogStatement<'a, C: Clone> {
     ReasonerVerdict { reference: Cow<'a, str>, verdict: Cow<'a, Verdict> },
 
     /// Logs the reasoner backend for during startup.
-    ReasonerContext { connector_context: Cow<'a, C> },
+    ReasonerContext { connector_context: Cow<'a, C1> },
     /// Logs the arrival of a new policy.
-    PolicyAdd { auth: Cow<'a, AuthContext>, connector_context: Cow<'a, C>, policy: Cow<'a, Policy> },
+    PolicyAdd { auth: Cow<'a, AuthContext>, connector_context: Cow<'a, C2>, policy: Cow<'a, Policy> },
     /// Logs the activation of an existing policy.
     PolicyActivate { auth: Cow<'a, AuthContext>, policy: Cow<'a, Policy> },
 }
-impl<'a, C: Clone> LogStatement<'a, C> {
+impl<'a, C1: Clone, C2: Clone> LogStatement<'a, C1, C2> {
     /// Constructor for a [`LogStatement::ExecuteTask`] that makes it a bit more convenient to initialize.
     ///
     /// # Arguments
@@ -188,7 +188,7 @@ impl<'a, C: Clone> LogStatement<'a, C> {
     /// # Returns
     /// A new [`LogStatement::ReasonerContext`] that is initialized with the given properties.
     #[inline]
-    pub fn reasoner_context(connector_context: &'a C) -> Self { Self::ReasonerContext { connector_context: Cow::Borrowed(connector_context) } }
+    pub fn reasoner_context(connector_context: &'a C1) -> Self { Self::ReasonerContext { connector_context: Cow::Borrowed(connector_context) } }
 
     /// Constructor for a [`LogStatement::PolicyAdd`] that makes it a bit more convenient to initialize.
     ///
@@ -200,7 +200,7 @@ impl<'a, C: Clone> LogStatement<'a, C> {
     /// # Returns
     /// A new [`LogStatement::ReasonerContext`] that is initialized with the given properties.
     #[inline]
-    pub fn policy_add(auth: &'a AuthContext, connector_context: &'a C, policy: &'a Policy) -> Self {
+    pub fn policy_add(auth: &'a AuthContext, connector_context: &'a C2, policy: &'a Policy) -> Self {
         Self::PolicyAdd { auth: Cow::Borrowed(auth), connector_context: Cow::Borrowed(connector_context), policy: Cow::Borrowed(policy) }
     }
 

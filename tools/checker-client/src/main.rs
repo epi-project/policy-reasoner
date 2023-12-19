@@ -4,7 +4,7 @@
 //  Created:
 //    15 Dec 2023, 15:08:35
 //  Last edited:
-//    19 Dec 2023, 19:22:24
+//    19 Dec 2023, 22:59:23
 //  Auto updated?
 //    Yes
 //
@@ -13,7 +13,7 @@
 //
 
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
@@ -21,13 +21,17 @@ use std::fs::{self, File};
 use std::io::{BufRead as _, BufReader};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::{self, Duration, SystemTime};
 
 use audit_logger::LogStatement;
+use brane_ast::ast::Edge;
+use brane_ast::locations::Locations;
 use brane_ast::{CompileResult, ParserOptions, Workflow};
+use chrono::DateTime;
 use clap::{Parser, Subcommand};
 use console::style;
-use deliberation::spec::WorkflowValidationRequest;
+use deliberation::spec::{Verdict, WorkflowValidationRequest};
 use eflint_json::DisplayEFlint;
 use eflint_to_json::compile;
 use enum_debug::EnumDebug;
@@ -35,7 +39,7 @@ use error_trace::{trace, ErrorTrace as _};
 use hmac::{Hmac, Mac as _};
 use humanlog::{DebugMode, HumanLogger};
 use jwt::SignWithKey as _;
-use log::{debug, error, info};
+use log::{debug, error, info, trace as trace_log, warn, LevelFilter};
 use policy::Policy;
 use rand::distributions::Alphanumeric;
 use rand::seq::SliceRandom as _;
@@ -397,6 +401,95 @@ fn resolve_jwt(name: impl Into<String>, jwt: Option<String>) -> Result<String, J
     }
 }
 
+/// "Trivially" plans a workflow.
+///
+/// Means: will plan if possible and properly scoped by user, or else give up.
+///
+/// # Arguments
+/// - `edges`: The list of edges to plan.
+/// - `pc`: The current program counter that points to the edge we're currently planning.
+/// - `breakpoint`: If [`Some`], then this points to an edge we should stop and return at.
+fn plan_wir(edges: &mut [Edge], pc: (usize, usize), breakpoint: Option<(usize, usize)>) {
+    // Break at the breakpoint
+    if let Some(breakpoint) = breakpoint {
+        if pc == breakpoint {
+            return;
+        }
+    }
+
+    // Get the edge
+    let edge: &mut Edge = match edges.get_mut(pc.1) {
+        Some(edge) => edge,
+        None => return,
+    };
+
+    // Match on it
+    use Edge::*;
+    match edge {
+        Node { task: _, locs, at, input: _, result: _, metadata: _, next } => {
+            let next: usize = *next;
+
+            // If there is a single location possible, log it
+            if let Locations::Restricted(list) = locs {
+                if list.len() == 1 {
+                    *at = Some(list.first().cloned().unwrap());
+                } else {
+                    warn!("Cannot plan edge ({},{}) because it does not have exactly one possible location (instead: {:?})", pc.0, pc.1, list);
+                }
+            } else {
+                warn!("Cannot plan edge ({},{}) because its possible locations are not restricted", pc.0, pc.1);
+            }
+
+            // Continue
+            plan_wir(edges, (pc.0, next), breakpoint)
+        },
+        Linear { instrs: _, next } => {
+            let next: usize = *next;
+            plan_wir(edges, (pc.0, next), breakpoint);
+        },
+        Stop {} => return,
+
+        Branch { true_next, false_next, merge } => {
+            let (true_next, false_next, merge): (usize, Option<usize>, Option<usize>) = (*true_next, *false_next, *merge);
+
+            plan_wir(edges, (pc.0, true_next), merge.map(|m| (pc.0, m)));
+            if let Some(false_next) = false_next {
+                plan_wir(edges, (pc.0, false_next), merge.map(|m| (pc.0, m)));
+            }
+            if let Some(merge) = merge {
+                plan_wir(edges, (pc.0, merge), breakpoint);
+            }
+        },
+        Parallel { branches, merge } => {
+            let (branches, merge): (Vec<usize>, usize) = (branches.clone(), *merge);
+
+            for branch in branches {
+                plan_wir(edges, (pc.0, branch), Some((pc.0, merge)));
+            }
+            plan_wir(edges, (pc.0, merge), breakpoint);
+        },
+        Join { merge: _, next } => {
+            let next: usize = *next;
+            plan_wir(edges, (pc.0, next), breakpoint);
+        },
+        Loop { cond, body, next } => {
+            let (cond, body, next): (usize, usize, Option<usize>) = (*cond, *body, *next);
+
+            plan_wir(edges, (pc.0, cond), Some((pc.0, body - 1)));
+            plan_wir(edges, (pc.0, body), Some((pc.0, cond)));
+            if let Some(next) = next {
+                plan_wir(edges, (pc.0, next), breakpoint);
+            }
+        },
+
+        Call { input: _, result: _, next } => {
+            let next: usize = *next;
+            plan_wir(edges, (pc.0, next), breakpoint);
+        },
+        Return { result: _ } => return,
+    }
+}
+
 /// Analyses a line to see if it's the start of a logging line.
 ///
 /// Specifically, checks if it starts with `[policy-reasoner <any>][<date_time>] `.
@@ -406,7 +499,57 @@ fn resolve_jwt(name: impl Into<String>, jwt: Option<String>) -> Result<String, J
 ///
 /// # Returns
 /// The position from where the real line begins, or else [`None`] if this wasn't the start of a log line.
-fn line_is_log_line(line: &str) -> Option<usize> { None }
+fn line_is_log_line(line: &str) -> Option<usize> {
+    let line: &str = line.trim();
+
+    // Find twice the `]`
+    let brack_pos: usize = match line.find(']') {
+        Some(pos) => pos,
+        None => {
+            trace_log!("Line '{line}' is not a log line because it does not have a ']'");
+            return None;
+        },
+    };
+    let first: &str = &line[..brack_pos];
+    let rem: &str = &line[brack_pos + 1..];
+    let brack_pos2: usize = match rem.find(']') {
+        Some(pos) => pos,
+        None => {
+            trace_log!("Line '{line}' is not a log line because it does not have a second ']'");
+            return None;
+        },
+    };
+    let second: &str = &rem[..brack_pos2];
+    let rem: &str = &rem[brack_pos2 + 1..];
+
+
+    /* FIRST PART */
+    // Assert it begins with '[policy-reasoner v'
+    if first.len() < 18 || &first[..18] != "[policy-reasoner v" {
+        trace_log!("Line '{line}' is not a log line because the first part ('{first}')  does not begin with '[policy-reasoner v'");
+        return None;
+    }
+
+
+    /* SECOND PART */
+    // Assert it begins with '['
+    if !matches!(second.chars().next(), Some('[')) {
+        trace_log!("Line '{line}' is not a log line because the second part ('{second}') does not begin with '['");
+        return None;
+    }
+    let second: &str = &second[1..];
+
+    // Attempt to parse the middle part as a datetime
+    if let Err(err) = DateTime::parse_from_str(&format!("{second}.000 +0000"), "%Y-%m-%d %H:%M:%S%.3f %z") {
+        trace_log!("Line '{line}' is not a log line because the second part ('{second}.000 %z') does not parse as a datetime: {err}");
+        return None;
+    }
+
+
+    /* REMAINDER */
+    // Now all that remains is to check for the final space
+    rem.chars().next().filter(|c| *c == ' ').map(|_| brack_pos + 1 + brack_pos2 + 2)
+}
 
 
 
@@ -784,7 +927,7 @@ fn main() {
                 let dindex: DataIndex = brane_shr::utilities::create_data_index_from(&wf.data);
 
                 // Match on the input language
-                let wir: Workflow = match wf.language {
+                let mut wir: Workflow = match wf.language {
                     WorkflowLanguage::BraneScript => {
                         debug!("Compiling input file '{}' to a Brane WIR...", wf.path.display());
 
@@ -855,6 +998,30 @@ fn main() {
                 };
 
                 // Trivially plan the workflow
+                {
+                    // Plan the main workflow
+                    let mut graph: Arc<Vec<Edge>> = Arc::new(vec![]);
+                    std::mem::swap(&mut graph, &mut wir.graph);
+                    let mut graph: Vec<Edge> = Arc::into_inner(graph).unwrap();
+                    plan_wir(&mut graph, (usize::MAX, 0), None);
+                    let mut graph: Arc<Vec<Edge>> = Arc::new(graph);
+                    std::mem::swap(&mut wir.graph, &mut graph);
+
+                    // Plan the functions in the workflow
+                    let mut funcs: Arc<HashMap<usize, Vec<Edge>>> = Arc::new(HashMap::new());
+                    std::mem::swap(&mut funcs, &mut wir.funcs);
+                    let mut funcs: HashMap<usize, Vec<Edge>> = Arc::into_inner(funcs).unwrap();
+                    for (_, edges) in &mut funcs {
+                        plan_wir(edges, (usize::MAX, 0), None);
+                    }
+                    let mut funcs: Arc<HashMap<usize, Vec<Edge>>> = Arc::new(funcs);
+                    std::mem::swap(&mut wir.funcs, &mut funcs);
+                }
+                if log::max_level() >= LevelFilter::Debug {
+                    let mut buf: Vec<u8> = Vec::new();
+                    brane_ast::traversals::print::ast::do_traversal(&wir, &mut buf).unwrap();
+                    debug!("Workflow after planning:\n\n{}\n", String::from_utf8_lossy(&buf));
+                }
 
                 // Now put the workflow in a request and serialize it
                 let body: Vec<u8> = match serde_json::to_string(&WorkflowValidationRequest { workflow: wir }) {
@@ -920,60 +1087,116 @@ fn main() {
             },
         },
 
-        Subcommands::Log(log) => match log.action {
-            LogSubcommands::Reason(reason) => {
-                info!("Handling `policy push` subcommand");
+        Subcommands::Log(log) => {
+            // Open the log file
+            debug!("Opening log file '{}'...", log.log.display());
+            let handle: BufReader<File> = match File::open(&log.log) {
+                Ok(handle) => BufReader::new(handle),
+                Err(err) => {
+                    error!("{}", trace!(("Failed to open log file '{}'", log.log.display()), err));
+                    std::process::exit(1);
+                },
+            };
 
-                // Open the log file
-                debug!("Opening log file '{}'...", log.log.display());
-                let mut handle: BufReader<File> = match File::open(&log.log) {
-                    Ok(handle) => BufReader::new(handle),
+            // Separate the log into statements
+            debug!("Finding log statements...");
+            let mut buf: String = String::new();
+            let mut statements: Vec<LogStatement<(String, String), String>> = Vec::new();
+            for line in handle.lines() {
+                // Unwrap the line
+                let line: String = match line {
+                    Ok(line) => line,
                     Err(err) => {
-                        error!("{}", trace!(("Failed to open log file '{}'", log.log.display()), err));
+                        error!("{}", trace!(("Failed to read line from '{}'", log.log.display()), err));
                         std::process::exit(1);
                     },
                 };
 
-                // Separate the log into statements
-                debug!("Finding log statements...");
-                let mut buf: String = String::new();
-                let mut statements: Vec<LogStatement<()>> = Vec::new();
-                for line in handle.lines() {
-                    // Unwrap the line
-                    let line: String = match line {
-                        Ok(line) => line,
-                        Err(err) => {
-                            error!("{}", trace!(("Failed to read line from '{}'", log.log.display()), err));
-                            std::process::exit(1);
-                        },
-                    };
-
-                    // See if the line begins with what we want
-                    if let Some(start_pos) = line_is_log_line(&line) {
-                        // Flush the buffer if we have any to flush
-                        if !buf.is_empty() {
-                            // Attempt to parse the non-intro part as a LogStatement
-                            let stmt: LogStatement<_> = match serde_json::from_str(&buf) {
-                                Ok(stmt) => stmt,
-                                Err(err) => {
-                                    error!(
-                                        "Failed to parse audit log line(s) as a log statement: {}\n\nLine(s):\n{}\n{}\n{}\n",
-                                        err,
-                                        (0..80).map(|_| '-').collect::<String>(),
-                                        buf,
-                                        (0..80).map(|_| '-').collect::<String>()
-                                    );
-                                    std::process::exit(1);
-                                },
-                            };
-                        }
-                    } else {
-                        // Add to the buffer
-                        buf.push('\n');
-                        buf.push_str(&line);
+                // See if the line begins with what we want
+                if let Some(start_pos) = line_is_log_line(&line) {
+                    // Flush the buffer if we have any to flush
+                    if !buf.is_empty() {
+                        // Attempt to parse the non-intro part as a LogStatement
+                        match serde_json::from_str(&buf) {
+                            Ok(stmt) => {
+                                statements.push(stmt);
+                            },
+                            Err(err) => {
+                                error!(
+                                    "Failed to parse audit log line(s) as a log statement: {}\n\nLine(s):\n{}\n{}\n{}\n",
+                                    err,
+                                    (0..80).map(|_| '-').collect::<String>(),
+                                    buf,
+                                    (0..80).map(|_| '-').collect::<String>()
+                                );
+                                std::process::exit(1);
+                            },
+                        };
+                        // Clean the buffer to continue
+                        buf.clear();
                     }
+
+                    // Add the new line to the buffer
+                    buf.push_str(&line[start_pos..]);
+                } else {
+                    // Add to the buffer
+                    buf.push('\n');
+                    buf.push_str(&line);
                 }
-            },
+            }
+
+            // Parse the remainder of the buffer, too
+            if !buf.is_empty() {
+                // Attempt to parse the non-intro part as a LogStatement
+                match serde_json::from_str(&buf) {
+                    Ok(stmt) => {
+                        statements.push(stmt);
+                    },
+                    Err(err) => {
+                        error!(
+                            "Failed to parse audit log line(s) as a log statement: {}\n\nLine(s):\n{}\n{}\n{}\n",
+                            err,
+                            (0..80).map(|_| '-').collect::<String>(),
+                            buf,
+                            (0..80).map(|_| '-').collect::<String>()
+                        );
+                        std::process::exit(1);
+                    },
+                };
+            }
+
+            // Now continue with the subcommand to parse the statements
+            match log.action {
+                LogSubcommands::Reason(reason) => {
+                    info!("Handling `log reason` subcommand");
+
+                    // Search statements for reasoner outputs
+                    let mut found: bool = false;
+                    for stmt in statements {
+                        if let LogStatement::ReasonerVerdict { reference, verdict } = stmt {
+                            if reason.reference_id != reference {
+                                continue;
+                            }
+
+                            // Show the verdict
+                            let verdict: &Verdict = verdict.as_ref();
+                            println!(
+                                "Request '{}' was {}",
+                                style(reference).bold(),
+                                if let Verdict::Allow(_) = verdict { style("AUTHORIZED").bold().green() } else { style("DENIED").bold().red() }
+                            );
+
+                            // Mark as found
+                            found = true;
+                        }
+                    }
+
+                    // Show special case if not found
+                    if !found {
+                        println!("Request '{}' was {} in the audit log", style(&reason.reference_id).bold(), style("not found").bold().yellow());
+                    }
+                },
+            }
         },
     }
 }

@@ -11,9 +11,10 @@ description = "A tool to make requests to the checker conveniently, for demo/tes
 brane-ast = { git = "https://github.com/epi-project/brane" }
 brane-shr = { git = "https://github.com/epi-project/brane" }
 specifications = { git = "https://github.com/epi-project/brane" }
+chrono = "0.4"
 clap = { version = "4.4", features = ["derive"] }
 console = "0.15"
-eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", features = ["display_eflint"] }
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", features = ["display_eflint"] }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 hmac = "0.12"

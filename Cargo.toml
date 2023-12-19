@@ -19,7 +19,7 @@ humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
 log = "0.4"
 reasonerconn = { path = "./lib/reasonerconn" }
 policy = { path = "./lib/policy" }
-eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs"}
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant" }
 srv = { path = "lib/srv" }
 state-resolver = { path = "lib/state-resolver" }
 auth-resolver = {path = "lib/auth-resolver"}
