@@ -418,6 +418,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "checker-client"
+version = "0.1.0"
+dependencies = [
+ "brane-ast",
+ "brane-shr",
+ "clap 4.4.11",
+ "console",
+ "deliberation",
+ "eflint-to-json",
+ "enum-debug",
+ "error-trace",
+ "hmac",
+ "humanlog",
+ "jwt",
+ "log",
+ "rand",
+ "reqwest",
+ "serde_json",
+ "sha2",
+ "specifications",
+ "srv",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -712,6 +736,7 @@ checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer",
  "crypto-common",
+ "subtle",
 ]
 
 [[package]]
@@ -797,8 +822,8 @@ dependencies = [
 
 [[package]]
 name = "error-trace"
-version = "1.0.0"
-source = "git+https://github.com/Lut99/error-trace-rs#38f412039449f1f74c54c6656211cb7b9e8f8861"
+version = "1.1.1"
+source = "git+https://github.com/Lut99/error-trace-rs#c84781f9b2ca7996216e9700a5a2b08435610191"
 
 [[package]]
 name = "fastrand"
@@ -1075,6 +1100,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 
 [[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest",
+]
+
+[[package]]
 name = "http"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1320,6 +1354,21 @@ dependencies = [
  "serde",
  "serde_json",
  "simple_asn1",
+]
+
+[[package]]
+name = "jwt"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6204285f77fe7d9784db3fdc449ecce1a0114927a51d5a41c4c7a292011c015f"
+dependencies = [
+ "base64 0.13.1",
+ "crypto-common",
+ "digest",
+ "hmac",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -1770,7 +1819,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "serde_yaml 0.9.27",
+ "serde_yaml 0.8.26",
  "sha2",
  "srv",
  "state-resolver",
@@ -2522,6 +2571,12 @@ dependencies = [
  "rustversion",
  "syn 2.0.41",
 ]
+
+[[package]]
+name = "subtle"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "syn"

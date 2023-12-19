@@ -1,19 +1,19 @@
 use policy::{Policy, PolicyContent, PolicyVersion};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct SetVersionPostModel {
     pub version: i64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct PolicyContentPostModel {
     pub reasoner: String,
     pub reasoner_version: String,
     pub content: Box<serde_json::value::RawValue>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct AddPolicyPostModel {
     pub description: Option<String>,
     pub version_description: String,

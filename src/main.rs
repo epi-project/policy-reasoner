@@ -56,7 +56,7 @@ async fn main() {
     let pauthresolver = get_pauth_resolver();
     let logger = MockLogger::new();
     let dauthresolver = MockAuthResolver::new("mock initiator".into(), "mock system".into());
-    let pstore = SqlitePolicyDataStore::new("./data/policy.db");
+    let pstore = SqlitePolicyDataStore::new("./lib/policy/data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
     let sresolve = FileStateResolver {};
     let server = Srv::new(logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);

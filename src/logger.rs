@@ -182,37 +182,37 @@ impl AuditLogger for MockLogger {
 
     async fn log_validate_workflow_request(
         &self,
-        reference: &str,
-        auth: &AuthContext,
-        policy: i64,
-        state: &State,
-        workflow: &Workflow,
+        _reference: &str,
+        _auth: &AuthContext,
+        _policy: i64,
+        _state: &State,
+        _workflow: &Workflow,
     ) -> Result<(), AuditLoggerError> {
         println!("AUDIT LOG: log_validate_workflow_request");
         Ok(())
     }
 
-    async fn log_verdict(&self, reference: &str, verdict: &Verdict) -> Result<(), AuditLoggerError> {
+    async fn log_verdict(&self, _reference: &str, _verdict: &Verdict) -> Result<(), AuditLoggerError> {
         println!("AUDIT LOG: log_verdict");
         Ok(())
     }
 
     async fn log_add_policy_request<C: Sync + Debug + Serialize>(
         &self,
-        auth: &AuthContext,
-        connector_context: &C,
-        policy: &Policy,
+        _auth: &AuthContext,
+        _connector_context: &C,
+        _policy: &Policy,
     ) -> Result<(), AuditLoggerError> {
         println!("AUDIT LOG: log_add_policy_request");
         Ok(())
     }
 
-    async fn log_set_active_version_policy(&self, auth: &AuthContext, policy: &Policy) -> Result<(), AuditLoggerError> {
+    async fn log_set_active_version_policy(&self, _auth: &AuthContext, _policy: &Policy) -> Result<(), AuditLoggerError> {
         println!("AUDIT LOG: log_set_active_version_policy");
         Ok(())
     }
 
-    async fn log_reasoner_context<C: Sync + Debug + Serialize>(&self, connector_context: &C) -> Result<(), AuditLoggerError> {
+    async fn log_reasoner_context<C: Sync + Debug + Serialize>(&self, _connector_context: &C) -> Result<(), AuditLoggerError> {
         println!("AUDIT LOG: log_reasoner_context");
         Ok(())
     }
@@ -220,7 +220,7 @@ impl AuditLogger for MockLogger {
 
 #[async_trait::async_trait]
 impl ReasonerConnectorAuditLogger for MockLogger {
-    async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), AuditLoggerError> {
+    async fn log_reasoner_response(&self, _reference: &str, _response: &str) -> Result<(), AuditLoggerError> {
         println!("AUDIT LOG: log_reasoner_response");
         Ok(())
     }

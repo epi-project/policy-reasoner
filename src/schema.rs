@@ -1,7 +1,7 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
-    active_version (version) {
+    active_version (version, activated_on) {
         version -> BigInt,
         activated_on -> Timestamp,
         activated_by -> Text,

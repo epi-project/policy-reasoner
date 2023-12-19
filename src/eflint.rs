@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use std::future::Future;
 
-use audit_logger::{AuditLogger, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
-use eflint_json::spec::auxillary::{AtomicType, Version};
+use audit_logger::{ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
+use eflint_json::spec::auxillary::Version;
 use eflint_json::spec::{
-    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, RequestCommon, RequestPhrases,
+    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, Request, RequestCommon, RequestPhrases,
 };
 use log::{debug, info};
 use policy::{Policy, PolicyContent};
@@ -134,8 +133,20 @@ impl EFlintReasonerConnector {
         let eflint_content: Vec<&PolicyContent> = policy.content.iter().filter(|x| x.reasoner == "eflint").collect();
         let eflint_content = eflint_content.first().unwrap();
         debug!("Deserializing input to eFLINT JSON...");
-        let result: Vec<Phrase> = serde_json::from_str(eflint_content.content.get()).unwrap();
-        result
+        let content: &str = eflint_content.content.get();
+        let result: RequestPhrases = match serde_json::from_str(content) {
+            Ok(result) => match result {
+                Request::Phrases(phrases) => phrases,
+                Request::Handshake(_) | Request::Inspect(_) | Request::Ping(_) => panic!("Cannot accept non-Phrases Request input from request"),
+            },
+            Err(err) => panic!(
+                "Input is not valid eFLINT JSON: {err}\n\nInput:\n{}\n{}\n{}\n",
+                (0..80).map(|_| '-').collect::<String>(),
+                content,
+                (0..80).map(|_| '-').collect::<String>()
+            ),
+        };
+        result.phrases
     }
 
     fn conv_workflow(&self, workflow: Workflow) -> Vec<Phrase> {

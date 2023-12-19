@@ -1,0 +1,5 @@
+
+
+// Asserts there is no task assigned to Dan
+Invariant no-node-at-dan When
+    (Count(Foreach node : node-at(node, domain(user(Dan)))) == 0).

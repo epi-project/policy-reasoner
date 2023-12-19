@@ -9,6 +9,7 @@ Install diesel CLI
 
 Run diesel migration
 - `cd lib/policy`
+- `mkdir data`
 - `diesel migration run --database-url data/policy.db`
 
 Add active policy (requires `sqlite3` client)

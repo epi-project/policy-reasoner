@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
-use std::fs::File;
 
 use auth_resolver::{AuthContext, AuthResolver, AuthResolverError};
 use jsonwebtoken::jwk::JwkSet;
 use jsonwebtoken::{DecodingKey, Header, Validation};
+use log::{debug, info};
 use serde::Deserialize;
 use warp::http::{HeaderMap, HeaderValue};
 
@@ -83,14 +83,21 @@ where
     KR: KeyResolver + Sync + Send,
 {
     async fn authenticate(&self, headers: HeaderMap) -> Result<AuthContext, AuthResolverError> {
+        info!("Handling JWT authentication for incoming request");
+
         let raw_jwt = self.extract_jwt(headers.get("Authorization"))?;
+        debug!("Received JWT: '{raw_jwt}'");
 
         let header = jsonwebtoken::decode_header(&raw_jwt).map_err(|err| AuthResolverError::new(format!("Could not parse header: {}", err)))?;
+        debug!("JWT header: '{header:?}'");
 
+        debug!("Resolving key in keystore...");
         let decoding_key = self.key_resolver.resolve_key(&header).await?;
         let validation = Validation::new(header.alg);
+        debug!("Validating JWT with {:?}...", header.alg);
         let result = jsonwebtoken::decode::<HashMap<String, serde_json::Value>>(&raw_jwt, &decoding_key, &validation)
             .map_err(|err| AuthResolverError::new(format!("Could not validate jwt: {}", err)))?;
+        debug!("Validating OK");
 
         match result.claims.get(&self.config.initiator_claim) {
             Some(initiator) => match initiator {

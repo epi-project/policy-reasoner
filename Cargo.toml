@@ -57,5 +57,6 @@ members = [
     "lib/workflow",
     "lib/audit-logger",
 
+    "tools/checker-client",
     "tools/policy-builder",
 ]
