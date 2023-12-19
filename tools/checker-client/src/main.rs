@@ -4,7 +4,7 @@
 //  Created:
 //    15 Dec 2023, 15:08:35
 //  Last edited:
-//    19 Dec 2023, 17:25:31
+//    19 Dec 2023, 19:22:24
 //  Auto updated?
 //    Yes
 //
@@ -18,14 +18,17 @@ use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs::{self, File};
+use std::io::{BufRead as _, BufReader};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::{self, Duration, SystemTime};
 
+use audit_logger::LogStatement;
 use brane_ast::{CompileResult, ParserOptions, Workflow};
 use clap::{Parser, Subcommand};
 use console::style;
 use deliberation::spec::WorkflowValidationRequest;
+use eflint_json::DisplayEFlint;
 use eflint_to_json::compile;
 use enum_debug::EnumDebug;
 use error_trace::{trace, ErrorTrace as _};
@@ -33,6 +36,7 @@ use hmac::{Hmac, Mac as _};
 use humanlog::{DebugMode, HumanLogger};
 use jwt::SignWithKey as _;
 use log::{debug, error, info};
+use policy::Policy;
 use rand::distributions::Alphanumeric;
 use rand::seq::SliceRandom as _;
 use rand::Rng as _;
@@ -208,6 +212,9 @@ enum Subcommands {
     /// Deliberation-related stuff
     #[clap(name = "check", about = "Groups commands relating to deliberating the checker.")]
     Check(CheckArguments),
+    /// Audit log-related stuff
+    #[clap(name = "log", about = "Groups commands for better understanding audit logs.")]
+    Log(LogArguments),
 }
 
 
@@ -226,6 +233,9 @@ enum PolicySubcommands {
     /// Pushes a new policy to the checker.
     #[clap(name = "push", about = "Pushes a new policy to the checker.")]
     Push(PolicyPushArguments),
+    /// Returns the currently active policy as active in the checker.
+    #[clap(name = "get", about = "Retrieves the currently active policy in the checker.")]
+    Get(PolicyGetArguments),
     /// Sets a policy  as active in the checker.
     #[clap(name = "set", about = "Makes a policy with the given version ID active in the checker.")]
     Set(PolicySetArguments),
@@ -249,6 +259,14 @@ struct PolicyPushArguments {
     /// Whether we're using an external `eflint-to-json` executable or not.
     #[clap(short, long, help = "If given, does not download the Linux x86-64 'eflint-to-json' executable but instead uses the provided one.")]
     eflint_to_json_path: Option<PathBuf>,
+}
+
+/// Defines arguments for the `checker-client policy get` subcommand.
+#[derive(Debug, Parser)]
+struct PolicyGetArguments {
+    /// If given, attempts to parse the returned set of policy as eFLINT JSON and shows it as such.
+    #[clap(short, long, help = "If given, attempts to parse the returned set of policy as eFLINT JSON and shows it as such.")]
+    eflint: bool,
 }
 
 /// Defines arguments for the `checker-client policy set` subcommand.
@@ -302,6 +320,36 @@ struct CheckWorkflowArguments {
 
 
 
+/// Defines arguments for the `checker-client log` subcommand.
+#[derive(Debug, Parser)]
+struct LogArguments {
+    /// The audit log used
+    #[clap(short, long, global = true, default_value = "./audit-log.log", help = "The path to the audit log to read.")]
+    log: PathBuf,
+
+    /// Subcommand further
+    #[clap(subcommand)]
+    action: LogSubcommands,
+}
+
+/// Defines nested subcommands for the `checker-client log` subcommand.
+#[derive(Debug, Subcommand)]
+enum LogSubcommands {
+    /// Attempts to find the reasons why a policy was denied
+    #[clap(name = "reason", about = "Reads the audit log to find reasons why the request with given reference ID is denied.")]
+    Reason(LogReasonArguments),
+}
+
+/// Defines the arguments for the `checker-client log reason` subcommand.
+#[derive(Debug, Parser)]
+struct LogReasonArguments {
+    /// The reference ID to search for.
+    #[clap(name = "REFERENCE_ID", help = "The reference ID provided by the checker to find why the request failed.")]
+    reference_id: String,
+}
+
+
+
 
 
 /***** HELPER FUNCTIONS *****/
@@ -348,6 +396,17 @@ fn resolve_jwt(name: impl Into<String>, jwt: Option<String>) -> Result<String, J
         },
     }
 }
+
+/// Analyses a line to see if it's the start of a logging line.
+///
+/// Specifically, checks if it starts with `[policy-reasoner <any>][<date_time>] `.
+///
+/// # Arguments
+/// - `line`: The line to check.
+///
+/// # Returns
+/// The position from where the real line begins, or else [`None`] if this wasn't the start of a log line.
+fn line_is_log_line(line: &str) -> Option<usize> { None }
 
 
 
@@ -525,6 +584,109 @@ fn main() {
                 println!("{}", style("Checker replied with:").bold());
                 println!("{}", res.text().unwrap_or("<failed to get response body>".into()));
                 println!();
+            },
+
+            PolicySubcommands::Get(get) => {
+                info!("Handling `policy get` subcommand");
+
+                // Resolve the JWT
+                let jwt: String = match resolve_jwt(name, args.jwt) {
+                    Ok(jwt) => jwt,
+                    Err(err) => {
+                        error!("{}", err.trace());
+                        std::process::exit(1);
+                    },
+                };
+
+                // Build a request to the checker
+                let addr: String = format!("http://{}:{}/v1/policies/active", args.address, args.port);
+                debug!("Building request to checker '{addr}'...");
+                let client: Client = Client::new();
+                let req: Request = match client.get(&addr).header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt}")).build() {
+                    Ok(req) => req,
+                    Err(err) => {
+                        error!("{}", trace!(("Failed to build request to '{}:{}'", args.address, args.port), err));
+                        std::process::exit(1);
+                    },
+                };
+
+                // Send it
+                debug!("Sending request to checker '{addr}'...");
+                let res: Response = match client.execute(req) {
+                    Ok(res) => res,
+                    Err(err) => {
+                        error!("{}", trace!(("Failed to execute request to '{}:{}'", args.address, args.port), err));
+                        std::process::exit(1);
+                    },
+                };
+                let status: StatusCode = res.status();
+                if !status.is_success() {
+                    error!(
+                        "Request to '{}' failed with {} ({}){}",
+                        addr,
+                        status.as_u16(),
+                        status.canonical_reason().unwrap_or("???"),
+                        if let Ok(err) = res.text() {
+                            format!(
+                                "\n\nResponse:\n{}\n{}\n{}\n",
+                                (0..80).map(|_| '-').collect::<String>(),
+                                err,
+                                (0..80).map(|_| '-').collect::<String>()
+                            )
+                        } else {
+                            String::new()
+                        }
+                    );
+                    std::process::exit(1);
+                }
+
+                // EITHER: Show the raw response or the parsed one
+                let text: Result<String, reqwest::Error> = res.text();
+                if get.eflint {
+                    // Parse the incoming request
+                    debug!("Parsing checker response...");
+                    let policy: Policy = match text {
+                        Ok(response) => match serde_json::from_str(&response) {
+                            Ok(policy) => policy,
+                            Err(err) => {
+                                error!(
+                                    "Failed to parse response text as Policy: {}\n\nResponse:\n{}\n{}\n{}\n",
+                                    err,
+                                    (0..80).map(|_| '-').collect::<String>(),
+                                    response,
+                                    (0..80).map(|_| '-').collect::<String>()
+                                );
+                                std::process::exit(1);
+                            },
+                        },
+                        Err(err) => {
+                            error!("{}", trace!(("Failed to get response"), err));
+                            std::process::exit(1);
+                        },
+                    };
+
+                    // Next, parse the policies
+                    for (i, policy) in policy.content.into_iter().enumerate() {
+                        // Attempt to parse the embedded eFLINT
+                        debug!("Deserializing policy {i}...");
+                        let policy: eflint_json::spec::Request = match serde_json::from_str(policy.content.get()) {
+                            Ok(policy) => policy,
+                            Err(err) => {
+                                error!("{}", trace!(("Failed to parse policy {i} in request as valid eFLINT JSON"), err));
+                                std::process::exit(1);
+                            },
+                        };
+
+                        // Show it to the user
+                        println!("{}", style(format!("Active checker policy {i}")).bold());
+                        println!("{:#}", policy.display_syntax());
+                        println!();
+                    }
+                } else {
+                    println!("{}", style("Checker replied with:").bold());
+                    println!("{}", text.unwrap_or("<failed to get response body>".into()));
+                    println!();
+                }
             },
 
             PolicySubcommands::Set(set) => {
@@ -755,6 +917,62 @@ fn main() {
                 println!("{}", style("Checker replied with:").bold());
                 println!("{}", res.text().unwrap_or("<failed to get response body>".into()));
                 println!();
+            },
+        },
+
+        Subcommands::Log(log) => match log.action {
+            LogSubcommands::Reason(reason) => {
+                info!("Handling `policy push` subcommand");
+
+                // Open the log file
+                debug!("Opening log file '{}'...", log.log.display());
+                let mut handle: BufReader<File> = match File::open(&log.log) {
+                    Ok(handle) => BufReader::new(handle),
+                    Err(err) => {
+                        error!("{}", trace!(("Failed to open log file '{}'", log.log.display()), err));
+                        std::process::exit(1);
+                    },
+                };
+
+                // Separate the log into statements
+                debug!("Finding log statements...");
+                let mut buf: String = String::new();
+                let mut statements: Vec<LogStatement<()>> = Vec::new();
+                for line in handle.lines() {
+                    // Unwrap the line
+                    let line: String = match line {
+                        Ok(line) => line,
+                        Err(err) => {
+                            error!("{}", trace!(("Failed to read line from '{}'", log.log.display()), err));
+                            std::process::exit(1);
+                        },
+                    };
+
+                    // See if the line begins with what we want
+                    if let Some(start_pos) = line_is_log_line(&line) {
+                        // Flush the buffer if we have any to flush
+                        if !buf.is_empty() {
+                            // Attempt to parse the non-intro part as a LogStatement
+                            let stmt: LogStatement<_> = match serde_json::from_str(&buf) {
+                                Ok(stmt) => stmt,
+                                Err(err) => {
+                                    error!(
+                                        "Failed to parse audit log line(s) as a log statement: {}\n\nLine(s):\n{}\n{}\n{}\n",
+                                        err,
+                                        (0..80).map(|_| '-').collect::<String>(),
+                                        buf,
+                                        (0..80).map(|_| '-').collect::<String>()
+                                    );
+                                    std::process::exit(1);
+                                },
+                            };
+                        }
+                    } else {
+                        // Add to the buffer
+                        buf.push('\n');
+                        buf.push_str(&line);
+                    }
+                }
             },
         },
     }

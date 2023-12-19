@@ -41,7 +41,7 @@ pub struct WorkflowValidationRequest {
     pub workflow: Workflow,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "verdict")]
 pub enum Verdict {
     // Checker says yes
@@ -54,13 +54,13 @@ pub enum Verdict {
 
 // DeliberationResponse represents the shared part of the the deliberation repsonses
 // (Allow, Deny)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliberationResponse {
     pub verdict_reference: String,
 }
 
 // DeliberationResponse represents the answer the checker came up with
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliberationAllowResponse {
     #[serde(flatten)]
     pub shared:    DeliberationResponse,
@@ -69,7 +69,7 @@ pub struct DeliberationAllowResponse {
 }
 
 // DeliberationResponse represents the answer the checker came up with
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeliberationDenyResponse {
     #[serde(flatten)]
     pub shared: DeliberationResponse,

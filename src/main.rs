@@ -8,7 +8,7 @@ use state_resolver::{State, StateResolver};
 
 use crate::auth::{JwtConfig, JwtResolver, KidResolver, MockAuthResolver};
 use crate::eflint::EFlintReasonerConnector;
-use crate::logger::MockLogger;
+use crate::logger::FileLogger;
 use crate::sqlite::SqlitePolicyDataStore;
 
 pub mod auth;
@@ -54,7 +54,8 @@ async fn main() {
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     let pauthresolver = get_pauth_resolver();
-    let logger = MockLogger::new();
+    // let logger = MockLogger::new();
+    let logger = FileLogger::new("./audit-log.log");
     let dauthresolver = MockAuthResolver::new("mock initiator".into(), "mock system".into());
     let pstore = SqlitePolicyDataStore::new("./lib/policy/data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());

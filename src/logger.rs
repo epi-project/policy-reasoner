@@ -1,9 +1,8 @@
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter, Result as FResult};
-use std::io::SeekFrom;
 use std::path::PathBuf;
 
-use audit_logger::{AuditLogger, Error as AuditLoggerError, ReasonerConnectorAuditLogger};
+use audit_logger::{AuditLogger, Error as AuditLoggerError, LogStatement, ReasonerConnectorAuditLogger};
 use auth_resolver::AuthContext;
 use deliberation::spec::Verdict;
 use enum_debug::EnumDebug;
@@ -12,8 +11,8 @@ use log::debug;
 use policy::Policy;
 use serde::Serialize;
 use state_resolver::State;
-use tokio::fs::File;
-use tokio::io::{AsyncSeekExt as _, AsyncWriteExt};
+use tokio::fs::{File, OpenOptions};
+use tokio::io::AsyncWriteExt;
 use workflow::Workflow;
 
 
@@ -96,44 +95,6 @@ impl Error for FileLoggerError {
             StatementSerialize { err, .. } => Some(err),
         }
     }
-}
-
-
-
-
-
-/***** AUXILLARY *****/
-/// Collects everything we might want to log in the [`FileLogger`].
-#[derive(Clone, Copy, Debug, EnumDebug, Serialize)]
-#[serde(tag = "kind", rename_all = "SCREAMING-KEBAB-CASE")]
-pub enum LogStatement<'a, C> {
-    /// A request that asks if a task may be executed has been received.
-    ExecuteTask { reference: &'a str, auth: &'a AuthContext, policy: i64, state: &'a State, workflow: &'a Workflow, task: &'a str },
-    /// A request that asks if an asset may be accessed has been received.
-    AssetAccess {
-        reference: &'a str,
-        auth:      &'a AuthContext,
-        policy:    i64,
-        state:     &'a State,
-        workflow:  &'a Workflow,
-        data:      &'a str,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        task:      &'a Option<String>,
-    },
-    /// A request that asks if a workflow is permitted has been received.
-    WorkflowValidate { reference: &'a str, auth: &'a AuthContext, policy: i64, state: &'a State, workflow: &'a Workflow },
-
-    /// Logs the raw response of a reasoner.
-    ReasonerResponse { reference: &'a str, response: &'a str },
-    /// Logs the official response of a reasoner.
-    ReasonerVerdict { reference: &'a str, verdict: &'a Verdict },
-
-    /// Logs the reasoner backend for during startup.
-    ReasonerContext { connector_context: &'a C },
-    /// Logs the arrival of a new policy.
-    PolicyAdd { auth: &'a AuthContext, connector_context: &'a C, policy: &'a Policy },
-    /// Logs the activation of an existing policy.
-    PolicyActivate { auth: &'a AuthContext, policy: &'a Policy },
 }
 
 
@@ -229,6 +190,7 @@ impl ReasonerConnectorAuditLogger for MockLogger {
 /// A more serious version of a logger that logs to a file.
 ///
 /// Note that this logger is not exactly the perfect audit log, as it does nothing w.r.t. ensuring that the file is the same as last time or signing changes or w/e.
+#[derive(Clone)]
 pub struct FileLogger {
     /// The path of the file to log to.
     path: PathBuf,
@@ -251,7 +213,7 @@ impl FileLogger {
     ///
     /// # Errors
     /// This function errors if we failed to perform the logging completely (i.e., either write or flush).
-    pub async fn log<C: Serialize>(&self, stmt: LogStatement<'_, C>) -> Result<(), FileLoggerError> {
+    pub async fn log<C: Clone + Serialize>(&self, stmt: LogStatement<'_, C>) -> Result<(), FileLoggerError> {
         // Step 1: Open the log file
         let mut handle: File = if !self.path.exists() {
             debug!("Creating new log file at '{}'...", self.path.display());
@@ -261,18 +223,18 @@ impl FileLogger {
             }
         } else {
             debug!("Opening existing log file at '{}'...", self.path.display());
-            match File::open(&self.path).await {
+            match OpenOptions::new().write(true).append(true).open(&self.path).await {
                 Ok(handle) => handle,
                 Err(err) => return Err(FileLoggerError::FileOpen { path: self.path.clone(), err }),
             }
         };
 
-        // Navigate to the end of the file
-        let end_pos: u64 = match handle.seek(SeekFrom::End(0)).await {
-            Ok(pos) => pos,
-            Err(err) => return Err(FileLoggerError::FileSeek { path: self.path.clone(), err }),
-        };
-        debug!("End of file is after {end_pos} bytes");
+        // // Navigate to the end of the file
+        // let end_pos: u64 = match handle.seek(SeekFrom::End(0)).await {
+        //     Ok(pos) => pos,
+        //     Err(err) => return Err(FileLoggerError::FileSeek { path: self.path.clone(), err }),
+        // };
+        // debug!("End of file is after {end_pos} bytes");
 
         // Write the message
         debug!("Writing {}-statement to logfile...", stmt.variant());
@@ -311,7 +273,7 @@ impl AuditLogger for FileLogger {
         debug!("Handling request to log execute_task request");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<()> = LogStatement::ExecuteTask { reference, auth, policy, state, workflow, task };
+        let stmt: LogStatement<()> = LogStatement::execute_task(reference, auth, policy, state, workflow, task);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 
@@ -328,7 +290,7 @@ impl AuditLogger for FileLogger {
         debug!("Handling request to log data_access request");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<()> = LogStatement::AssetAccess { reference, auth, policy, state, workflow, data, task };
+        let stmt: LogStatement<()> = LogStatement::asset_access(reference, auth, policy, state, workflow, data, task);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 
@@ -343,7 +305,7 @@ impl AuditLogger for FileLogger {
         debug!("Handling request to log workflow_validate request");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<()> = LogStatement::WorkflowValidate { reference, auth, policy, state, workflow };
+        let stmt: LogStatement<()> = LogStatement::workflow_validate(reference, auth, policy, state, workflow);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 
@@ -351,19 +313,19 @@ impl AuditLogger for FileLogger {
         debug!("Handling request to log reasoner verdict");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<()> = LogStatement::ReasonerVerdict { reference, verdict };
+        let stmt: LogStatement<()> = LogStatement::reasoner_verdict(reference, verdict);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 
-    async fn log_reasoner_context<C: Sync + Debug + Serialize>(&self, connector_context: &C) -> Result<(), AuditLoggerError> {
+    async fn log_reasoner_context<C: Send + Sync + Clone + Debug + Serialize>(&self, connector_context: &C) -> Result<(), AuditLoggerError> {
         debug!("Handling request to log reasoner connector context");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<C> = LogStatement::ReasonerContext { connector_context };
+        let stmt: LogStatement<C> = LogStatement::reasoner_context(connector_context);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 
-    async fn log_add_policy_request<C: Sync + Debug + Serialize>(
+    async fn log_add_policy_request<C: Send + Sync + Clone + Debug + Serialize>(
         &self,
         auth: &AuthContext,
         connector_context: &C,
@@ -372,7 +334,7 @@ impl AuditLogger for FileLogger {
         debug!("Handling request to log policy add");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<C> = LogStatement::PolicyAdd { auth, connector_context, policy };
+        let stmt: LogStatement<C> = LogStatement::policy_add(auth, connector_context, policy);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 
@@ -380,7 +342,7 @@ impl AuditLogger for FileLogger {
         debug!("Handling request to log policy activate");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<()> = LogStatement::PolicyActivate { auth, policy };
+        let stmt: LogStatement<()> = LogStatement::policy_activate(auth, policy);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 }
@@ -391,7 +353,7 @@ impl ReasonerConnectorAuditLogger for FileLogger {
         debug!("Handling request to log reasoner response");
 
         // Construct the full message that we want to log, then log it (simple as that)
-        let stmt: LogStatement<()> = LogStatement::ReasonerResponse { reference, response };
+        let stmt: LogStatement<()> = LogStatement::reasoner_response(reference, response);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 }

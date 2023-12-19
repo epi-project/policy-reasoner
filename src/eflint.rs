@@ -221,7 +221,7 @@ impl EFlintReasonerConnector {
         let raw_body = res.text().await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         debug!("Log raw response...");
-        logger.log_reasoner_response(&raw_body).await.map_err(|err| todo!())?;
+        logger.log_reasoner_response(&raw_body).await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         let response =
             serde_json::from_str::<eflint_json::spec::ResponsePhrases>(&raw_body).map_err(|err| ReasonerConnError::new(err.to_string()))?;

@@ -40,7 +40,7 @@ impl ReasonerResponse {
 #[async_trait::async_trait]
 pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger> {
     /// The type returned by [`ReasonerConnector::context()`].
-    type Context;
+    type Context: Clone;
     /// The type returned by [`ReasonerConnector::full_context()`].
     type FullContext;
 

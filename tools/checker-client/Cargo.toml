@@ -13,6 +13,7 @@ brane-shr = { git = "https://github.com/epi-project/brane" }
 specifications = { git = "https://github.com/epi-project/brane" }
 clap = { version = "4.4", features = ["derive"] }
 console = "0.15"
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", features = ["display_eflint"] }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 hmac = "0.12"
@@ -24,6 +25,8 @@ reqwest = { version = "0.11", features = ["blocking"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 sha2 = "0.10"
 
+audit-logger = { path = "../../lib/audit-logger" }
 deliberation = { path = "../../lib/deliberation" }
 eflint-to-json = { path = "../../lib/eflint-to-json" }
+policy = { path = "../../lib/policy" }
 srv = { path = "../../lib/srv" }
