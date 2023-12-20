@@ -747,7 +747,7 @@ dependencies = [
 [[package]]
 name = "eflint-json"
 version = "0.1.0"
-source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#d7926219e4ece6578d9a38505e39b941c5243b19"
+source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#ec16789f8f697cf3edef32ea8f99ae73aea21ede"
 dependencies = [
  "console",
  "enum-debug",
