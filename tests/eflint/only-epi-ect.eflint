@@ -1,0 +1,5 @@
+Invariant only-epi-ect When
+    (Forall node : (
+        (Exists user, signature : (node-metadata(node, metadata(tag(user, Epi), signature)))) &&
+        (Exists user, signature : (node-metadata(node, metadata(tag(user, Ect), signature))))
+    )).

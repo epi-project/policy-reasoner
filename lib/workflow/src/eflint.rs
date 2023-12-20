@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    13 Dec 2023, 08:41:26
+//    20 Dec 2023, 09:01:00
 //  Auto updated?
 //    Yes
 //
@@ -21,7 +21,7 @@ use log::{trace, warn};
 use rand::distributions::Alphanumeric;
 use rand::Rng as _;
 
-use crate::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
+use crate::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, Metadata, User, Workflow};
 
 
 /***** HELPER MACROS *****/
@@ -190,6 +190,38 @@ fn analyse_loop_body(
     }
 }
 
+/// Compiles a given piece of metadata.
+///
+/// # Arguments
+/// - `metadata`: The [`Metadata`] to compile.
+/// - `phrases`: The buffer to compile to.
+fn compile_metadata(metadata: &Metadata, phrases: &mut Vec<Phrase>) {
+    // First, we push the tag
+    // ```eflint
+    // +tag(user(#metadata.owner), #metadata.tag).
+    // ```
+    let tag: Expression = constr_app!("tag", constr_app!("user", str_lit!(metadata.owner.clone())), str_lit!(metadata.tag.clone()));
+    phrases.push(create!(tag.clone()));
+
+    // Push the signature
+    let signature: Expression = if let Some((assigner, signature)) = &metadata.signature {
+        // ```eflint
+        // +signature(user(#assigner), #signature).
+        // ```
+        constr_app!("signature", constr_app!("user", str_lit!(assigner.clone())), str_lit!(signature.clone()))
+    } else {
+        // Push an empty signature, to be sure that the one is in serialized metadata is still findable
+        // ```eflint
+        // +signature(user(""), "").
+        // ```
+        constr_app!("signature", constr_app!("user", str_lit!("")), str_lit!(""))
+    };
+    phrases.push(create!(signature.clone()));
+
+    // Then push the metadata as a whole
+    phrases.push(create!(constr_app!("metadata", tag, signature)));
+}
+
 /// Compiles the given [`Elem`] onwards to a series of eFLINT [`Phrase`]s.
 ///
 /// # Arguments
@@ -276,6 +308,9 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, loop_names: &Has
 
                 // Finally, add any task metadata
                 for m in metadata {
+                    // Write the metadata's children
+                    compile_metadata(m, phrases);
+
                     // Resolve the metadata's signature
                     let (assigner, signature): (&str, &str) =
                         m.signature.as_ref().map(|(assigner, signature)| (assigner.as_str(), signature.as_str())).unwrap_or(("", ""));
@@ -493,6 +528,9 @@ impl Workflow {
 
         // Add workflow metadata
         for m in &self.metadata {
+            // Write the metadata's children
+            compile_metadata(m, &mut phrases);
+
             // Resolve the metadata's signature
             let (assigner, signature): (&str, &str) =
                 m.signature.as_ref().map(|(assigner, signature)| (assigner.as_str(), signature.as_str())).unwrap_or(("", ""));
@@ -502,7 +540,7 @@ impl Workflow {
             // +workflow-metadata(#workflow, metadata(tag(user(#m.owner), #m.tag), signature(user(#m.assigner), #m.signature)))).
             // ```
             phrases.push(create!(constr_app!(
-                "node-metadata",
+                "workflow-metadata",
                 workflow.clone(),
                 constr_app!(
                     "metadata",

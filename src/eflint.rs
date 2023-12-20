@@ -5,7 +5,7 @@ use eflint_json::spec::auxillary::Version;
 use eflint_json::spec::{
     ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, Request, RequestCommon, RequestPhrases,
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use policy::{Policy, PolicyContent};
 use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
 use state_resolver::State;
@@ -223,8 +223,17 @@ impl EFlintReasonerConnector {
         debug!("Log raw response...");
         logger.log_reasoner_response(&raw_body).await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
-        let response =
-            serde_json::from_str::<eflint_json::spec::ResponsePhrases>(&raw_body).map_err(|err| ReasonerConnError::new(err.to_string()))?;
+        debug!("Parsing response...");
+        let response = serde_json::from_str::<eflint_json::spec::ResponsePhrases>(&raw_body).map_err(|err| {
+            error!(
+                "{}\n\nRaw response:\n{}\n{}\n{}\n",
+                err,
+                (0..80).map(|_| '-').collect::<String>(),
+                raw_body,
+                (0..80).map(|_| '-').collect::<String>()
+            );
+            ReasonerConnError::new(err.to_string())
+        })?;
 
         debug!("Analysing response...");
         let errors: Vec<String> = response
@@ -232,7 +241,7 @@ impl EFlintReasonerConnector {
             .last()
             .map(|r| match r {
                 eflint_json::spec::PhraseResult::StateChange(sc) => match &sc.violations {
-                    Some(v) => v.iter().map(|v| v.name.clone()).collect(),
+                    Some(v) => v.iter().map(|v| v.identifier.clone()).collect(),
                     None => vec![],
                 },
                 _ => vec![],
