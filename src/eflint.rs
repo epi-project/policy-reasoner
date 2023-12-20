@@ -221,7 +221,11 @@ impl EFlintReasonerConnector {
         let raw_body = res.text().await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         debug!("Log raw response...");
-        logger.log_reasoner_response(&raw_body).await.map_err(|err| ReasonerConnError::new(err.to_string()))?;
+
+        logger.log_reasoner_response(&raw_body).await.map_err(|err| {
+            debug!("Error trying to log{:?}", err);
+            ReasonerConnError::new(err.to_string())
+        })?;
 
         debug!("Parsing response...");
         let response = serde_json::from_str::<eflint_json::spec::ResponsePhrases>(&raw_body).map_err(|err| {
@@ -236,7 +240,7 @@ impl EFlintReasonerConnector {
         })?;
 
         debug!("Analysing response...");
-        let errors: Vec<String> = response
+        let _errors: Vec<String> = response
             .results
             .last()
             .map(|r| match r {
@@ -248,6 +252,9 @@ impl EFlintReasonerConnector {
             })
             .unwrap_or_else(Vec::new);
 
+        // For now don't leak errors
+        let errors: Vec<String> = Vec::new();
+
         // TODO proper handle invalid query and unexpected result
         let success: Result<bool, String> = response
             .results
@@ -258,9 +265,6 @@ impl EFlintReasonerConnector {
                 eflint_json::spec::PhraseResult::StateChange(r) => Ok(!r.violated),
             })
             .unwrap_or_else(|| Err("Unexpected result".into()));
-
-
-
 
         match success {
             Ok(success) => {

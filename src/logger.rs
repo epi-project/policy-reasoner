@@ -12,7 +12,7 @@ use policy::Policy;
 use serde::Serialize;
 use state_resolver::State;
 use tokio::fs::{File, OpenOptions};
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncSeekExt as _, AsyncWriteExt};
 use workflow::Workflow;
 
 
@@ -95,6 +95,73 @@ impl Error for FileLoggerError {
             StatementSerialize { err, .. } => Some(err),
         }
     }
+}
+
+
+
+
+
+/***** AUXILLARY *****/
+/// Collects everything we might want to log in the [`FileLogger`].
+#[derive(Clone, Copy, Debug, EnumDebug, Serialize)]
+#[serde(tag = "kind", rename_all = "SCREAMING-KEBAB-CASE")]
+pub enum LogStatement<'a, C> {
+    /// A request that asks if a task may be executed has been received.
+    ExecuteTask {
+        reference: &'a str,
+        auth:      &'a AuthContext,
+        policy:    i64,
+        state:     &'a State,
+        workflow:  &'a Workflow,
+        task:      &'a str,
+    },
+    /// A request that asks if an asset may be accessed has been received.
+    AssetAccess {
+        reference: &'a str,
+        auth:      &'a AuthContext,
+        policy:    i64,
+        state:     &'a State,
+        workflow:  &'a Workflow,
+        data:      &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        task:      &'a Option<String>,
+    },
+    /// A request that asks if a workflow is permitted has been received.
+    WorkflowValidate {
+        reference: &'a str,
+        auth:      &'a AuthContext,
+        policy:    i64,
+        state:     &'a State,
+        workflow:  &'a Workflow,
+    },
+
+    /// Logs the raw response of a reasoner.
+    ReasonerResponse {
+        reference: &'a str,
+        response:  &'a str,
+    },
+    /// Logs the official response of a reasoner.
+    ReasonerVerdict {
+        reference: &'a str,
+        verdict:   &'a Verdict,
+    },
+
+    /// Logs the reasoner backend for during startup.
+    ReasonerContext {
+        connector_context: &'a C,
+    },
+    /// Logs the arrival of a new policy.
+    PolicyAdd {
+        auth: &'a AuthContext,
+        connector_context: &'a C,
+        policy: &'a Policy,
+    },
+    /// Logs the activation of an existing policy.
+    PolicyActivate {
+        auth:   &'a AuthContext,
+        policy: &'a Policy,
+    },
+    Init,
 }
 
 
