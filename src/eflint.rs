@@ -231,7 +231,7 @@ impl EFlintReasonerConnector {
             serde_json::from_str::<eflint_json::spec::ResponsePhrases>(&raw_body).map_err(|err| ReasonerConnError::new(err.to_string()))?;
 
         debug!("Analysing response...");
-        let errors: Vec<String> = response
+        let _errors: Vec<String> = response
             .results
             .last()
             .map(|r| match r {
@@ -242,6 +242,9 @@ impl EFlintReasonerConnector {
                 _ => vec![],
             })
             .unwrap_or_else(Vec::new);
+
+        // For now don't leak errors
+        let errors: Vec<String> = Vec::new();
 
         // TODO proper handle invalid query and unexpected result
         let success: Result<bool, String> = response
