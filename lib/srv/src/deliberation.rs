@@ -163,6 +163,9 @@ where
             state.users.len()
         );
 
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
+        debug!("Generated verdict_reference: {}", verdict_reference);
+
         debug!("Retrieving active policy...");
         let policy: Policy = match get_active_policy(&this.logger, &verdict_reference, &this.policystore).await? {
             Ok(policy) => policy,
@@ -269,6 +272,32 @@ where
             None => None,
         };
 
+        debug!("Retrieving active policy...");
+        let policy = match this.policystore.get_active().await {
+            Ok(p) => p,
+            Err(_) => {
+                let resp = Verdict::Deny(DeliberationDenyResponse {
+                    shared: DataAccessResponse { verdict_reference: verdict_reference.clone() },
+                    reasons_for_denial: vec![].into(),
+                });
+
+                this.logger.log_data_access_request(&verdict_reference, &auth_ctx, -1, &state, &workflow, &body.data_id, &task_id).await.map_err(
+                    |err| {
+                        debug!("Could not log data access request to audit log : {:?} | request id: {}", err, verdict_reference);
+                        warp::reject::custom(err)
+                    },
+                )?;
+
+                this.logger.log_verdict(&verdict_reference, &resp).await.map_err(|err| {
+                    debug!("Could not log data access verdict to audit log : {:?} | request id: {}", err, verdict_reference);
+                    warp::reject::custom(err)
+                })?;
+
+                return Ok(warp::reply::with_status(warp::reply::json(&resp), warp::hyper::StatusCode::OK));
+            },
+        };
+        debug!("Got policy with {} bodies", policy.content.len());
+
         this.logger
             .log_data_access_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &body.data_id, &task_id)
             .await
@@ -351,6 +380,9 @@ where
             state.locations.len(),
             state.users.len()
         );
+
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
+        debug!("Generated verdict_reference: {}", verdict_reference);
 
         debug!("Retrieving active policy...");
         let policy = match get_active_policy(&this.logger, &verdict_reference, &this.policystore).await? {
