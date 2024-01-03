@@ -286,13 +286,21 @@ impl EFlintReasonerConnector {
 #[async_trait::async_trait]
 impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L> for EFlintReasonerConnector {
     type Context = &'static str;
-    type FullContext = (&'static str, &'static str);
+    type FullContext = reasonerconn::ReasonerConnectorFullContext;
 
     #[inline]
     fn context(&self) -> Self::Context { JSON_BASE_SPEC_HASH }
 
     #[inline]
-    fn full_context(&self) -> Self::FullContext { (JSON_BASE_SPEC, JSON_BASE_SPEC_HASH) }
+    fn full_context(&self) -> Self::FullContext {
+        Self::FullContext {
+            name: "EFLINT connector".into(),
+            t: "eflint-json-reasoner-connector".into(),
+            version: "0.1.0".into(),
+            base_defs: JSON_BASE_SPEC.into(),
+            base_defs_hash: JSON_BASE_SPEC_HASH.into(),
+        }
+    }
 
     async fn execute_task(
         &self,

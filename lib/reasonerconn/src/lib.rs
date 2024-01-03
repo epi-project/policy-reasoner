@@ -36,13 +36,22 @@ impl ReasonerResponse {
     pub fn new(success: bool, errors: Vec<String>) -> Self { ReasonerResponse { success, errors } }
 }
 
+#[derive(Serialize, Debug, Clone)]
+pub struct ReasonerConnectorFullContext {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub t: String,
+    pub version: String,
+    pub base_defs: String,
+    pub base_defs_hash: String,
+}
 
 #[async_trait::async_trait]
 pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger> {
     /// The type returned by [`ReasonerConnector::context()`].
     type Context: Clone;
     /// The type returned by [`ReasonerConnector::full_context()`].
-    type FullContext;
+    type FullContext: Sync + Send + Serialize + Clone + core::fmt::Debug;
 
     /// Returns context about the reasoner connector that is relevant for the audit log.
     ///
