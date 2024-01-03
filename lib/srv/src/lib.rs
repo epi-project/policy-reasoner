@@ -142,6 +142,14 @@ where
             res
         });
 
+
+        // Log reasoner connector context
+        let ctx = this_arc.clone().reasonerconn.full_context();
+        match this_arc.clone().logger.log_reasoner_context(&ctx).await {
+            Ok(_) => {},
+            Err(err) => panic!("Failed to log reasoner context on startup {:?}", err),
+        }
+
         let (addr, srv) = warp::serve(index).bind_with_graceful_shutdown(addr, graceful_signal());
         info!("Now serving at {addr}; ready for requests");
         srv.await;
