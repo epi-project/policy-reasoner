@@ -97,10 +97,6 @@ impl Error for FileLoggerError {
     }
 }
 
-
-
-
-
 /***** LIBRARY *****/
 /// A mock version of the logger that simply ignores all logged statements.
 ///
@@ -170,6 +166,11 @@ impl AuditLogger for MockLogger {
 
     async fn log_set_active_version_policy(&self, _auth: &AuthContext, _policy: &Policy) -> Result<(), AuditLoggerError> {
         println!("AUDIT LOG: log_set_active_version_policy");
+        Ok(())
+    }
+
+    async fn log_deactivate_policy(&self, _auth: &AuthContext) -> Result<(), AuditLoggerError> {
+        println!("AUDIT LOG: log_deactivate_policy");
         Ok(())
     }
 
@@ -343,6 +344,14 @@ impl AuditLogger for FileLogger {
 
         // Construct the full message that we want to log, then log it (simple as that)
         let stmt: LogStatement<(), ()> = LogStatement::policy_activate(auth, policy);
+        self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
+    }
+
+    async fn log_deactivate_policy(&self, auth: &AuthContext) -> Result<(), AuditLoggerError> {
+        debug!("Handling request to log policy deactivation");
+
+        // Construct the full message that we want to log, then log it (simple as that)
+        let stmt: LogStatement<(), ()> = LogStatement::policy_deactivate(auth);
         self.log(stmt).await.map_err(|err| AuditLoggerError::CouldNotDeliver(format!("{}", err.trace())))
     }
 }

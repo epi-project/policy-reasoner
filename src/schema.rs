@@ -5,6 +5,8 @@ diesel::table! {
         version -> BigInt,
         activated_on -> Timestamp,
         activated_by -> Text,
+        deactivated_on -> Nullable<Timestamp>,
+        deactivated_by -> Nullable<Text>,
     }
 }
 

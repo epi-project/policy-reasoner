@@ -6,6 +6,7 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::result::Error;
 use diesel::sqlite::SqliteConnection;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use policy::ActivePolicy;
 use tokio::runtime::Handle;
 
 use crate::models::{SqliteActiveVersion, SqlitePolicy};
@@ -41,6 +42,32 @@ impl SqlitePolicyDataStore {
         // when building a connection pool
         let pool = Pool::builder().test_on_check_out(true).build(manager).expect("Could not build connection pool");
         return Self { pool };
+    }
+
+    async fn _get_active(&self) -> Result<i64, PolicyDataError> {
+        use crate::schema::active_version::dsl::active_version;
+        let mut conn = self.pool.get().unwrap();
+        let av: SqliteActiveVersion = match active_version
+            .limit(1)
+            .order_by(crate::schema::active_version::dsl::activated_on.desc())
+            .select(SqliteActiveVersion::as_select())
+            .load(&mut conn)
+        {
+            Ok(mut r) => {
+                if r.len() != 1 {
+                    return Err(PolicyDataError::NotFound);
+                }
+
+                r.remove(0)
+            },
+            Err(err) => return Err(PolicyDataError::GeneralError(err.to_string())),
+        };
+
+        if !av.deactivated_on.is_none() {
+            return Err(PolicyDataError::NotFound);
+        }
+
+        Ok(av.version)
     }
 }
 
@@ -215,23 +242,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
     }
 
     async fn get_active(&self) -> Result<Policy, PolicyDataError> {
-        use crate::schema::active_version::dsl::active_version;
-        let mut conn = self.pool.get().unwrap();
-        let av = match active_version
-            .limit(1)
-            .order_by(crate::schema::active_version::dsl::activated_on.desc())
-            .select(crate::schema::active_version::dsl::version)
-            .load::<i64>(&mut conn)
-        {
-            Ok(mut r) => {
-                if r.len() != 1 {
-                    return Err(PolicyDataError::NotFound);
-                }
-
-                r.remove(0)
-            },
-            Err(err) => return Err(PolicyDataError::GeneralError(err.to_string())),
-        };
+        let av = self._get_active().await?;
 
         self.get_version(av).await
     }
@@ -247,7 +258,13 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
 
         let policy = self.get_version(version).await?;
 
-        let model = SqliteActiveVersion { version, activated_on: Utc::now().naive_local(), activated_by: context.initiator };
+        let av = self._get_active().await;
+
+        if av.is_ok_and(|v| v == version) {
+            return Err(PolicyDataError::GeneralError(format!("Version already active: {}", version)));
+        }
+
+        let model = SqliteActiveVersion::new(version, context.initiator);
 
         let rt_handle: Handle = Handle::current();
         match tokio::task::spawn_blocking(move || {
@@ -257,6 +274,37 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
                 rt_handle.block_on(transaction(policy.clone())).map_err(|err| SqlitePolicyDataStoreError::from(err))?;
 
                 Ok(policy)
+            })
+        })
+        .await
+        {
+            Ok(res) => res,
+            Err(err) => panic!(),
+        }
+        .map_err(|err: SqlitePolicyDataStoreError| err.into())
+    }
+
+    async fn deactivate_policy<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        context: Context,
+        transaction: impl 'static + Send + FnOnce() -> F,
+    ) -> Result<(), PolicyDataError> {
+        use crate::schema::active_version::dsl::{active_version, deactivated_by, deactivated_on, version};
+        let mut conn = self.pool.get().unwrap();
+
+        let av = self._get_active().await?;
+
+        let rt_handle: Handle = Handle::current();
+        match tokio::task::spawn_blocking(move || {
+            conn.exclusive_transaction(|conn| {
+                diesel::update(active_version)
+                    .filter(version.eq(av))
+                    .set((deactivated_on.eq(Utc::now().naive_local()), deactivated_by.eq(context.initiator)))
+                    .execute(conn.into())?;
+
+                rt_handle.block_on(transaction()).map_err(|err| SqlitePolicyDataStoreError::from(err))?;
+
+                Ok(())
             })
         })
         .await

@@ -118,6 +118,34 @@ where
         {
             Ok(policy) => Ok(warp::reply::json(&policy)),
             Err(err) => Ok(warp::reply::json(&format!("{}", err))),
+    // Set active policy
+    // DELETE /v1/policies/active
+    // out:
+    //  200
+    //  400 problem+json
+
+    async fn handle_deactivate_policy(auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
+        let t = this.clone();
+        match this
+            .policystore
+            .deactivate_policy(Context { initiator: auth_ctx.initiator.clone() }, || async move {
+                t.logger.log_deactivate_policy(&auth_ctx).await.map_err(|err| match err {
+                    audit_logger::Error::CouldNotDeliver(err) => PolicyDataError::GeneralError(err),
+                })
+            })
+            .await
+        {
+            Ok(policy) => Ok(warp::reply::json(&policy)),
+            Err(err) => match err {
+                PolicyDataError::NotFound => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail("No active version to deactivate");
+                    Err(warp::reject::custom(Problem(p)))
+                },
+                PolicyDataError::GeneralError(msg) => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+            },
         }
     }
 
@@ -160,7 +188,15 @@ where
             .and(warp::body::json())
             .and_then(Self::handle_set_active_policy);
 
-        warp::path("v1").and(warp::path("policies")).and(get_latest.or(get_version).or(get_all).or(get_active).or(set_active).or(add_version))
+        let deactivate = warp::delete()
+            .and(warp::path!("active"))
+            .and(Self::with_policy_api_auth(this.clone()))
+            .and(Self::with_self(this.clone()))
+            .and_then(Self::handle_deactivate_policy);
+
+        warp::path("v1")
+            .and(warp::path("policies"))
+            .and(get_latest.or(get_version).or(get_all).or(get_active).or(set_active).or(add_version).or(deactivate))
     }
 
     fn with_policy_api_auth(this: Arc<Self>) -> impl Filter<Extract = (AuthContext,), Error = warp::Rejection> + Clone {

@@ -72,6 +72,8 @@ pub enum LogStatement<'a, C1: Clone, C2: Clone> {
     PolicyAdd { auth: Cow<'a, AuthContext>, connector_context: Cow<'a, C2>, policy: Cow<'a, Policy> },
     /// Logs the activation of an existing policy.
     PolicyActivate { auth: Cow<'a, AuthContext>, policy: Cow<'a, Policy> },
+    /// Logs the deactivation of the current active policy.
+    PolicyDeactivate { auth: Cow<'a, AuthContext> },
 }
 impl<'a, C1: Clone, C2: Clone> LogStatement<'a, C1, C2> {
     /// Constructor for a [`LogStatement::ExecuteTask`] that makes it a bit more convenient to initialize.
@@ -216,6 +218,16 @@ impl<'a, C1: Clone, C2: Clone> LogStatement<'a, C1, C2> {
     pub fn policy_activate(auth: &'a AuthContext, policy: &'a Policy) -> Self {
         Self::PolicyActivate { auth: Cow::Borrowed(auth), policy: Cow::Borrowed(policy) }
     }
+
+    /// Constructor for a [`LogStatement::PolicyDeactivate`] that makes it a bit more convenient to initialize.
+    ///
+    /// # Arguments
+    /// - `auth`: The [`AuthContext`] that explains who performed the request.
+    ///
+    /// # Returns
+    /// A new [`LogStatement::PolicyDeactivate`] that is initialized with the given properties.
+    #[inline]
+    pub fn policy_deactivate(auth: &'a AuthContext) -> Self { Self::PolicyDeactivate { auth: Cow::Borrowed(auth) } }
 }
 
 #[async_trait::async_trait]
@@ -265,7 +277,10 @@ pub trait AuditLogger: ReasonerConnectorAuditLogger {
         connector_context: &C,
         policy: &Policy,
     ) -> Result<(), Error>;
+
     async fn log_set_active_version_policy(&self, auth: &AuthContext, policy: &Policy) -> Result<(), Error>;
+
+    async fn log_deactivate_policy(&self, auth: &AuthContext) -> Result<(), Error>;
 }
 
 #[async_trait::async_trait]

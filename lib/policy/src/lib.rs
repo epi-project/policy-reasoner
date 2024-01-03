@@ -105,4 +105,10 @@ pub trait PolicyDataAccess {
         context: Context,
         transaction: impl 'static + Send + FnOnce(Policy) -> F,
     ) -> Result<Policy, PolicyDataError>;
+    #[must_use]
+    async fn deactivate_policy<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        context: Context,
+        transaction: impl 'static + Send + FnOnce() -> F,
+    ) -> Result<(), PolicyDataError>;
 }
