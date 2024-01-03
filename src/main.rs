@@ -87,7 +87,7 @@ async fn main() {
     let pauthresolver = get_pauth_resolver();
     let logger = FileLogger::new("./audit-log.log");
     let dauthresolver = get_dauth_resolver();
-    let pstore = SqlitePolicyDataStore::new("./lib/policy/data/policy.db");
+    let pstore = SqlitePolicyDataStore::new("./data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
     let sresolve = match FileStateResolver::new("./examples/eflint_reasonerconn/example-state.json") {
         Ok(sresolve) => sresolve,
