@@ -6,7 +6,6 @@ use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::result::Error;
 use diesel::sqlite::SqliteConnection;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
-use policy::ActivePolicy;
 use tokio::runtime::Handle;
 
 use crate::models::{SqliteActiveVersion, SqlitePolicy};
@@ -163,7 +162,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         .await
         {
             Ok(res) => res,
-            Err(err) => panic!(),
+            Err(err) => panic!("Failed to complete task in transaction: {:?}", err),
         }
         .map_err(|err: SqlitePolicyDataStoreError| err.into())
     }
@@ -279,7 +278,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         .await
         {
             Ok(res) => res,
-            Err(err) => panic!(),
+            Err(err) => panic!("Failed to complete task in transaction: {:?}", err),
         }
         .map_err(|err: SqlitePolicyDataStoreError| err.into())
     }
@@ -310,7 +309,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         .await
         {
             Ok(res) => res,
-            Err(err) => panic!(),
+            Err(err) => panic!("Failed to complete task in transaction: {:?}", err),
         }
         .map_err(|err: SqlitePolicyDataStoreError| err.into())
     }
