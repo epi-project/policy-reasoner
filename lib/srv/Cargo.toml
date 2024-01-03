@@ -23,3 +23,5 @@ serde_json = {version = "1.0" , features = ["raw_value"]}
 tokio-scoped = "0.2"
 uuid ={version="*", features = ["v4"]}
 chrono = "*"
+problem_details = "0.5.1"
+http = "1.0.0"

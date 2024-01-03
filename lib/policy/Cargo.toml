@@ -15,6 +15,7 @@ chrono = "*"
 serde = {version="1.0", features=["derive"]}
 serde_json = {version = "1.0" , features = ["raw_value"]}
 async-trait = "*"
+warp = "0.3"
 
 [dev-dependencies]
 clap = { version = "4.4", features = ["derive"] }

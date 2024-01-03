@@ -47,6 +47,11 @@ impl Display for PolicyDataError {
         }
     }
 }
+
+impl std::error::Error for PolicyDataError {}
+
+impl warp::reject::Reject for PolicyDataError {}
+
 // impl std::error::Error for PolicyDataError {
 //     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 //         match self {

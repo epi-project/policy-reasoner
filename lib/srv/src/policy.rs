@@ -4,11 +4,13 @@ use std::sync::Arc;
 use audit_logger::AuditLogger;
 use auth_resolver::{AuthContext, AuthResolver};
 use policy::{Context, PolicyDataAccess, PolicyDataError};
+use problem_details::ProblemDetails;
 use reasonerconn::ReasonerConnector;
 use serde::Serialize;
 use state_resolver::StateResolver;
 use warp::Filter;
 
+use crate::problem::Problem;
 use crate::{models, Srv};
 
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
@@ -27,7 +29,16 @@ where
     async fn handle_get_latest_policy(_auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
         match this.policystore.get_most_recent().await {
             Ok(v) => Ok(warp::reply::json(&v)),
-            Err(err) => Ok(warp::reply::json(&format!("{}", err))),
+            Err(err) => match err {
+                PolicyDataError::NotFound => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::NOT_FOUND);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+                PolicyDataError::GeneralError(msg) => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+            },
         }
     }
 
@@ -40,7 +51,16 @@ where
     async fn handle_get_policy_version(_auth_ctx: AuthContext, version: i64, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
         match this.policystore.get_version(version).await {
             Ok(v) => Ok(warp::reply::json(&v)),
-            Err(err) => Ok(warp::reply::json(&format!("{}", err))),
+            Err(err) => match err {
+                PolicyDataError::NotFound => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::NOT_FOUND);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+                PolicyDataError::GeneralError(msg) => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+            },
         }
     }
 
@@ -52,7 +72,16 @@ where
     async fn handle_get_all_policies(_auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
         match this.policystore.get_versions().await {
             Ok(v) => Ok(warp::reply::json(&v)),
-            Err(err) => Ok(warp::reply::json(&format!("{}", err))),
+            Err(err) => match err {
+                PolicyDataError::NotFound => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::NOT_FOUND);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+                PolicyDataError::GeneralError(msg) => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+            },
         }
     }
 
@@ -79,7 +108,16 @@ where
             .await
         {
             Ok(policy) => Ok(warp::reply::json(&policy)),
-            Err(err) => Ok(warp::reply::json(&format!("{}", err))),
+            Err(err) => match err {
+                PolicyDataError::NotFound => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::NOT_FOUND);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+                PolicyDataError::GeneralError(msg) => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+            },
         }
     }
 
@@ -90,7 +128,16 @@ where
     async fn handle_get_active_policy(_auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
         match this.policystore.get_active().await {
             Ok(v) => Ok(warp::reply::json(&v)),
-            Err(err) => Ok(warp::reply::json(&format!("{}", err))),
+            Err(err) => match err {
+                PolicyDataError::NotFound => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::NOT_FOUND).with_detail("No version currently active");
+                    Err(warp::reject::custom(Problem(p)))
+                },
+                PolicyDataError::GeneralError(msg) => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+            },
         }
     }
 
@@ -117,7 +164,21 @@ where
             .await
         {
             Ok(policy) => Ok(warp::reply::json(&policy)),
-            Err(err) => Ok(warp::reply::json(&format!("{}", err))),
+            Err(err) => match err {
+                PolicyDataError::NotFound => {
+                    let p = ProblemDetails::new()
+                        .with_status(warp::http::StatusCode::BAD_REQUEST)
+                        .with_detail(format!("Invalid version: {}", body.version));
+                    Err(warp::reject::custom(Problem(p)))
+                },
+                PolicyDataError::GeneralError(msg) => {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
+                    Err(warp::reject::custom(Problem(p)))
+                },
+            },
+        }
+    }
+
     // Set active policy
     // DELETE /v1/policies/active
     // out:

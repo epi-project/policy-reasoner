@@ -15,11 +15,15 @@ use serde::{Deserialize, Serialize};
 use state_resolver::StateResolver;
 use tokio::signal::unix::{signal, Signal, SignalKind};
 use warp::reject::Rejection;
+use warp::reply::Reply;
 use warp::Filter;
+
+use crate::problem::Problem;
 
 pub mod deliberation;
 pub mod models;
 pub mod policy;
+pub mod problem;
 
 /// Function that returns a future that only returns if either SIGTERM or SIGINT has been sent to this process.
 ///
@@ -125,16 +129,17 @@ where
 
         let index = warp::any().and(deliberation_api.or(policy_api).or(ping)).recover(|err: Rejection| async move {
             debug!("err: {:?}", err);
-            if let Some(auth_resolver::AuthResolverError { .. }) = err.find() {
-                Ok(warp::reply::with_status(warp::reply::json(&()), warp::http::StatusCode::UNAUTHORIZED))
-            } else if let Some(PolicyDataError::GeneralError(msg)) = err.find() {
-                // TODO implement problem+json for general error
-                Ok(warp::reply::with_status(warp::reply::json(msg), warp::http::StatusCode::BAD_REQUEST))
+            let res: Result<Box<dyn Reply>, Rejection> = if let Some(auth_resolver::AuthResolverError { .. }) = err.find() {
+                Ok(Box::new(warp::reply::with_status(warp::reply::reply(), warp::http::StatusCode::UNAUTHORIZED)))
             } else if let Some(audit_logger::Error::CouldNotDeliver { .. }) = err.find() {
-                Ok(warp::reply::with_status(warp::reply::json(&()), warp::http::StatusCode::INTERNAL_SERVER_ERROR))
+                Ok(Box::new(warp::reply::with_status(warp::reply::reply(), warp::http::StatusCode::INTERNAL_SERVER_ERROR)))
+            } else if let Some(problem) = err.find::<Problem>() {
+                Ok(Box::new(warp::reply::with_status(warp::reply::json(&problem.0), problem.0.status.unwrap())))
             } else {
+                debug!("Got err: {:?}", err);
                 Err(err)
-            }
+            };
+            res
         });
 
         let (addr, srv) = warp::serve(index).bind_with_graceful_shutdown(addr, graceful_signal());
