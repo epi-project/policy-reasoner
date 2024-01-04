@@ -2502,6 +2502,7 @@ dependencies = [
  "auth-resolver",
  "chrono",
  "deliberation",
+ "error-trace",
  "log",
  "policy",
  "reasonerconn",
