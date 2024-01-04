@@ -6,7 +6,7 @@ use log::info;
 use srv::Srv;
 use state_resolver::{State, StateResolver};
 
-use crate::auth::{JwtConfig, JwtResolver, KidResolver, MockAuthResolver};
+use crate::auth::{JwtConfig, JwtResolver, KidResolver};
 use crate::eflint::EFlintReasonerConnector;
 use crate::logger::FileLogger;
 use crate::sqlite::SqlitePolicyDataStore;
@@ -31,7 +31,13 @@ impl StateResolver for FileStateResolver {
 }
 
 fn get_pauth_resolver() -> JwtResolver<KidResolver> {
-    let kid_resolver = KidResolver::new("./examples/config/jwk_set.json").unwrap();
+    let kid_resolver = KidResolver::new("./examples/config/jwk_set_expert.json").unwrap();
+    let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
+    let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
+    JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
+}
+fn get_dauth_resolver() -> JwtResolver<KidResolver> {
+    let kid_resolver = KidResolver::new("./examples/config/jwk_set_delib.json").unwrap();
     let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
     let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
     JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
@@ -54,9 +60,8 @@ async fn main() {
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     let pauthresolver = get_pauth_resolver();
-    // let logger = MockLogger::new();
     let logger = FileLogger::new("./audit-log.log");
-    let dauthresolver = MockAuthResolver::new("mock initiator".into(), "mock system".into());
+    let dauthresolver = get_dauth_resolver();
     let pstore = SqlitePolicyDataStore::new("./lib/policy/data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
     let sresolve = FileStateResolver {};
