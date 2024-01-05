@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::fs;
 
 use auth_resolver::{AuthContext, AuthResolver, AuthResolverError};
-use jsonwebtoken::jwk::JwkSet;
+use base64ct::Encoding as _;
+use jsonwebtoken::jwk::{AlgorithmParameters, Jwk, JwkSet};
 use jsonwebtoken::{DecodingKey, Header, Validation};
 use log::{debug, info};
 use serde::Deserialize;
@@ -32,11 +33,29 @@ impl KeyResolver for KidResolver {
     async fn resolve_key(&self, header: &Header) -> Result<DecodingKey, AuthResolverError> {
         let kid = header.kid.as_ref().ok_or_else(|| AuthResolverError::new("No kid present in header".into()))?;
 
-        match self.jwk_store.find(&kid) {
-            Some(key) => DecodingKey::from_jwk(key)
-                .map_err(|err| AuthResolverError::new(format!("Could not transform jwk ({}) into DecodingKey: {}", kid, err))),
-            None => Err(AuthResolverError::new(format!("Could not find key for kid: {}", kid))),
-        }
+        // Get the key
+        let key: &Jwk = match self.jwk_store.find(&kid) {
+            Some(key) => key,
+            None => return Err(AuthResolverError::new(format!("Could not find key for kid: {}", kid))),
+        };
+        // match self.jwk_store.find(&kid) {
+        //     Some(key) => DecodingKey::from_jwk(key)
+        //         .map_err(|err| AuthResolverError::new(format!("Could not transform jwk ({}) into DecodingKey: {}", kid, err))),
+        //     None => Err(AuthResolverError::new(format!("Could not find key for kid: {}", kid))),
+        // }
+
+        // Extract the secret from it
+        let secret: Vec<u8> = if let AlgorithmParameters::OctetKey(oct) = &key.algorithm {
+            match base64ct::Base64Url::decode_vec(&oct.value) {
+                Ok(val) => val,
+                Err(err) => return Err(AuthResolverError::new(format!("Could not decode secret key as URL-safe base64: {err}"))),
+            }
+        } else {
+            return Err(AuthResolverError::new("Unsupported key type".into()));
+        };
+
+        // Now return that as decoding key
+        Ok(DecodingKey::from_secret(&secret))
     }
 }
 
