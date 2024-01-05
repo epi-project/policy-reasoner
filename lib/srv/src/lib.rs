@@ -1,5 +1,6 @@
 use std::convert::Infallible;
 use std::fmt::Debug;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -74,6 +75,7 @@ async fn graceful_signal() {
 }
 
 pub struct Srv<L, C, P, S, PA, DA> {
+    addr: SocketAddr,
     logger: L,
     reasonerconn: C,
     policystore: P,
@@ -98,13 +100,22 @@ where
     DA: 'static + AuthResolver + Send + Sync,
     C::Context: Send + Sync + Debug + Serialize,
 {
-    pub fn new(logger: L, reasonerconn: C, policystore: P, stateresolver: S, pauthresolver: PA, dauthresolver: DA) -> Self {
-        Srv { logger, reasonerconn, policystore, stateresolver, pauthresolver, dauthresolver }
+    pub fn new(
+        addr: impl Into<SocketAddr>,
+        logger: L,
+        reasonerconn: C,
+        policystore: P,
+        stateresolver: S,
+        pauthresolver: PA,
+        dauthresolver: DA,
+    ) -> Self {
+        Srv { addr: addr.into(), logger, reasonerconn, policystore, stateresolver, pauthresolver, dauthresolver }
     }
 
     fn with_self(this: Arc<Self>) -> impl Filter<Extract = (Arc<Self>,), Error = Infallible> + Clone { warp::any().map(move || this.clone()) }
 
     pub async fn run(self) {
+        let addr: SocketAddr = self.addr;
         let this_arc: Arc<Self> = Arc::new(self);
 
         let ping = warp::get().and(warp::path("ping")).map(|| warp::reply::json(&PingResponse { success: true, ping: String::from("pong") }));
@@ -125,7 +136,7 @@ where
             }
         });
 
-        let (addr, srv) = warp::serve(index).bind_with_graceful_shutdown(([127, 0, 0, 1], 3030), graceful_signal());
+        let (addr, srv) = warp::serve(index).bind_with_graceful_shutdown(addr, graceful_signal());
         info!("Now serving at {addr}; ready for requests");
         srv.await;
     }

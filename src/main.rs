@@ -1,6 +1,8 @@
 use std::fs::File;
+use std::net::SocketAddr;
 use std::{env, fs};
 
+use clap::Parser;
 use humanlog::{DebugMode, HumanLogger};
 use log::info;
 use srv::Srv;
@@ -17,6 +19,21 @@ pub mod logger;
 pub mod models;
 pub mod schema;
 pub mod sqlite;
+
+
+/// Defines the arguments for the `policy-reasoner` server.
+#[derive(Debug, Parser)]
+struct Arguments {
+    /// Whether to enable full debugging
+    #[clap(long, global = true, help = "If given, enables more verbose debugging.")]
+    trace: bool,
+
+    /// The address on which to bind ourselves.
+    #[clap(short, long, env, default_value = "127.0.0.1:3030", help = "The address on which to bind the server.")]
+    address: SocketAddr,
+}
+
+
 
 struct FileStateResolver {}
 
@@ -45,16 +62,11 @@ fn get_dauth_resolver() -> JwtResolver<KidResolver> {
 
 #[tokio::main]
 async fn main() {
-    // Very simply argarser looking for the `--trace` flag
-    let mut debug_mode: DebugMode = DebugMode::Debug;
-    for arg in env::args() {
-        if arg == "--trace" {
-            debug_mode = DebugMode::Full;
-        }
-    }
+    // Parse arguments
+    let args = Arguments::parse();
 
     // Setup a logger
-    if let Err(err) = HumanLogger::terminal(debug_mode).init() {
+    if let Err(err) = HumanLogger::terminal(if args.trace { DebugMode::Full } else { DebugMode::Debug }).init() {
         eprintln!("WARNING: Failed to setup logger: {err} (no logging for this session)");
     }
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
@@ -65,7 +77,7 @@ async fn main() {
     let pstore = SqlitePolicyDataStore::new("./lib/policy/data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
     let sresolve = FileStateResolver {};
-    let server = Srv::new(logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
+    let server = Srv::new(args.address, logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
 
     server.run().await;
 }
