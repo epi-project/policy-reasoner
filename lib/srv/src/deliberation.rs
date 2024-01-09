@@ -1,4 +1,19 @@
-use std::fmt::Debug;
+//  DELIBERATION.rs
+//    by Lut99
+//
+//  Created:
+//    09 Jan 2024, 13:45:18
+//  Last edited:
+//    09 Jan 2024, 13:58:17
+//  Auto updated?
+//    Yes
+//
+//  Description:
+//!   Implements the deliberation side of the [`Srv`].
+//
+
+use std::error::Error;
+use std::fmt::{Debug, Display, Formatter, Result as FResult};
 use std::sync::Arc;
 
 use audit_logger::{AuditLogger, SessionedConnectorAuditLogger};
@@ -7,17 +22,38 @@ use deliberation::spec::{
     AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest, TaskExecResponse, Verdict,
     WorkflowValidationRequest, WorkflowValidationResponse,
 };
-use log::{debug, info};
+use log::{debug, error, info};
 use policy::PolicyDataAccess;
 use reasonerconn::ReasonerConnector;
 use serde::Serialize;
 use state_resolver::StateResolver;
+use warp::reject::Reject;
 use warp::Filter;
 use workflow::utils::ProgramCounter;
 use workflow::Workflow;
 
 use crate::Srv;
 
+
+/***** HELPERS *****/
+/// Defines a wrapper around an [`Error`] that also makes it [`Reject`].
+#[derive(Debug)]
+struct RejectableError<E>(E);
+impl<E: Display> Display for RejectableError<E> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}", self.0) }
+}
+impl<E: Error> Error for RejectableError<E> {
+    #[inline]
+    fn source(&self) -> Option<&(dyn Error + 'static)> { self.0.source() }
+}
+impl<E: 'static + Debug + Send + Sync> Reject for RejectableError<E> {}
+
+
+
+
+
+/***** IMPLEMENTATION *****/
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
     L: 'static + AuditLogger + Send + Sync + Clone,
@@ -35,6 +71,7 @@ where
         body: ExecuteTaskRequest,
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
         info!("Handling exec-task request");
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
 
         // First, resolve the task ID in the workflow to the ProgramCounter ID needed for `task_id` below (and before we pass it by ownership to be converted)
         debug!("Compiling WIR workflow to Checker Workflow...");
@@ -52,7 +89,13 @@ where
         debug!("Considering task '{}' in workflow '{}'", task_id, workflow.id);
 
         debug!("Retrieving state...");
-        let state = this.stateresolver.get_state().await;
+        let state = match this.stateresolver.get_state().await {
+            Ok(state) => state,
+            Err(err) => {
+                error!("Could not retrieve state: {err} | request id: {verdict_reference}");
+                return Err(warp::reject::custom(RejectableError(err)));
+            },
+        };
         debug!(
             "Got state with {} datasets, {} functions, {} locations and {} users",
             state.datasets.len(),
@@ -64,8 +107,6 @@ where
         debug!("Retrieving active policy...");
         let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
-
-        let verdict_reference: String = uuid::Uuid::new_v4().into();
 
         this.logger
             .log_exec_task_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &task_id)
@@ -116,6 +157,8 @@ where
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
         info!("Handling access-data request");
 
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
+
         debug!("Compiling WIR workflow to Checker Workflow...");
 
         let table = body.workflow.table.clone();
@@ -128,7 +171,13 @@ where
         };
 
         debug!("Retrieving state...");
-        let state = this.stateresolver.get_state().await;
+        let state = match this.stateresolver.get_state().await {
+            Ok(state) => state,
+            Err(err) => {
+                error!("Could not retrieve state: {err} | request id: {verdict_reference}");
+                return Err(warp::reject::custom(RejectableError(err)));
+            },
+        };
         debug!(
             "Got state with {} datasets, {} functions, {} locations and {} users",
             state.datasets.len(),
@@ -140,8 +189,6 @@ where
         debug!("Retrieving active policy...");
         let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
-
-        let verdict_reference: String = uuid::Uuid::new_v4().into();
 
         let task_id: Option<String> = match body.task_id {
             Some(task_id) => {
@@ -212,6 +259,8 @@ where
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
         info!("Handling validate request");
 
+        let verdict_reference: String = uuid::Uuid::new_v4().into();
+
         debug!("Compiling WIR workflow to Checker Workflow...");
         // Read the body's workflow as a Checker Workflow
         let workflow: Workflow = match Workflow::try_from(body.workflow) {
@@ -222,7 +271,13 @@ where
         };
 
         debug!("Retrieving state...");
-        let state = this.stateresolver.get_state().await;
+        let state = match this.stateresolver.get_state().await {
+            Ok(state) => state,
+            Err(err) => {
+                error!("Could not retrieve state: {err} | request id: {verdict_reference}");
+                return Err(warp::reject::custom(RejectableError(err)));
+            },
+        };
         debug!(
             "Got state with {} datasets, {} functions, {} locations and {} users",
             state.datasets.len(),
@@ -234,8 +289,6 @@ where
         debug!("Retrieving active policy...");
         let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
-
-        let verdict_reference: String = uuid::Uuid::new_v4().into();
 
         this.logger.log_validate_workflow_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow).await.map_err(
             |err| {

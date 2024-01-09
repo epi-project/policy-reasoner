@@ -1,17 +1,32 @@
+//  MAIN.rs
+//    by Lut99
+//
+//  Created:
+//    09 Jan 2024, 13:32:03
+//  Last edited:
+//    09 Jan 2024, 13:58:33
+//  Auto updated?
+//    Yes
+//
+//  Description:
+//!   Entrypoint to the main `policy-reasoner` binary.
+//
+
+use std::env;
 use std::fs::File;
 use std::net::SocketAddr;
-use std::{env, fs};
 
 use clap::Parser;
+use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
-use log::info;
+use log::{error, info};
 use srv::Srv;
-use state_resolver::{State, StateResolver};
 
 use crate::auth::{JwtConfig, JwtResolver, KidResolver};
 use crate::eflint::EFlintReasonerConnector;
 use crate::logger::FileLogger;
 use crate::sqlite::SqlitePolicyDataStore;
+use crate::state::FileStateResolver;
 
 pub mod auth;
 pub mod eflint;
@@ -19,8 +34,28 @@ pub mod logger;
 pub mod models;
 pub mod schema;
 pub mod sqlite;
+pub mod state;
 
 
+/***** HELPER FUNCTIONS *****/
+fn get_pauth_resolver() -> JwtResolver<KidResolver> {
+    let kid_resolver = KidResolver::new("./examples/config/jwk_set_expert.json").unwrap();
+    let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
+    let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
+    JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
+}
+fn get_dauth_resolver() -> JwtResolver<KidResolver> {
+    let kid_resolver = KidResolver::new("./examples/config/jwk_set_delib.json").unwrap();
+    let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
+    let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
+    JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
+}
+
+
+
+
+
+/***** ARGUMENTS *****/
 /// Defines the arguments for the `policy-reasoner` server.
 #[derive(Debug, Parser)]
 struct Arguments {
@@ -35,31 +70,9 @@ struct Arguments {
 
 
 
-struct FileStateResolver {}
 
-#[async_trait::async_trait]
-impl StateResolver for FileStateResolver {
-    async fn get_state(&self) -> State {
-        let state = fs::read_to_string("./examples/eflint_reasonerconn/example-state.json").unwrap();
-        let state: State = serde_json::from_str(&state).unwrap();
 
-        return state;
-    }
-}
-
-fn get_pauth_resolver() -> JwtResolver<KidResolver> {
-    let kid_resolver = KidResolver::new("./examples/config/jwk_set_expert.json").unwrap();
-    let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
-    let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
-    JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
-}
-fn get_dauth_resolver() -> JwtResolver<KidResolver> {
-    let kid_resolver = KidResolver::new("./examples/config/jwk_set_delib.json").unwrap();
-    let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
-    let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
-    JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
-}
-
+/***** ENTRYPOINT *****/
 #[tokio::main]
 async fn main() {
     // Parse arguments
@@ -76,7 +89,13 @@ async fn main() {
     let dauthresolver = get_dauth_resolver();
     let pstore = SqlitePolicyDataStore::new("./lib/policy/data/policy.db");
     let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
-    let sresolve = FileStateResolver {};
+    let sresolve = match FileStateResolver::new("./examples/eflint_reasonerconn/example-state.json") {
+        Ok(sresolve) => sresolve,
+        Err(err) => {
+            error!("{}", err.trace());
+            std::process::exit(1);
+        },
+    };
     let server = Srv::new(args.address, logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
 
     server.run().await;

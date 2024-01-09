@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use serde::{Deserialize, Serialize};
 use workflow::spec::{Dataset, User};
 
@@ -14,5 +16,7 @@ pub struct State {
 
 #[async_trait::async_trait]
 pub trait StateResolver {
-    async fn get_state(&self) -> State;
+    type Error: 'static + Send + Sync + Error;
+
+    async fn get_state(&self) -> Result<State, Self::Error>;
 }
