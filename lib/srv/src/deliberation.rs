@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:45:18
 //  Last edited:
-//    09 Jan 2024, 13:58:17
+//    09 Jan 2024, 14:29:29
 //  Auto updated?
 //    Yes
 //
@@ -19,15 +19,17 @@ use std::sync::Arc;
 use audit_logger::{AuditLogger, SessionedConnectorAuditLogger};
 use auth_resolver::{AuthContext, AuthResolver};
 use deliberation::spec::{
-    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest, TaskExecResponse, Verdict,
-    WorkflowValidationRequest, WorkflowValidationResponse,
+    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, DeliberationResponse, ExecuteTaskRequest,
+    TaskExecResponse, Verdict, WorkflowValidationRequest, WorkflowValidationResponse,
 };
 use log::{debug, error, info};
-use policy::PolicyDataAccess;
+use policy::{Policy, PolicyDataAccess, PolicyDataError};
 use reasonerconn::ReasonerConnector;
 use serde::Serialize;
 use state_resolver::StateResolver;
-use warp::reject::Reject;
+use warp::hyper::StatusCode;
+use warp::reject::{Reject, Rejection};
+use warp::reply::{Json, WithStatus};
 use warp::Filter;
 use workflow::utils::ProgramCounter;
 use workflow::Workflow;
@@ -35,7 +37,64 @@ use workflow::Workflow;
 use crate::Srv;
 
 
+/***** HELPER FUNCTIONS *****/
+/// Retrieves the currently active policy, or immediately denies the request if there is no such policy.
+///
+/// # Arguments
+/// - `logger`: A [`SessionedConnectorAuditLogger`] on which to log the verdict if we deny because no active policy was found.
+/// - `reference`: The UUID that the policy expert can use to recognize that this verdict belongs to a particular request, if any.
+/// - `policystore`: The story with [`PolicyDataAccess`] from which we'll try to retrieve the active policy.
+///
+/// # Errors
+/// This function may error (= reject the request) if no active policy was found or there was another error trying to retrieve it.
+async fn get_active_policy<L: AuditLogger, P: PolicyDataAccess>(
+    logger: &L,
+    reference: &str,
+    policystore: &P,
+) -> Result<Result<Policy, WithStatus<Json>>, Rejection> {
+    // Attempt to get the policy first
+    match policystore.get_active().await {
+        Ok(policy) => Ok(Ok(policy)),
+        Err(PolicyDataError::NotFound) => {
+            debug!("Denying incoming request by default (no active policy found)");
+
+            // Create the verdict
+            let verdict = Verdict::Deny(DeliberationDenyResponse {
+                shared: DeliberationResponse { verdict_reference: reference.into() },
+                reasons_for_denial: None,
+            });
+
+            // Log it first
+            logger.log_verdict(reference, &verdict).await.map_err(|err| {
+                debug!("Could not log execute task verdict to audit log : {:?} | request id: {}", err, reference);
+                warp::reject::custom(err)
+            })?;
+
+            // Then send it to the user
+            Ok(Err(warp::reply::with_status(warp::reply::json(&verdict), StatusCode::OK)))
+        },
+        Err(PolicyDataError::GeneralError(err)) => {
+            error!("Failed to get currently active policy: {err}");
+            Err(warp::reject::custom(RejectableString(err)))
+        },
+    }
+}
+
+
+
+
+
 /***** HELPERS *****/
+/// Defines a wrapper around a [`String`] to make it [`Reject`]able.
+struct RejectableString(String);
+impl Debug for RejectableString {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { if f.alternate() { write!(f, "{:#?}", self.0) } else { write!(f, "{:?}", self.0) } }
+}
+impl Reject for RejectableString {}
+
+
+
 /// Defines a wrapper around an [`Error`] that also makes it [`Reject`].
 #[derive(Debug)]
 struct RejectableError<E>(E);
@@ -105,7 +164,11 @@ where
         );
 
         debug!("Retrieving active policy...");
-        let policy = this.policystore.get_active().await.unwrap();
+        let policy: Policy = match get_active_policy(&this.logger, &verdict_reference, &this.policystore).await? {
+            Ok(policy) => policy,
+            Err(err) => return Ok(err),
+        };
+        // let policy = this.policystore.get_active().await.unwrap();
         debug!("Got policy with {} bodies", policy.content.len());
 
         this.logger
@@ -187,7 +250,10 @@ where
         );
 
         debug!("Retrieving active policy...");
-        let policy = this.policystore.get_active().await.unwrap();
+        let policy = match get_active_policy(&this.logger, &verdict_reference, &this.policystore).await? {
+            Ok(policy) => policy,
+            Err(err) => return Ok(err),
+        };
         debug!("Got policy with {} bodies", policy.content.len());
 
         let task_id: Option<String> = match body.task_id {
@@ -287,7 +353,10 @@ where
         );
 
         debug!("Retrieving active policy...");
-        let policy = this.policystore.get_active().await.unwrap();
+        let policy = match get_active_policy(&this.logger, &verdict_reference, &this.policystore).await? {
+            Ok(policy) => policy,
+            Err(err) => return Ok(err),
+        };
         debug!("Got policy with {} bodies", policy.content.len());
 
         this.logger.log_validate_workflow_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow).await.map_err(

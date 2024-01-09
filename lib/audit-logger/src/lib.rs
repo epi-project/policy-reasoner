@@ -275,8 +275,8 @@ pub trait ReasonerConnectorAuditLogger {
 
 
 pub struct SessionedConnectorAuditLogger<Logger: ReasonerConnectorAuditLogger> {
-    reference: String,
-    logger:    Logger,
+    pub reference: String,
+    logger: Logger,
 }
 impl<Logger: ReasonerConnectorAuditLogger> SessionedConnectorAuditLogger<Logger> {
     pub fn new(reference: String, logger: Logger) -> Self { Self { reference, logger } }
