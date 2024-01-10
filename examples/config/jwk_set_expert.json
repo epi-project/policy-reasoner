@@ -1,11 +1,11 @@
 {
-    "keys": [
-        {
-            "kty": "oct",
-            "use": "sig",
-            "kid": "A",
-            "k": "wL5hkXZpM929BXRCMgVt1GNdM3cSDovRZsU_mPaOPrNJ8x9TvOv9yb3Ps5GkIqdfCyXWM9HEzh0zNDvc_pA_BqAlLiCtlrSajDtCza42HQgWkE71ocWFB5yMkeVcDWaBwUcDm_lPiy-BdfGjmpdox8H7-mOQoieEMNt8hXQR5E7rA3PC9Ih8lma0pFtkRkuCDYyLmBH7geajvkTE77pB5YVUQ57Qm4uijpBus8083tN2UP-oCqBmpAfZ0BtyGY3oFlRk3sf_HwhSz2gFalYUuK8379hY4BOzuM80pIL18VHVzFgOwRI48RBCk21M5aoFiLMc5Gp9VTKKd9VxQNgExA",
-            "alg": "HS256"
-        }
-    ]
+  "keys": [
+    {
+      "use": "sig",
+      "alg": "HS256",
+      "kid": "expert",
+      "kty": "oct",
+      "k": "abICAHBV51bjZeFcoml4sWxJcXwPvAme1yaPEBvTbBM="
+    }
+  ]
 }
