@@ -18,7 +18,8 @@ pub struct PolicyVersion {
     pub created_at: DateTime<Local>,
     pub version: Option<i64>,
     pub version_description: String,
-    // TODO Add base def hash
+    /// base_defs contains the hash of the reasoner connector's base definitions
+    pub base_defs: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

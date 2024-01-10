@@ -98,9 +98,11 @@ where
         body: models::AddPolicyPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
         let t: Arc<Self> = this.clone();
+        let mut model = body.to_domain();
+        model.version.base_defs = this.reasonerconn.full_context().base_defs_hash;
         match this
             .policystore
-            .add_version(body.to_domain(), Context { initiator: auth_ctx.initiator.clone() }, |policy| async move {
+            .add_version(model, Context { initiator: auth_ctx.initiator.clone() }, |policy| async move {
                 t.logger.log_add_policy_request(&auth_ctx, &t.reasonerconn.context(), &policy).await.map_err(|err| match err {
                     audit_logger::Error::CouldNotDeliver(err) => PolicyDataError::GeneralError(err),
                 })
@@ -153,6 +155,22 @@ where
         this: Arc<Self>,
         body: models::SetVersionPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
+        // Reject activation of policy with invalid base defs
+        let conn_ctx = this.reasonerconn.full_context();
+        match this.policystore.get_version(body.version).await {
+            Ok(policy) => {
+                if (policy.version.base_defs != conn_ctx.base_defs_hash) {
+                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(format!(
+                        "Cannot activate policy which has a different base policy than current the reasoners connector's base. Policy base defs \
+                         hash is '{}' and connector's base defs hash is '{}'",
+                        policy.version.base_defs, conn_ctx.base_defs_hash
+                    ));
+                    return Err(warp::reject::custom(Problem(p)));
+                }
+            },
+            Err(_) => {},
+        }
+
         let t = this.clone();
         match this
             .policystore

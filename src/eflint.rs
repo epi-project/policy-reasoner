@@ -7,7 +7,7 @@ use eflint_json::spec::{
 };
 use log::{debug, error, info};
 use policy::{Policy, PolicyContent};
-use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
+use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerConnectorFullContext, ReasonerResponse};
 use state_resolver::State;
 use workflow::spec::Workflow;
 
@@ -286,14 +286,15 @@ impl EFlintReasonerConnector {
 #[async_trait::async_trait]
 impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L> for EFlintReasonerConnector {
     type Context = &'static str;
-    type FullContext = reasonerconn::ReasonerConnectorFullContext;
+
+    // type FullContext = reasonerconn::ReasonerConnectorFullContext;
 
     #[inline]
     fn context(&self) -> Self::Context { JSON_BASE_SPEC_HASH }
 
     #[inline]
-    fn full_context(&self) -> Self::FullContext {
-        Self::FullContext {
+    fn full_context(&self) -> ReasonerConnectorFullContext {
+        ReasonerConnectorFullContext {
             name: "EFLINT connector".into(),
             t: "eflint-json-reasoner-connector".into(),
             version: "0.1.0".into(),

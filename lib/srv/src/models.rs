@@ -32,6 +32,7 @@ impl AddPolicyPostModel {
                 created_at: chrono::Local::now(),
                 version: None,
                 version_description: self.version_description.clone(),
+                base_defs: "".into(),
             },
             content:     self
                 .content

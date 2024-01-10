@@ -12,6 +12,7 @@ pub struct SqlitePolicy {
     pub creator: String,
     pub created_at: i64,
     pub content: String,
+    pub base_defs: String,
 }
 
 #[derive(Queryable, Insertable, Selectable)]

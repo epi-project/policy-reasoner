@@ -18,6 +18,7 @@ diesel::table! {
         creator -> Text,
         created_at -> BigInt,
         content -> Text,
+        base_defs -> Text,
     }
 }
 

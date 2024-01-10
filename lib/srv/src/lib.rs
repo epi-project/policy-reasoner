@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ::policy::{PolicyDataAccess, PolicyDataError};
+use ::policy::{Context, PolicyDataAccess, PolicyDataError};
 use audit_logger::AuditLogger;
 use error_trace::trace;
 use log::{debug, error, info, warn};
@@ -150,6 +150,39 @@ where
         match this_arc.clone().logger.log_reasoner_context(&ctx).await {
             Ok(_) => {},
             Err(err) => panic!("Failed to log reasoner context on startup {:?}", err),
+        }
+
+        // Disable active policy if base definitions changed
+        match this_arc.policystore.get_active().await {
+            Ok(v) => {
+                let t = this_arc.clone();
+                if (v.version.base_defs != ctx.base_defs_hash) {
+                    let ap = this_arc.policystore.get_active().await.unwrap();
+                    let result = t
+                        .policystore
+                        .deactivate_policy(Context { initiator: "system".into() }, || async move {
+                            this_arc
+                                .logger
+                                .log_deactivate_policy(&AuthContext { initiator: "system".into(), system: "self".into() })
+                                .await
+                                .map_err(|err| PolicyDataError::GeneralError(err.to_string()))
+                        })
+                        .await;
+
+                    match result {
+                        Ok(_) => {},
+                        Err(err) => {
+                            panic!("Could not deactivate policy because of changed base definition: {:?}", err);
+                        },
+                    }
+
+                    debug!(
+                        "Deactivated policy because of changed base definition; hash changed from '{}' to '{}'",
+                        ap.version.base_defs, ctx.base_defs_hash
+                    )
+                }
+            },
+            Err(_) => {},
         }
 
         let (addr, srv) = warp::serve(index).bind_with_graceful_shutdown(addr, graceful_signal());
