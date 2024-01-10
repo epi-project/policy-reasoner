@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:45:18
 //  Last edited:
-//    09 Jan 2024, 14:29:29
+//    10 Jan 2024, 15:18:16
 //  Auto updated?
 //    Yes
 //
@@ -64,13 +64,17 @@ async fn get_active_policy<L: AuditLogger, P: PolicyDataAccess>(
                 reasons_for_denial: None,
             });
 
-            // Log it first
+            // Log it: first, the "actual response" with the reason and then the verdict returned to the user
+            logger.log_reasoner_response(reference, "<reasoner not queried because no active policy is present>").await.map_err(|err| {
+                debug!("Could not log \"reasoner response\" to audit log : {:?} | request id: {}", err, reference);
+                warp::reject::custom(err)
+            })?;
             logger.log_verdict(reference, &verdict).await.map_err(|err| {
-                debug!("Could not log execute task verdict to audit log : {:?} | request id: {}", err, reference);
+                debug!("Could not log verdict to audit log : {:?} | request id: {}", err, reference);
                 warp::reject::custom(err)
             })?;
 
-            // Then send it to the user
+            // Then send it to the user as promised
             Ok(Err(warp::reply::with_status(warp::reply::json(&verdict), StatusCode::OK)))
         },
         Err(PolicyDataError::GeneralError(err)) => {
