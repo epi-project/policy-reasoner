@@ -11,6 +11,8 @@ use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerConnectorFullCo
 use state_resolver::State;
 use workflow::spec::Workflow;
 
+
+/***** HELPER MACROS *****/
 /// Shortcut for creating an eFLINT JSON Specification [`Phrase::Create`].
 ///
 /// # Arguments
@@ -55,13 +57,29 @@ macro_rules! str_lit {
     };
 }
 
+
+
+
+
+/***** CONSTANTS *****/
+/// The identifier used for this connector backend.
+pub const EFLINT_JSON_ID: &'static str = "eflint-json";
+
+// Externalized "constants"
+/// The entire base specification, already serialized as eFLINT JSON. See `build.rs` to find how the `BASE_DEFS_EFLINT_JSON` environment variable is populated.
+const JSON_BASE_SPEC: &str = include_str!(env!("BASE_DEFS_EFLINT_JSON"));
+/// A hash of the entire base specification, precomputed by `build.rs`.
+const JSON_BASE_SPEC_HASH: &str = env!("BASE_DEFS_EFLINT_JSON_HASH");
+
+
+
+
+
+/***** LIBRARY *****/
 pub struct EFlintReasonerConnector {
     pub addr:  String,
     base_defs: Vec<Phrase>,
 }
-
-const JSON_BASE_SPEC: &str = include_str!(env!("BASE_DEFS_EFLINT_JSON"));
-const JSON_BASE_SPEC_HASH: &str = env!("BASE_DEFS_EFLINT_JSON_HASH");
 
 impl EFlintReasonerConnector {
     pub fn new(addr: String) -> Self {
@@ -130,7 +148,7 @@ impl EFlintReasonerConnector {
 
     fn extract_eflint_policy(&self, policy: &Policy) -> Vec<Phrase> {
         info!("Extracting eFLINT policy...");
-        let eflint_content: Vec<&PolicyContent> = policy.content.iter().filter(|x| x.reasoner == "eflint").collect();
+        let eflint_content: Vec<&PolicyContent> = policy.content.iter().filter(|x| x.reasoner == EFLINT_JSON_ID).collect();
         let eflint_content = eflint_content.first().unwrap();
         debug!("Deserializing input to eFLINT JSON...");
         let content: &str = eflint_content.content.get();
@@ -156,7 +174,7 @@ impl EFlintReasonerConnector {
 
     fn extract_eflint_version(&self, policy: &Policy) -> Result<Version, String> {
         info!("Retrieving eFLINT reasoner version from policy...");
-        let eflint_content: Vec<&PolicyContent> = policy.content.iter().filter(|x| x.reasoner == "eflint").collect();
+        let eflint_content: Vec<&PolicyContent> = policy.content.iter().filter(|x| x.reasoner == EFLINT_JSON_ID).collect();
         let eflint_content = eflint_content.first().unwrap();
         let parts: Vec<&str> = eflint_content.reasoner_version.split(".").collect();
 
@@ -296,7 +314,7 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<
     fn full_context(&self) -> ReasonerConnectorFullContext {
         ReasonerConnectorFullContext {
             name: "EFLINT connector".into(),
-            t: "eflint-json-reasoner-connector".into(),
+            t: EFLINT_JSON_ID.into(),
             version: "0.1.0".into(),
             base_defs: JSON_BASE_SPEC.into(),
             base_defs_hash: JSON_BASE_SPEC_HASH.into(),
