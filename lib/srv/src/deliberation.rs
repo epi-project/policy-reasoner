@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:45:18
 //  Last edited:
-//    10 Jan 2024, 15:18:16
+//    16 Jan 2024, 15:37:26
 //  Auto updated?
 //    Yes
 //
@@ -31,7 +31,6 @@ use warp::hyper::StatusCode;
 use warp::reject::{Reject, Rejection};
 use warp::reply::{Json, WithStatus};
 use warp::Filter;
-use workflow::utils::ProgramCounter;
 use workflow::Workflow;
 
 use crate::Srv;
@@ -138,7 +137,7 @@ where
 
         // First, resolve the task ID in the workflow to the ProgramCounter ID needed for `task_id` below (and before we pass it by ownership to be converted)
         debug!("Compiling WIR workflow to Checker Workflow...");
-        let task_pc: String = ProgramCounter(body.task_id.0, body.task_id.1).display(&body.workflow.table).to_string();
+        let task_pc: String = body.task_id.resolved(&body.workflow.table).to_string();
 
         // Read the body's workflow as a Checker Workflow
         let workflow: Workflow = match Workflow::try_from(body.workflow) {
@@ -266,7 +265,7 @@ where
         let task_id: Option<String> = match body.task_id {
             Some(task_id) => {
                 // First, resolve the task ID in the workflow to the ProgramCounter ID needed for `task_id` below (and before we pass it by ownership to be converted)
-                let task_pc: String = ProgramCounter(task_id.0, task_id.1).display(&table).to_string();
+                let task_pc: String = task_id.resolved(&table).to_string();
 
                 // Get the task ID based on the request's target ID
                 let task_id = format!("{}-{}-task", workflow.id, task_pc);

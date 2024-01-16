@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    13 Dec 2023, 08:41:44
+//    16 Jan 2024, 15:34:11
 //  Auto updated?
 //    Yes
 //
@@ -21,6 +21,7 @@ use std::panic::catch_unwind;
 
 use brane_ast::spec::BuiltinFunctions;
 use brane_ast::{ast, MergeStrategy};
+use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
 use log::{debug, trace, Level};
 use rand::Rng as _;
@@ -28,39 +29,47 @@ use specifications::data::{AvailabilityKind, PreprocessKind};
 
 use super::preprocess;
 use super::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
-use super::utils::{self, PrettyProgramCounter, ProgramCounter};
-use crate::Metadata;
+use crate::{utils, Metadata};
 
 
 /***** ERRORS *****/
 /// Defines errors that may occur when compiling an [`ast::Workflow`] to a [`Workflow`].
 #[derive(Debug)]
 pub enum Error {
+    /// No user was given in the input workflow.
+    MissingUser,
     /// Failed to preprocess the given workflow.
     Preprocess { err: super::preprocess::Error },
     /// Function ID was out-of-bounds.
-    PcOutOfBounds { pc: PrettyProgramCounter, max: usize },
+    PcOutOfBounds { pc: ResolvedProgramCounter, max: usize },
     /// A parallel edge was found who's `merge` was not found.
-    ParallelMergeOutOfBounds { pc: PrettyProgramCounter, merge: PrettyProgramCounter },
+    ParallelMergeOutOfBounds { pc: ResolvedProgramCounter, merge: ResolvedProgramCounter },
     /// A parallel edge was found who's `merge` is not an [`ast::Edge::Join`].
-    ParallelWithNonJoin { pc: PrettyProgramCounter, merge: PrettyProgramCounter, got: String },
+    ParallelWithNonJoin { pc: ResolvedProgramCounter, merge: ResolvedProgramCounter, got: String },
     /// Found a join that wasn't paired with a parallel edge.
-    StrayJoin { pc: PrettyProgramCounter },
+    StrayJoin { pc: ResolvedProgramCounter },
     /// A call was performed to a non-builtin
-    IllegalCall { pc: PrettyProgramCounter, name: String },
+    IllegalCall { pc: ResolvedProgramCounter, name: String },
     /// A `commit_result()` was found that returns more than 1 result.
-    CommitTooMuchOutput { pc: PrettyProgramCounter, got: usize },
+    CommitTooMuchOutput { pc: ResolvedProgramCounter, got: usize },
     /// A `commit_result()` was found without output.
-    CommitNoOutput { pc: PrettyProgramCounter },
+    CommitNoOutput { pc: ResolvedProgramCounter },
     /// A `commit_result()` was found that outputs a result instead of a dataset.
-    CommitReturnsResult { pc: PrettyProgramCounter },
+    CommitReturnsResult { pc: ResolvedProgramCounter },
 }
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
         use Error::*;
         match self {
+            MissingUser => write!(f, "User not specified in given workflow"),
             Preprocess { .. } => write!(f, "Failed to preprocess input WIR workflow"),
-            PcOutOfBounds { pc, max } => write!(f, "Program counter {} is out-of-bounds (function {} has {} edges)", pc, pc.0, max),
+            PcOutOfBounds { pc, max } => write!(
+                f,
+                "Program counter {} is out-of-bounds (function {} has {} edges)",
+                pc,
+                if let Some(func_name) = pc.func_name() { func_name.clone() } else { pc.func_id().to_string() },
+                max
+            ),
             ParallelMergeOutOfBounds { pc, merge } => {
                 write!(f, "Parallel edge at {pc}'s merge pointer {merge} is out-of-bounds")
             },
@@ -85,6 +94,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         use Error::*;
         match self {
+            MissingUser => None,
             Preprocess { err, .. } => Some(err),
             PcOutOfBounds { .. }
             | ParallelMergeOutOfBounds { .. }
@@ -288,7 +298,7 @@ fn reconstruct_graph(
 
             // Return the elem
             Ok(Elem::Task(ElemTask {
-                id: format!("{}-{}-task", wf_id, pc.display(&wir.table)),
+                id: format!("{}-{}-task", wf_id, pc.resolved(&wir.table)),
                 name: def.function.name.clone(),
                 package: def.package.clone(),
                 version: def.version,
@@ -347,14 +357,14 @@ fn reconstruct_graph(
             // Let us checkout that the merge point is a join
             let merge_edge: &ast::Edge = match utils::get_edge(wir, pc.jump(*merge)) {
                 Some(edge) => edge,
-                None => return Err(Error::ParallelMergeOutOfBounds { pc: pc.display(&wir.table), merge: pc.jump(*merge).display(&wir.table) }),
+                None => return Err(Error::ParallelMergeOutOfBounds { pc: pc.resolved(&wir.table), merge: pc.jump(*merge).resolved(&wir.table) }),
             };
             let (strategy, next): (MergeStrategy, usize) = if let ast::Edge::Join { merge, next } = merge_edge {
                 (*merge, *next)
             } else {
                 return Err(Error::ParallelWithNonJoin {
-                    pc:    pc.display(&wir.table),
-                    merge: pc.jump(*merge).display(&wir.table),
+                    pc:    pc.resolved(&wir.table),
+                    merge: pc.jump(*merge).resolved(&wir.table),
                     got:   merge_edge.variant().to_string(),
                 });
             };
@@ -366,7 +376,7 @@ fn reconstruct_graph(
             Ok(Elem::Parallel(ElemParallel { branches: elem_branches, merge: strategy, next: Box::new(next) }))
         },
 
-        ast::Edge::Join { .. } => Err(Error::StrayJoin { pc: pc.display(&wir.table) }),
+        ast::Edge::Join { .. } => Err(Error::StrayJoin { pc: pc.resolved(&wir.table) }),
 
         ast::Edge::Loop { cond, body, next } => {
             // Build the body first
@@ -388,9 +398,9 @@ fn reconstruct_graph(
         ast::Edge::Call { input, result, next } => {
             // Attempt to get the call ID & matching definition
             let func_def: &ast::FunctionDef = match calls.get(&pc) {
-                Some(id) => match catch_unwind(|| wir.table.func(*id)) {
-                    Ok(def) => def,
-                    Err(_) => panic!("Encountered unknown function '{id}' after preprocessing"),
+                Some(id) => match wir.table.funcs.get(*id) {
+                    Some(def) => def,
+                    None => panic!("Encountered unknown function '{id}' after preprocessing"),
                 },
                 None => panic!("Encountered unresolved call after preprocessing"),
             };
@@ -415,16 +425,16 @@ fn reconstruct_graph(
 
                 // Attempt to fetch the name of the dataset
                 if result.len() > 1 {
-                    return Err(Error::CommitTooMuchOutput { pc: pc.display(&wir.table), got: result.len() });
+                    return Err(Error::CommitTooMuchOutput { pc: pc.resolved(&wir.table), got: result.len() });
                 }
                 let data_name: String = if let Some(name) = result.iter().next() {
                     if let ast::DataName::Data(name) = name {
                         name.clone()
                     } else {
-                        return Err(Error::CommitReturnsResult { pc: pc.display(&wir.table) });
+                        return Err(Error::CommitReturnsResult { pc: pc.resolved(&wir.table) });
                     }
                 } else {
-                    return Err(Error::CommitNoOutput { pc: pc.display(&wir.table) });
+                    return Err(Error::CommitNoOutput { pc: pc.resolved(&wir.table) });
                 };
 
                 // Construct next first
@@ -432,7 +442,7 @@ fn reconstruct_graph(
 
                 // Then we wrap the rest in a commit
                 Ok(Elem::Commit(ElemCommit {
-                    id: format!("{}-{}-commit", wf_id, pc.display(&wir.table)),
+                    id: format!("{}-{}-commit", wf_id, pc.resolved(&wir.table)),
                     data_name,
                     location: locs.into_iter().next(),
                     input: new_input,
@@ -445,7 +455,7 @@ fn reconstruct_graph(
                 // Using them is OK, we just ignore them for the improved workflow
                 reconstruct_graph(wir, wf_id, calls, lkls, pc.jump(*next), plug, breakpoint)
             } else {
-                Err(Error::IllegalCall { pc: pc.display(&wir.table), name: func_def.name.clone() })
+                Err(Error::IllegalCall { pc: pc.resolved(&wir.table), name: func_def.name.clone() })
             }
         },
 
@@ -463,6 +473,13 @@ impl TryFrom<ast::Workflow> for Workflow {
 
     #[inline]
     fn try_from(value: ast::Workflow) -> Result<Self, Self::Error> {
+        // First first; check if there is a user, lol
+        let user: String = if let Some(user) = (*value.user).clone() {
+            user
+        } else {
+            return Err(Error::MissingUser);
+        };
+
         // First, analyse the calls in the workflow as much as possible (and simplify)
         let (wir, calls): (ast::Workflow, HashMap<ProgramCounter, usize>) = match preprocess::simplify(value) {
             Ok(res) => res,
@@ -477,18 +494,18 @@ impl TryFrom<ast::Workflow> for Workflow {
 
         // Collect the map of data to Last Known Locations (LKL).
         let mut lkls: HashMap<ast::DataName, HashSet<String>> = HashMap::new();
-        analyse_data_lkls(&mut lkls, &wir, ProgramCounter::new(), None);
+        analyse_data_lkls(&mut lkls, &wir, ProgramCounter::start(), None);
 
         // Alright now attempt to re-build the graph in the new style
         let wf_id: String = format!("workflow-{}", generate_id(8));
-        let graph: Elem = reconstruct_graph(&wir, &wf_id, &calls, &mut lkls, ProgramCounter::new(), Elem::Stop(HashSet::new()), None)?;
+        let graph: Elem = reconstruct_graph(&wir, &wf_id, &calls, &mut lkls, ProgramCounter::start(), Elem::Stop(HashSet::new()), None)?;
 
         // Build a new Workflow with that!
         Ok(Self {
             id:    wf_id,
             start: graph,
 
-            user:      User { name: "Danny Data Scientist".into() },
+            user:      User { name: user },
             metadata:  wir
                 .metadata
                 .iter()

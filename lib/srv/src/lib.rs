@@ -6,9 +6,9 @@ use std::time::Duration;
 
 use ::policy::{Context, PolicyDataAccess, PolicyDataError};
 use audit_logger::AuditLogger;
+use auth_resolver::{AuthContext, AuthResolver};
 use error_trace::trace;
 use log::{debug, error, info, warn};
-use auth_resolver::{AuthContext, AuthResolver};
 use problem_details::ProblemDetails;
 use reasonerconn::{ReasonerConnector, ReasonerConnectorFullContext};
 use serde::{Deserialize, Serialize};

@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 15:27:38
 //  Last edited:
-//    08 Nov 2023, 14:45:36
+//    16 Jan 2024, 15:44:03
 //  Auto updated?
 //    Yes
 //
@@ -15,6 +15,7 @@
 
 use std::ffi::OsStr;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use brane_ast::{ast, compile_program, CompileResult, ParserOptions};
 use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
@@ -28,6 +29,23 @@ use super::spec::Workflow;
 /***** CONSTANTS *****/
 /// Defines the location of the tests
 pub(crate) const TESTS_DIR: &str = "../../tests";
+
+
+
+
+
+/***** HELPER FUNCTIONS *****/
+/// Injects some (random) data in a workflow to simulate required information from the Brane runtime.
+///
+/// Specifically, injects:
+/// - The end user of the workflow.
+///
+/// # Arguments
+/// - `wir`: A (mutable reference to a) BraneScript [`Workflow`](ast::Workflow).
+fn prepare_workflow(wir: &mut ast::Workflow) {
+    // Inject the user with a random name
+    wir.user = Arc::new(Some(names::three::rand().into()));
+}
 
 
 
@@ -59,7 +77,7 @@ fn test_checker_workflow_unoptimized() {
         let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
 
         // Compile the raw source to WIR
-        let wir: ast::Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
+        let mut wir: ast::Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
             CompileResult::Workflow(wir, warns) => {
                 // Print warnings if any
                 for w in warns {
@@ -84,6 +102,9 @@ fn test_checker_workflow_unoptimized() {
                 unreachable!();
             },
         };
+
+        // Insert some additional content
+        prepare_workflow(&mut wir);
 
         // Print the WIR in debug mode
         if log::max_level() >= Level::Debug {
@@ -132,7 +153,7 @@ fn test_checker_workflow_optimized() {
         let dindex: DataIndex = create_data_index_from(tests_path.join("data"));
 
         // Compile the raw source to WIR
-        let wir: ast::Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
+        let mut wir: ast::Workflow = match compile_program(code.as_bytes(), &pindex, &dindex, &ParserOptions::bscript()) {
             CompileResult::Workflow(wir, warns) => {
                 // Print warnings if any
                 for w in warns {
@@ -157,6 +178,9 @@ fn test_checker_workflow_optimized() {
                 unreachable!();
             },
         };
+
+        // Insert some additional content
+        prepare_workflow(&mut wir);
 
         // Print the WIR in debug mode
         if log::max_level() >= Level::Debug {

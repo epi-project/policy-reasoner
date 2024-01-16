@@ -1,4 +1,5 @@
 use brane_ast::Workflow;
+use brane_exe::pc::ProgramCounter;
 use serde::{Deserialize, Serialize};
 
 /// ExecuteTaskRequest represents the question if it is allowed to execute a
@@ -7,12 +8,8 @@ use serde::{Deserialize, Serialize};
 pub struct ExecuteTaskRequest {
     /// Workflow definition
     pub workflow: Workflow,
-    /// Structured as follows:
-    /// - `0`: Pointer to the particular function, where there are two cases:
-    ///   - `usize::MAX` means main function (workflow.graph)
-    ///   - otherwise, index into function table (workflow.funcs[...])
-    /// - `1`: Pointer to the instruction (Edge) within the function indicated by `0`.
-    pub task_id:  (usize, usize),
+    /// The location of the task we're examining in the given `workflow`.
+    pub task_id:  ProgramCounter,
 }
 
 /// AccessDataRequest represents the question if a certain dataset
@@ -22,14 +19,8 @@ pub struct AccessDataRequest {
     pub workflow: Workflow,
     /// Identifier for the requested dataset
     pub data_id:  String,
-    /// Structured as follows:
-    /// - `0`: Pointer to the particular function, where there are two cases:
-    ///   - `usize::MAX` means main function (workflow.graph)
-    ///   - otherwise, index into function table (workflow.funcs[...])
-    /// - `1`: Pointer to the instruction (Edge) within the function indicated by `0`.
-    /// Empty if the requested dataset is the
-    /// result of the workflow
-    pub task_id:  Option<(usize, usize)>,
+    /// The location of the task for which we transfer in the given `workflow`. If omitted, then this transfer should be interpreted as transferring the final result of the workflow.
+    pub task_id:  Option<ProgramCounter>,
 }
 
 /// WorkflowValidationRequest represents the question

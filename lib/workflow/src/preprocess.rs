@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    13 Dec 2023, 08:34:57
+//    16 Jan 2024, 15:48:47
 //  Auto updated?
 //    Yes
 //
@@ -20,12 +20,14 @@ use std::panic::catch_unwind;
 use std::sync::Arc;
 
 use brane_ast::ast::{Edge, EdgeInstr, FunctionDef, SymTable, TaskDef, Workflow};
+use brane_ast::func_id::FunctionId;
 use brane_ast::spec::BuiltinFunctions;
 use brane_ast::MergeStrategy;
+use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
 use log::{debug, trace};
 
-use super::utils::{self, PrettyProgramCounter, ProgramCounter};
+use super::utils;
 
 
 /***** TESTS *****/
@@ -108,15 +110,15 @@ mod tests {
             println!();
 
             // Analyse function calls (we'll assume this works too)
-            let calls: HashMap<ProgramCounter, usize> = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::new(), None, None).unwrap().0;
+            let calls: HashMap<ProgramCounter, usize> = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::start(), None, None).unwrap().0;
             println!(
                 "Resolved functions calls: {:?}",
-                calls.iter().map(|(pc, func_id)| (format!("{}", pc.display(&wir.table)), *func_id)).collect::<HashMap<String, usize>>()
+                calls.iter().map(|(pc, func_id)| (format!("{}", pc.resolved(&wir.table)), *func_id)).collect::<HashMap<String, usize>>()
             );
 
             // Analyse the inlinable funcs
             let mut pred: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
-            find_inlinable_funcs(&wir, &calls, &mut vec![], ProgramCounter::new(), None, &mut pred);
+            find_inlinable_funcs(&wir, &calls, &mut vec![], ProgramCounter::start(), None, &mut pred);
             println!("Inlinable functions: {pred:?}");
             println!();
 
@@ -218,9 +220,9 @@ pub enum Error {
     /// Unknown task given.
     UnknownTask { id: usize },
     /// Unknown function given.
-    UnknownFunc { id: usize },
+    UnknownFunc { id: FunctionId },
     /// A [`Call`](ast::Edge::Call)-edge was encountered while we didn't know of a function ID on the stack.
-    CallingWithoutId { pc: PrettyProgramCounter },
+    CallingWithoutId { pc: ResolvedProgramCounter },
 }
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
@@ -345,13 +347,13 @@ fn resolve_calls(
     };
 
     // Match to recursively process it
-    trace!("Attempting to resolve calls in {} ({:?})", pc.display(table), edge.variant());
+    trace!("Attempting to resolve calls in {} ({:?})", pc.resolved(table), edge.variant());
     match edge {
         Edge::Node { task, next, .. } => {
             // Attempt to discover the return type of the Node.
-            let def: &TaskDef = match std::panic::catch_unwind(|| table.task(*task)) {
-                Ok(def) => def,
-                Err(_) => return Err(Error::UnknownTask { id: *task }),
+            let def: &TaskDef = match table.tasks.get(*task) {
+                Some(def) => def,
+                None => return Err(Error::UnknownTask { id: *task }),
             };
 
             // Alright, recurse with the next instruction
@@ -430,7 +432,7 @@ fn resolve_calls(
             let stack_id: usize = match stack_id {
                 Some(id) => id,
                 None => {
-                    return Err(Error::CallingWithoutId { pc: pc.display(table) });
+                    return Err(Error::CallingWithoutId { pc: pc.resolved(table) });
                 },
             };
 
@@ -459,14 +461,14 @@ fn resolve_calls(
 
         Edge::Return { result: _ } => {
             // If we're in the main function, this acts as an [`Elem::Stop`] with value
-            if pc.0 == usize::MAX {
+            if pc.is_main() {
                 return Ok((HashMap::new(), None));
             }
 
             // To see whether we pass a function ID, consult the function definition
-            let def: &FunctionDef = match catch_unwind(|| table.func(pc.0)) {
+            let def: &FunctionDef = match catch_unwind(|| table.func(pc.func_id)) {
                 Ok(def) => def,
-                Err(_) => return Err(Error::UnknownFunc { id: pc.0 }),
+                Err(_) => return Err(Error::UnknownFunc { id: pc.func_id }),
             };
 
             // Only return the current one if the function returns void
@@ -513,7 +515,7 @@ fn find_inlinable_funcs(
     };
 
     // Match on its kind
-    trace!("Finding inlinable functions in {} ({:?})", pc.display(&wir.table), edge.variant());
+    trace!("Finding inlinable functions in {} ({:?})", pc.resolved(&wir.table), edge.variant());
     match edge {
         Edge::Node { next, .. } | Edge::Linear { next, .. } => {
             // Doesn't call any functions, so just proceed with the next one
@@ -573,9 +575,9 @@ fn find_inlinable_funcs(
                     panic!("Encountered unresolved call after running call analysis");
                 },
             };
-            let def: &FunctionDef = match catch_unwind(|| wir.table.func(func_id)) {
-                Ok(def) => def,
-                Err(_) => panic!("Failed to get definition of function {func_id} after call analysis"),
+            let def: &FunctionDef = match wir.table.funcs.get(func_id) {
+                Some(def) => def,
+                None => panic!("Failed to get definition of function {func_id} after call analysis"),
             };
 
             // Analyse next, since all codepaths do this always
@@ -807,8 +809,8 @@ fn prep_func_body(
 
             // Update the call list with this dude's new position
             calls.insert(
-                ProgramCounter(usize::MAX, start_idx + pc),
-                *calls.get(&ProgramCounter(func_id, pc)).unwrap_or_else(|| panic!("Encountered unresolved call after call ID analysis")),
+                ProgramCounter::new(FunctionId::Main, start_idx + pc),
+                *calls.get(&ProgramCounter::new(func_id, pc)).unwrap_or_else(|| panic!("Encountered unresolved call after call ID analysis")),
             );
 
             // Prepare the remainder
@@ -842,7 +844,7 @@ fn inline_funcs_in_body(
     funcs: &HashMap<usize, Vec<Edge>>,
     inlinable: &HashMap<usize, Option<HashSet<usize>>>,
     table: &SymTable,
-    func_id: usize,
+    func_id: FunctionId,
     pc: usize,
     breakpoint: Option<usize>,
 ) {
@@ -917,7 +919,8 @@ fn inline_funcs_in_body(
             let next: usize = *next;
 
             // Resolve the function ID we're calling
-            let call_id: usize = match calls.get(&ProgramCounter(func_id, pc)) {
+            println!("Resolving '{:?}' in '{:?}'", ProgramCounter::new(func_id, pc), calls);
+            let call_id: usize = match calls.get(&ProgramCounter::new(func_id, pc)) {
                 Some(id) => *id,
                 None => {
                     panic!("Encountered unresolved call after running inline analysis");
@@ -981,7 +984,7 @@ fn inline_funcs_in_body(
 pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, usize>) -> Workflow {
     // Analyse which functions in the WIR are non-recursive
     let mut inlinable: HashMap<usize, Option<HashSet<usize>>> = HashMap::with_capacity(calls.len());
-    find_inlinable_funcs(&wir, calls, &mut vec![], ProgramCounter::new(), None, &mut inlinable);
+    find_inlinable_funcs(&wir, calls, &mut vec![], ProgramCounter::start(), None, &mut inlinable);
     debug!(
         "Inlinable functions: {}",
         inlinable
@@ -989,9 +992,9 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
             .filter_map(|(id, deps)| if let Some(deps) = deps {
                 Some(format!(
                     "'{}' (depends on {})",
-                    catch_unwind(|| wir.table.func(*id)).map(|def| def.name.as_str()).unwrap_or("???"),
+                    wir.table.funcs.get(*id).map(|def| def.name.as_str()).unwrap_or("???"),
                     deps.iter()
-                        .map(|id| format!("'{}'", catch_unwind(|| wir.table.func(*id)).map(|def| def.name.as_str()).unwrap_or("???")))
+                        .map(|id| format!("'{}'", wir.table.funcs.get(*id).map(|def| def.name.as_str()).unwrap_or("???")))
                         .collect::<Vec<String>>()
                         .join(", "),
                 ))
@@ -1010,14 +1013,14 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
         "Inline order: {}",
         inline_order
             .iter()
-            .map(|id| format!("'{}'", catch_unwind(|| wir.table.func(*id)).map(|def| def.name.as_str()).unwrap_or("???"),))
+            .map(|id| format!("'{}'", wir.table.funcs.get(*id).map(|def| def.name.as_str()).unwrap_or("???"),))
             .collect::<Vec<String>>()
             .join(", ")
     );
 
     {
         // Tear open the Workflow to satisfy the borrow checker
-        let Workflow { graph: wir_graph, metadata: _, funcs: wir_funcs, table: wir_table } = &mut wir;
+        let Workflow { graph: wir_graph, metadata: _, funcs: wir_funcs, table: wir_table, user: _ } = &mut wir;
 
         // Extract the graph behind the Arc
         let mut graph: Arc<Vec<Edge>> = Arc::new(vec![]);
@@ -1040,14 +1043,14 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
 
             // Inline the functions in this body
             debug!("Inlining functions in function {id}");
-            inline_funcs_in_body(&mut new_body, calls, &new_funcs, &inlinable, &table, id, 0, None);
+            inline_funcs_in_body(&mut new_body, calls, &new_funcs, &inlinable, &table, FunctionId::Func(id), 0, None);
             new_funcs.insert(id, new_body);
         }
         funcs = new_funcs;
 
         // Now inline the main with all function bodies inlined correctly
         debug!("Inlining functions in main");
-        inline_funcs_in_body(&mut graph, calls, &funcs, &inlinable, &table, usize::MAX, 0, None);
+        inline_funcs_in_body(&mut graph, calls, &funcs, &inlinable, &table, FunctionId::Main, 0, None);
 
         // Write the functions and graphs back
         let mut table: Arc<SymTable> = Arc::new(table);
@@ -1082,8 +1085,8 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
 /// This function may error if the input workflow is incoherent.
 pub fn simplify(mut wir: Workflow) -> Result<(Workflow, HashMap<ProgramCounter, usize>), Error> {
     // Analyse call dependencies first
-    let (mut calls, _): (HashMap<ProgramCounter, usize>, _) = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::new(), None, None)?;
-    debug!("Resolved calls as: {:?}", calls.iter().map(|(pc, id)| (format!("{}", pc.display(&wir.table)), *id)).collect::<HashMap<String, usize>>());
+    let (mut calls, _): (HashMap<ProgramCounter, usize>, _) = resolve_calls(&wir, &wir.table, &mut vec![], ProgramCounter::start(), None, None)?;
+    debug!("Resolved calls as: {:?}", calls.iter().map(|(pc, id)| (format!("{}", pc.resolved(&wir.table)), *id)).collect::<HashMap<String, usize>>());
 
     // Simplify functions as much as possible
     wir = inline_functions(wir, &mut calls);
