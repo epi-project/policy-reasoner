@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    16 Jan 2024, 15:48:47
+//    16 Jan 2024, 17:51:28
 //  Auto updated?
 //    Yes
 //
@@ -919,7 +919,6 @@ fn inline_funcs_in_body(
             let next: usize = *next;
 
             // Resolve the function ID we're calling
-            println!("Resolving '{:?}' in '{:?}'", ProgramCounter::new(func_id, pc), calls);
             let call_id: usize = match calls.get(&ProgramCounter::new(func_id, pc)) {
                 Some(id) => *id,
                 None => {

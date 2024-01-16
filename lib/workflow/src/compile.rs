@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    16 Jan 2024, 15:34:11
+//    16 Jan 2024, 17:52:50
 //  Auto updated?
 //    Yes
 //
@@ -473,6 +473,10 @@ impl TryFrom<ast::Workflow> for Workflow {
 
     #[inline]
     fn try_from(value: ast::Workflow) -> Result<Self, Self::Error> {
+        let mut buf: Vec<u8> = Vec::new();
+        brane_ast::traversals::print::ast::do_traversal(&value, &mut buf).unwrap();
+        debug!("Compiling workflow:\n\n{}\n", String::from_utf8(buf).unwrap());
+
         // First first; check if there is a user, lol
         let user: String = if let Some(user) = (*value.user).clone() {
             user
