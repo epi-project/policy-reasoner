@@ -156,7 +156,7 @@ where
         match this_arc.policystore.get_active().await {
             Ok(v) => {
                 let t = this_arc.clone();
-                if (v.version.base_defs != ctx.base_defs_hash) {
+                if v.version.reasoner_connector_context != ctx_hash {
                     let ap = this_arc.policystore.get_active().await.unwrap();
                     let result = t
                         .policystore
@@ -178,7 +178,7 @@ where
 
                     debug!(
                         "Deactivated policy because of changed base definition; hash changed from '{}' to '{}'",
-                        ap.version.base_defs, ctx.base_defs_hash
+                        ap.version.reasoner_connector_context, ctx_hash
                     )
                 }
             },

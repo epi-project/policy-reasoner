@@ -18,7 +18,7 @@ diesel::table! {
         creator -> Text,
         created_at -> BigInt,
         content -> Text,
-        base_defs -> Text,
+        reasoner_connector_context -> Text,
     }
 }
 

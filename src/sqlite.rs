@@ -9,7 +9,6 @@ use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use tokio::runtime::Handle;
 
 use crate::models::{SqliteActiveVersion, SqlitePolicy};
-use crate::schema::policies::base_defs;
 pub struct SqlitePolicyDataStore {
     pool: Pool<ConnectionManager<SqliteConnection>>,
 }
@@ -94,7 +93,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
                         created_at,
                         version: Some(item.version),
                         version_description: item.version_description,
-                        base_defs: item.base_defs,
+                        reasoner_connector_context: item.reasoner_connector_context,
                     },
                     content,
                 };
@@ -143,7 +142,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
             creator: context.initiator,
             created_at: version.version.created_at.timestamp_micros(),
             content: str_content,
-            base_defs: version.version.base_defs.clone(),
+            reasoner_connector_context: version.version.reasoner_connector_context.clone(),
         };
 
         let rt_handle: Handle = Handle::current();
@@ -196,7 +195,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
                         created_at,
                         version: Some(item.version),
                         version_description: item.version_description,
-                        base_defs: item.base_defs,
+                        reasoner_connector_context: item.reasoner_connector_context,
                     },
                     content,
                 };
@@ -211,14 +210,14 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
     }
 
     async fn get_versions(&self) -> Result<Vec<PolicyVersion>, PolicyDataError> {
-        use crate::schema::policies::dsl::{base_defs, created_at, creator, policies, version, version_description};
+        use crate::schema::policies::dsl::{created_at, creator, policies, reasoner_connector_context, version, version_description};
         let mut conn = self.pool.get().unwrap();
 
 
 
         match policies
             .order_by(crate::schema::policies::dsl::created_at.desc())
-            .select((version, version_description, creator, created_at, base_defs))
+            .select((version, version_description, creator, created_at, reasoner_connector_context))
             .load::<(i64, String, String, i64, String)>(&mut conn)
         {
             Ok(r) => {
@@ -229,7 +228,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
                         version_description: x.1,
                         creator: Some(x.2),
                         created_at: Local.from_utc_datetime(&NaiveDateTime::from_timestamp_micros(x.3).unwrap()),
-                        base_defs: x.4,
+                        reasoner_connector_context: x.4,
                     })
                     .collect();
 

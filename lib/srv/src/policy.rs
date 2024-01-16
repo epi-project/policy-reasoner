@@ -99,7 +99,7 @@ where
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
         let t: Arc<Self> = this.clone();
         let mut model = body.to_domain();
-        model.version.base_defs = this.reasonerconn.full_context().base_defs_hash;
+        model.version.reasoner_connector_context = C::hash();
         match this
             .policystore
             .add_version(model, Context { initiator: auth_ctx.initiator.clone() }, |policy| async move {
@@ -159,11 +159,11 @@ where
         let conn_ctx = this.reasonerconn.full_context();
         match this.policystore.get_version(body.version).await {
             Ok(policy) => {
-                if (policy.version.base_defs != conn_ctx.base_defs_hash) {
+                if policy.version.reasoner_connector_context != conn_hash {
                     let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(format!(
                         "Cannot activate policy which has a different base policy than current the reasoners connector's base. Policy base defs \
                          hash is '{}' and connector's base defs hash is '{}'",
-                        policy.version.base_defs, conn_ctx.base_defs_hash
+                        policy.version.reasoner_connector_context, conn_hash
                     ));
                     return Err(warp::reject::custom(Problem(p)));
                 }

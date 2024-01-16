@@ -1,3 +1,3 @@
 -- Your SQL goes here
 ALTER TABLE policies
-  ADD base_defs TEXT NOT NULL;
+  ADD reasoner_connector_context TEXT NOT NULL;

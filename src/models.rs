@@ -12,7 +12,7 @@ pub struct SqlitePolicy {
     pub creator: String,
     pub created_at: i64,
     pub content: String,
-    pub base_defs: String,
+    pub reasoner_connector_context: String,
 }
 
 #[derive(Queryable, Insertable, Selectable)]
