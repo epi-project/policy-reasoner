@@ -3,15 +3,13 @@ use std::sync::Arc;
 
 use audit_logger::AuditLogger;
 use auth_resolver::{AuthContext, AuthResolver};
-use policy::{Context, PolicyDataAccess, PolicyDataError};
-use problem_details::ProblemDetails;
+use policy::PolicyDataAccess;
 use reasonerconn::ReasonerConnector;
 use serde::Serialize;
 use state_resolver::StateResolver;
 use warp::Filter;
 
-use crate::problem::Problem;
-use crate::{models, Srv};
+use crate::Srv;
 
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
@@ -28,8 +26,8 @@ where
     // out:
     // 200
 
-    async fn handle_reasoner_conn_ctx(_: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        Ok(warp::reply::json(&this.reasonerconn.full_context()))
+    async fn handle_reasoner_conn_ctx(_: AuthContext, _this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
+        Ok(warp::reply::json(&C::context()))
     }
 
     pub fn reasoner_connector_handlers(this: Arc<Self>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {

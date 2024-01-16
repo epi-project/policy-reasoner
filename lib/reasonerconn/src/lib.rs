@@ -1,7 +1,6 @@
 use std::fmt;
-use std::sync::Arc;
 
-use audit_logger::{Error as AuditLoggerError, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
+use audit_logger::{ConnectorWithContext, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
 use policy::Policy;
 use serde::{Deserialize, Serialize};
 use state_resolver::State;
@@ -36,32 +35,9 @@ impl ReasonerResponse {
     pub fn new(success: bool, errors: Vec<String>) -> Self { ReasonerResponse { success, errors } }
 }
 
-#[derive(Serialize, Debug, Clone)]
-pub struct ReasonerConnectorFullContext {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub t: String,
-    pub version: String,
-    pub base_defs: String,
-    pub base_defs_hash: String,
-}
 
 #[async_trait::async_trait]
-pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger> {
-    /// The type returned by [`ReasonerConnector::context()`].
-    type Context: Clone;
-    /// The type returned by [`ReasonerConnector::full_context()`].
-    // type FullContext: Sync + Send + Serialize + Clone + core::fmt::Debug;
-
-    /// Returns context about the reasoner connector that is relevant for the audit log.
-    ///
-    /// In particular, this should contain stuff like the name of the reasoner used, its version, base spec hash, etc.
-    fn context(&self) -> Self::Context;
-    /// Returns so-called "full context" about the reasoner connector that is relevant for the audit log.
-    ///
-    /// In particular, this should contain stuff like the name of the reasoner used, its version, base spec hash, etc, but also more details like the actual full base spec itself.
-    fn full_context(&self) -> ReasonerConnectorFullContext;
-
+pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger>: ConnectorWithContext {
     async fn execute_task(
         &self,
         logger: SessionedConnectorAuditLogger<L>,

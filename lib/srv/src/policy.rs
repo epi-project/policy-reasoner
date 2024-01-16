@@ -103,7 +103,7 @@ where
         match this
             .policystore
             .add_version(model, Context { initiator: auth_ctx.initiator.clone() }, |policy| async move {
-                t.logger.log_add_policy_request(&auth_ctx, &t.reasonerconn.context(), &policy).await.map_err(|err| match err {
+                t.logger.log_add_policy_request::<C>(&auth_ctx, &policy).await.map_err(|err| match err {
                     audit_logger::Error::CouldNotDeliver(err) => PolicyDataError::GeneralError(err),
                 })
             })
@@ -156,7 +156,7 @@ where
         body: models::SetVersionPostModel,
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
         // Reject activation of policy with invalid base defs
-        let conn_ctx = this.reasonerconn.full_context();
+        let conn_hash = C::hash();
         match this.policystore.get_version(body.version).await {
             Ok(policy) => {
                 if policy.version.reasoner_connector_context != conn_hash {

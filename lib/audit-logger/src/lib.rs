@@ -1,11 +1,14 @@
 use std::borrow::Cow;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt::Debug;
+use std::hash::{Hash as _, Hasher as _};
 
 use auth_resolver::AuthContext;
 use deliberation::spec::Verdict;
 use enum_debug::EnumDebug;
 use policy::Policy;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use state_resolver::State;
 use workflow::Workflow;
 
@@ -28,10 +31,41 @@ impl std::error::Error for Error {}
 
 impl warp::reject::Reject for Error {}
 
+
+
+pub trait ConnectorContext {
+    fn r#type(&self) -> String;
+    fn version(&self) -> String;
+}
+
+/// Defines an intermediary that allows us to conveniently log `ReasonerConnector`'s context.
+pub trait ConnectorWithContext {
+    /// The type returned by [`ReasonerConnector::full_context()`].
+    type Context: ConnectorContext + std::hash::Hash + Sync + Send + Serialize + Clone + core::fmt::Debug;
+
+    /// Returns hash of connector's context.
+    ///
+    /// If anything about the connector changes that can have an effect on the evaluation of a policy
+    /// the returned hash must be different
+    fn hash() -> String {
+        let mut hasher = DefaultHasher::new();
+        Self::context().hash(&mut hasher);
+        // digest()
+        let h = hasher.finish();
+        return hex::encode(h.to_be_bytes());
+    }
+    /// Returns so-called "full context" about the reasoner connector that is relevant for the audit log.
+    ///
+    /// In particular, this should al least contain the type of the connector used and its version.
+    fn context() -> Self::Context;
+}
+
 /// Collects everything we might want to log in an [`AuditLogger`].
+///
+/// TODO: Nicer to move this to the toplevel crate, `logger.rs`.
 #[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]
 #[serde(tag = "kind", rename_all = "SCREAMING-KEBAB-CASE")]
-pub enum LogStatement<'a, C1: Clone, C2: Clone> {
+pub enum LogStatement<'a> {
     /// A request that asks if a task may be executed has been received.
     ExecuteTask {
         reference: Cow<'a, str>,
@@ -67,15 +101,15 @@ pub enum LogStatement<'a, C1: Clone, C2: Clone> {
     ReasonerVerdict { reference: Cow<'a, str>, verdict: Cow<'a, Verdict> },
 
     /// Logs the reasoner backend for during startup.
-    ReasonerContext { connector_context: Cow<'a, C1> },
+    ReasonerContext { connector_context: Value, connector_context_hash: String },
     /// Logs the arrival of a new policy.
-    PolicyAdd { auth: Cow<'a, AuthContext>, connector_context: Cow<'a, C2>, policy: Cow<'a, Policy> },
+    PolicyAdd { auth: Cow<'a, AuthContext>, connector_context_hash: String, policy: Cow<'a, Policy> },
     /// Logs the activation of an existing policy.
     PolicyActivate { auth: Cow<'a, AuthContext>, policy: Cow<'a, Policy> },
     /// Logs the deactivation of the current active policy.
     PolicyDeactivate { auth: Cow<'a, AuthContext> },
 }
-impl<'a, C1: Clone, C2: Clone> LogStatement<'a, C1, C2> {
+impl<'a> LogStatement<'a> {
     /// Constructor for a [`LogStatement::ExecuteTask`] that makes it a bit more convenient to initialize.
     ///
     /// # Arguments
@@ -190,7 +224,13 @@ impl<'a, C1: Clone, C2: Clone> LogStatement<'a, C1, C2> {
     /// # Returns
     /// A new [`LogStatement::ReasonerContext`] that is initialized with the given properties.
     #[inline]
-    pub fn reasoner_context(connector_context: &'a C1) -> Self { Self::ReasonerContext { connector_context: Cow::Borrowed(connector_context) } }
+    pub fn reasoner_context<C: ConnectorWithContext>() -> Self {
+        Self::ReasonerContext {
+            connector_context:      serde_json::to_value(&C::context())
+                .unwrap_or_else(|err| panic!("Could not serialize context of {}: {}", std::any::type_name::<C>(), err)),
+            connector_context_hash: C::hash(),
+        }
+    }
 
     /// Constructor for a [`LogStatement::PolicyAdd`] that makes it a bit more convenient to initialize.
     ///
@@ -202,8 +242,8 @@ impl<'a, C1: Clone, C2: Clone> LogStatement<'a, C1, C2> {
     /// # Returns
     /// A new [`LogStatement::ReasonerContext`] that is initialized with the given properties.
     #[inline]
-    pub fn policy_add(auth: &'a AuthContext, connector_context: &'a C2, policy: &'a Policy) -> Self {
-        Self::PolicyAdd { auth: Cow::Borrowed(auth), connector_context: Cow::Borrowed(connector_context), policy: Cow::Borrowed(policy) }
+    pub fn policy_add<C: ConnectorWithContext>(auth: &'a AuthContext, policy: &'a Policy) -> Self {
+        Self::PolicyAdd { auth: Cow::Borrowed(auth), connector_context_hash: C::hash(), policy: Cow::Borrowed(policy) }
     }
 
     /// Constructor for a [`LogStatement::PolicyActivate`] that makes it a bit more convenient to initialize.
@@ -267,16 +307,11 @@ pub trait AuditLogger: ReasonerConnectorAuditLogger {
     /// Dumps the full context of the reasoner on startup.
     ///
     /// Note that it's recommended to use `ReasonerConnector::FullContext` for this, to include the full base specification.
-    async fn log_reasoner_context<C: Send + Sync + Clone + Debug + Serialize>(&self, connector_context: &C) -> Result<(), Error>;
+    async fn log_reasoner_context<C: ConnectorWithContext>(&self) -> Result<(), Error>;
     /// Logs that a new policy has been added, including the full policy.
     ///
     /// Note that it's recommended to use `ReasonerConnector::Context` for this, as the full base spec as already been logged at startup.
-    async fn log_add_policy_request<C: Send + Sync + Clone + Debug + Serialize>(
-        &self,
-        auth: &AuthContext,
-        connector_context: &C,
-        policy: &Policy,
-    ) -> Result<(), Error>;
+    async fn log_add_policy_request<C: ConnectorWithContext>(&self, auth: &AuthContext, policy: &Policy) -> Result<(), Error>;
 
     async fn log_set_active_version_policy(&self, auth: &AuthContext, policy: &Policy) -> Result<(), Error>;
 

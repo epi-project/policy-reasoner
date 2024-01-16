@@ -1104,7 +1104,7 @@ fn main() {
             // Separate the log into statements
             debug!("Finding log statements...");
             let mut buf: String = String::new();
-            let mut statements: Vec<LogStatement<(String, String), String>> = Vec::new();
+            let mut statements: Vec<LogStatement> = Vec::new();
             for line in handle.lines() {
                 // Unwrap the line
                 let line: String = match line {

@@ -17,3 +17,4 @@ workflow = {path = "../workflow"}
 serde = "1.0"
 serde_json = "1.0"
 warp = "0.3"
+hex = "0.4.3"

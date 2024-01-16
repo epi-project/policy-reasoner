@@ -9,8 +9,7 @@ use audit_logger::AuditLogger;
 use auth_resolver::{AuthContext, AuthResolver};
 use error_trace::trace;
 use log::{debug, error, info, warn};
-use problem_details::ProblemDetails;
-use reasonerconn::{ReasonerConnector, ReasonerConnectorFullContext};
+use reasonerconn::ReasonerConnector;
 use serde::{Deserialize, Serialize};
 use state_resolver::StateResolver;
 use tokio::signal::unix::{signal, Signal, SignalKind};
@@ -146,8 +145,8 @@ where
 
 
         // Log reasoner connector context
-        let ctx = this_arc.clone().reasonerconn.full_context();
-        match this_arc.clone().logger.log_reasoner_context(&ctx).await {
+        let ctx_hash = C::hash();
+        match this_arc.clone().logger.log_reasoner_context::<C>().await {
             Ok(_) => {},
             Err(err) => panic!("Failed to log reasoner context on startup {:?}", err),
         }

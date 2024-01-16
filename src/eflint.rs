@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use audit_logger::{ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
+use audit_logger::{ConnectorContext, ConnectorWithContext, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
 use eflint_json::spec::auxillary::Version;
 use eflint_json::spec::{
     ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, Request, RequestCommon, RequestPhrases,
 };
 use log::{debug, error, info};
 use policy::{Policy, PolicyContent};
-use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerConnectorFullContext, ReasonerResponse};
+use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
 use state_resolver::State;
 use workflow::spec::Workflow;
 
@@ -300,27 +300,45 @@ impl EFlintReasonerConnector {
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EFlintReasonerConnectorContext {
+    #[serde(rename = "type")]
+    pub t: String,
+    pub version: String,
+    pub base_defs: String,
+    pub base_defs_hash: String,
+}
 
-#[async_trait::async_trait]
-impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L> for EFlintReasonerConnector {
-    type Context = &'static str;
 
-    // type FullContext = reasonerconn::ReasonerConnectorFullContext;
+impl std::hash::Hash for EFlintReasonerConnectorContext {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.t.hash(state);
+        self.version.hash(state);
+        self.base_defs_hash.hash(state);
+    }
+}
+
+impl ConnectorContext for EFlintReasonerConnectorContext {
+    fn r#type(&self) -> String { self.t.clone() }
+
+    fn version(&self) -> String { self.version.clone() }
+}
+
+impl ConnectorWithContext for EFlintReasonerConnector {
+    type Context = EFlintReasonerConnectorContext;
 
     #[inline]
-    fn context(&self) -> Self::Context { JSON_BASE_SPEC_HASH }
-
-    #[inline]
-    fn full_context(&self) -> ReasonerConnectorFullContext {
-        ReasonerConnectorFullContext {
-            name: "EFLINT connector".into(),
-            t: EFLINT_JSON_ID.into(),
-            version: "0.1.0".into(),
+    fn context() -> Self::Context {
+        EFlintReasonerConnectorContext {
+            t: "eflint-json".into(),
+            version: "0.1.1".into(),
             base_defs: JSON_BASE_SPEC.into(),
             base_defs_hash: JSON_BASE_SPEC_HASH.into(),
         }
     }
-
+}
+#[async_trait::async_trait]
+impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L> for EFlintReasonerConnector {
     async fn execute_task(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
