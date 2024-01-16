@@ -34,7 +34,7 @@ where
 
     pub fn reasoner_connector_handlers(this: Arc<Self>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         let get_context = warp::get()
-            .and(warp::path!("reasoner-connector-context"))
+            .and(warp::path!("management" / "reasoner-connector-context"))
             .and(Self::with_reasoner_connector_api_auth(this.clone()))
             .and(Self::with_self(this.clone()))
             .and_then(Self::handle_reasoner_conn_ctx);
