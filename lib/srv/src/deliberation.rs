@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:45:18
 //  Last edited:
-//    16 Jan 2024, 15:37:26
+//    16 Jan 2024, 18:08:25
 //  Auto updated?
 //    Yes
 //
@@ -18,10 +18,12 @@ use std::sync::Arc;
 
 use audit_logger::{AuditLogger, SessionedConnectorAuditLogger};
 use auth_resolver::{AuthContext, AuthResolver};
+use brane_ast::SymTable;
 use deliberation::spec::{
     AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, DeliberationResponse, ExecuteTaskRequest,
     TaskExecResponse, Verdict, WorkflowValidationRequest, WorkflowValidationResponse,
 };
+use error_trace::ErrorTrace as _;
 use log::{debug, error, info};
 use policy::{Policy, PolicyDataAccess, PolicyDataError};
 use reasonerconn::ReasonerConnector;
@@ -230,12 +232,13 @@ where
 
         debug!("Compiling WIR workflow to Checker Workflow...");
 
-        let table = body.workflow.table.clone();
         // Read the body's workflow as a Checker Workflow
+        // NOTE: We need the deep clone of the table here to ensure that the `Arc` in the WIR is not duplicated. Nice design, Tim!
+        let table: SymTable = (*body.workflow.table).clone();
         let workflow: Workflow = match Workflow::try_from(body.workflow) {
             Ok(workflow) => workflow,
             Err(err) => {
-                return Ok(warp::reply::with_status(warp::reply::json(&err.to_string()), warp::hyper::StatusCode::BAD_REQUEST));
+                return Ok(warp::reply::with_status(warp::reply::json(&err.trace().to_string()), warp::hyper::StatusCode::BAD_REQUEST));
             },
         };
 

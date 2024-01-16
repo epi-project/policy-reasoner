@@ -2554,6 +2554,7 @@ version = "0.1.0"
 dependencies = [
  "audit-logger",
  "auth-resolver",
+ "brane-ast",
  "brane-exe",
  "chrono",
  "deliberation",
