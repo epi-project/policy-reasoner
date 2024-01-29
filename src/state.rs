@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:14:34
 //  Last edited:
-//    29 Jan 2024, 16:16:04
+//    29 Jan 2024, 16:56:55
 //  Auto updated?
 //    Yes
 //
@@ -26,11 +26,14 @@ use nested_cli_parser::NestedCliParser;
 use state_resolver::{State, StateResolver};
 #[cfg(feature = "brane-api-resolver")]
 use ::{
+    brane_cfg::info::Info,
+    brane_cfg::node::{NodeConfig, NodeSpecificConfig, WorkerUsecase},
     chrono::{DateTime, Utc},
+    enum_debug::EnumDebug as _,
     graphql_client::GraphQLQuery,
     log::{info, warn},
     reqwest::{Client, Request, Response, StatusCode},
-    serde::{Deserialize, Serialize},
+    specifications::address::Address,
     specifications::data::DataInfo,
     state_resolver::StateResolverError,
     std::fs::File,
@@ -132,13 +135,15 @@ pub enum BraneApiResolverError {
     /// Failed to parse the nested CLI arguments.
     CliArgumentsParse { raw: String, err: nested_cli_parser::map_parser::Error },
     /// Given the flag for the use case argument twice.
-    CliDuplicateUseCasePath,
+    CliDuplicateNodeFilePath,
     /// The user did not tell us the path to the use case file.
-    CliMissingUseCasePath,
+    CliMissingNodeFilePath,
     /// Failed to open the use case file given.
-    UseCaseFileOpen { path: PathBuf, err: std::io::Error },
+    NodeFileOpen { path: PathBuf, err: std::io::Error },
     /// Failed to read & parse the use case file given.
-    UseCaseFileRead { path: PathBuf, err: serde_yaml::Error },
+    NodeFileRead { path: PathBuf, err: brane_cfg::info::YamlError },
+    /// The given node file was not of the correct type.
+    NodeFileIncorrectKind { path: PathBuf, got: String, expected: String },
 
     /// A GraphQL request failed.
     GraphQl { from: String, errs: Option<GraphQlErrors> },
@@ -161,13 +166,16 @@ impl Display for BraneApiResolverError {
         use BraneApiResolverError::*;
         match self {
             CliArgumentsParse { raw, .. } => write!(f, "Failed to parse '{raw}' as CLI argument string for a BraneApiResolver"),
-            CliDuplicateUseCasePath => write!(f, "Duplicate specification of use case file path (both 'u=...' and 'use-case-path=...' given)"),
-            CliMissingUseCasePath => write!(
+            CliDuplicateNodeFilePath => write!(f, "Duplicate specification of node file path (both 'n=...' and 'node-file-path=...' given)"),
+            CliMissingNodeFilePath => write!(
                 f,
-                "Use case file path not specified (give it as either '--state-resolver \"u=...\"' or '--state-resolver \"use-case-path=...\"')"
+                "Node file path not specified (give it as either '--state-resolver \"n=...\"' or '--state-resolver \"node-file-path=...\"')"
             ),
-            UseCaseFileOpen { path, .. } => write!(f, "Failed to open use case file '{}'", path.display()),
-            UseCaseFileRead { path, .. } => write!(f, "Failed to read & parse use case file '{}' as YAML", path.display()),
+            NodeFileOpen { path, .. } => write!(f, "Failed to open node file '{}'", path.display()),
+            NodeFileRead { path, .. } => write!(f, "Failed to read & parse node file '{}' as YAML", path.display()),
+            NodeFileIncorrectKind { path, got, expected } => {
+                write!(f, "Given node file '{}' was for a {}, but it should be for a {}", path.display(), got, expected)
+            },
 
             GraphQl { from, .. } => write!(f, "Received GraphQL errors from '{from}'"),
             RequestBuild { kind, to, .. } => write!(f, "Failed to build {kind}-request to '{to}'"),
@@ -208,10 +216,11 @@ impl Error for BraneApiResolverError {
         use BraneApiResolverError::*;
         match self {
             CliArgumentsParse { err, .. } => Some(err),
-            CliDuplicateUseCasePath => None,
-            CliMissingUseCasePath => None,
-            UseCaseFileOpen { err, .. } => Some(err),
-            UseCaseFileRead { err, .. } => Some(err),
+            CliDuplicateNodeFilePath => None,
+            CliMissingNodeFilePath => None,
+            NodeFileOpen { err, .. } => Some(err),
+            NodeFileRead { err, .. } => Some(err),
+            NodeFileIncorrectKind { .. } => None,
 
             GraphQl { errs, .. } => errs.as_ref().map(|errs| {
                 // Bit ugly, but needed as cast from `&GraphQlErrors` to `&dyn Error`
@@ -231,28 +240,6 @@ impl Error for BraneApiResolverError {
 impl StateResolverError for BraneApiResolverError {
     #[inline]
     fn try_as_unknown_use_case(&self) -> Option<&String> { if let Self::UnknownUseCase { raw } = self { Some(raw) } else { None } }
-}
-
-
-
-
-
-/***** CONFIG *****/
-/// Defines the use case configuration file as far as the state resolver is concerned.
-#[cfg(feature = "brane-api-resolver")]
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct UseCaseFile {
-    /// The list of use cases.
-    use_cases: HashMap<String, UseCaseBrane>,
-}
-
-/// Defines what we need to know about a Brane instance map.
-#[cfg(feature = "brane-api-resolver")]
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct UseCaseBrane {
-    /// The address of the API registry to resolve state with.
-    #[serde(alias = "brane-api", alias = "registry")]
-    api: String,
 }
 
 
@@ -331,7 +318,7 @@ impl StateResolver for FileStateResolver {
 #[derive(Debug)]
 pub struct BraneApiResolver {
     /// A map from use case identifiers to where we can find the relevant Brane API registry.
-    use_cases: HashMap<String, UseCaseBrane>,
+    use_cases: HashMap<String, WorkerUsecase>,
 }
 
 #[cfg(feature = "brane-api-resolver")]
@@ -349,35 +336,44 @@ impl BraneApiResolver {
     pub fn new(cli_args: String) -> Result<Self, BraneApiResolverError> {
         // Parse the arguments using the [`MapParser`].
         debug!("Parsing nested arguments for BraneApiResolver");
-        let parser = MapParser::new(["u", "use-case-path"]);
+        let parser = MapParser::new(["n", "node-file-path"]);
         let args: HashMap<String, Option<String>> = match parser.parse(&cli_args) {
             Ok(args) => args,
             Err(err) => return Err(BraneApiResolverError::CliArgumentsParse { raw: cli_args, err }),
         };
 
         // See what to do with it
-        let use_cases: UseCaseFile = match (args.get("u".into()), args.get("use-case-path")) {
-            (Some(_), Some(_)) => return Err(BraneApiResolverError::CliDuplicateUseCasePath),
+        let use_cases: HashMap<String, WorkerUsecase> = match (args.get("n".into()), args.get("node-file-path")) {
+            (Some(_), Some(_)) => return Err(BraneApiResolverError::CliDuplicateNodeFilePath),
             (Some(Some(path)), _) | (_, Some(Some(path))) => {
                 // Attempt to open the file
-                debug!("Opening use case file '{path}'...");
+                debug!("Opening node file '{path}'...");
                 let handle: File = match File::open(path) {
                     Ok(handle) => handle,
-                    Err(err) => return Err(BraneApiResolverError::UseCaseFileOpen { path: path.into(), err }),
+                    Err(err) => return Err(BraneApiResolverError::NodeFileOpen { path: path.into(), err }),
                 };
 
                 // Attempt to parse the file
-                debug!("Parsing use case file '{path}'...");
-                match serde_yaml::from_reader(handle) {
-                    Ok(use_cases) => use_cases,
-                    Err(err) => return Err(BraneApiResolverError::UseCaseFileRead { path: path.into(), err }),
+                debug!("Parsing node file '{path}'...");
+                match NodeConfig::from_reader(handle) {
+                    Ok(use_cases) => match use_cases.node {
+                        NodeSpecificConfig::Worker(worker) => worker.usecases,
+                        node => {
+                            return Err(BraneApiResolverError::NodeFileIncorrectKind {
+                                path:     path.into(),
+                                got:      node.variant().to_string(),
+                                expected: "Worker".into(),
+                            });
+                        },
+                    },
+                    Err(err) => return Err(BraneApiResolverError::NodeFileRead { path: path.into(), err }),
                 }
             },
-            _ => return Err(BraneApiResolverError::CliMissingUseCasePath),
+            _ => return Err(BraneApiResolverError::CliMissingNodeFilePath),
         };
 
         // Done, store the list of use cases!
-        Ok(Self { use_cases: use_cases.use_cases })
+        Ok(Self { use_cases })
     }
 }
 
@@ -390,7 +386,7 @@ impl StateResolver for BraneApiResolver {
         info!("Resolving state using `brane-api` for use-case '{use_case}'");
 
         // Attempt to find a registry to call
-        let address: &str = match self.use_cases.get(&use_case) {
+        let address: &Address = match self.use_cases.get(&use_case) {
             Some(address) => &address.api,
             None => return Err(BraneApiResolverError::UnknownUseCase { raw: use_case }),
         };
