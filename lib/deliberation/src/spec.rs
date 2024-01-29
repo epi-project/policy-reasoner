@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 /// certain task on this node
 #[derive(Serialize, Deserialize)]
 pub struct ExecuteTaskRequest {
+    /// Some identifier that allows the policy reasoner to assume a different context.
+    ///
+    /// Note that not any identifier is accepted. Which are depends on which plugins used.
+    pub use_case: String,
     /// Workflow definition
     pub workflow: Workflow,
     /// The location of the task we're examining in the given `workflow`.
@@ -16,6 +20,11 @@ pub struct ExecuteTaskRequest {
 /// can be accessed
 #[derive(Serialize, Deserialize)]
 pub struct AccessDataRequest {
+    /// Some identifier that allows the policy reasoner to assume a different context.
+    ///
+    /// Note that not any identifier is accepted. Which are depends on which plugins used.
+    pub use_case: String,
+    /// Workflow definition
     pub workflow: Workflow,
     /// Identifier for the requested dataset
     pub data_id:  String,
@@ -28,6 +37,10 @@ pub struct AccessDataRequest {
 /// Used on the 'central' side to enforce 'central' policies
 #[derive(Serialize, Deserialize)]
 pub struct WorkflowValidationRequest {
+    /// Some identifier that allows the policy reasoner to assume a different context.
+    ///
+    /// Note that not any identifier is accepted. Which are depends on which plugins used.
+    pub use_case: String,
     /// Workflow definition
     pub workflow: Workflow,
 }

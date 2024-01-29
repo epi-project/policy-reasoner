@@ -1,0 +1,15 @@
+[package]
+name = "nested-cli-parser"
+version = "0.1.0"
+edition = "2021"
+repository.workspace = true
+authors = [ "Bas Kloosterman", "Tim Müller" ]
+
+
+[dependencies]
+unicode-segmentation = { version = "1.10", optional = true }
+
+
+[features]
+default = [ "map_parser" ]
+map_parser = [ "dep:unicode-segmentation" ]

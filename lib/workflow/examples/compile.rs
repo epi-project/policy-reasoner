@@ -4,7 +4,7 @@
 //  Created:
 //    31 Oct 2023, 14:20:54
 //  Last edited:
-//    07 Dec 2023, 11:30:00
+//    29 Jan 2024, 15:57:57
 //  Auto updated?
 //    Yes
 //
@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Result as FResult};
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::{error, fs};
 
 use brane_ast::{ast, compile_program, CompileResult, ParserOptions};
@@ -208,6 +209,9 @@ struct Arguments {
         help = "The location where we're reading data from to compile the test files. Ignored if input language is not BraneScript."
     )]
     data_path: PathBuf,
+    /// The user to add at the bottom of the workflow.
+    #[clap(short, long, help = "If given, determines the name to add to the compiled workflow. Chooses a random one if omitted.")]
+    user: Option<String>,
 }
 
 
@@ -289,7 +293,9 @@ fn main() {
         };
 
         // Plan using the dummy planner of Brane
-        let wir: ast::Workflow = if args.plan { brane_exe::dummy::DummyPlanner::plan(&mut HashMap::new(), wir) } else { wir };
+        let mut wir: ast::Workflow = if args.plan { brane_exe::dummy::DummyPlanner::plan(&mut HashMap::new(), wir) } else { wir };
+        // Also assign a dummy user if not given
+        wir.user = Arc::new(Some(args.user.clone().unwrap_or_else(|| names::three::usualcase::rand().into())));
 
         // If debug, write the representation
         if log::max_level() >= Level::Debug {

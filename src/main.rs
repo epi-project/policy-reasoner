@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:32:03
 //  Last edited:
-//    09 Jan 2024, 13:58:33
+//    19 Jan 2024, 16:28:23
 //  Auto updated?
 //    Yes
 //
@@ -26,7 +26,6 @@ use crate::auth::{JwtConfig, JwtResolver, KidResolver};
 use crate::eflint::EFlintReasonerConnector;
 use crate::logger::FileLogger;
 use crate::sqlite::SqlitePolicyDataStore;
-use crate::state::FileStateResolver;
 
 pub mod auth;
 pub mod eflint;
@@ -66,7 +65,44 @@ struct Arguments {
     /// The address on which to bind ourselves.
     #[clap(short, long, env, default_value = "127.0.0.1:3030", help = "The address on which to bind the server.")]
     address: SocketAddr,
+
+    /// Shows the help menu for the state resolver.
+    #[clap(long, help = "If given, shows the possible arguments to pass to the state resolver plugin in '--state-resolver'.")]
+    help_state_resolver: bool,
+    /// Arguments specific to the state resolver.
+    #[clap(
+        short,
+        long,
+        env,
+        help = "Arguments to pass to the current state resolver plugin. To find which are possible, see '--help-state-resolver'."
+    )]
+    state_resolver:      Option<String>,
 }
+
+
+
+
+
+/***** PLUGINS *****/
+/// The plugin used to do the audit logging.
+type AuditLogPlugin = FileLogger;
+
+/// The plugin used to do authentication for the policy expert API.
+type PolicyAuthResolverPlugin = JwtResolver<KidResolver>;
+/// The plugin used to do authentication for the deliberation API.
+type DeliberationAuthResolverPlugin = JwtResolver<KidResolver>;
+
+/// The plugin used to interact with the policy store.
+type PolicyStorePlugin = SqlitePolicyDataStore;
+
+/// The plugin used to interact with the backend reasoner.
+type ReasonerConnectorPlugin = EFlintReasonerConnector;
+
+/// The plugin used to resolve policy input state.
+#[cfg(feature = "brane-api-resolver")]
+type StateResolverPlugin = crate::state::BraneApiResolver;
+#[cfg(not(feature = "brane-api-resolver"))]
+type StateResolverPlugin = crate::state::FileStateResolver;
 
 
 
@@ -84,18 +120,24 @@ async fn main() {
     }
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
-    let pauthresolver = get_pauth_resolver();
-    let logger = FileLogger::new("./audit-log.log");
-    let dauthresolver = get_dauth_resolver();
-    let pstore = SqlitePolicyDataStore::new("./data/policy.db");
-    let rconn = EFlintReasonerConnector::new("http://localhost:8080".into());
-    let sresolve = match FileStateResolver::new("./examples/eflint_reasonerconn/example-state.json") {
+    // Handle help
+
+
+    // Initialize the plugins
+    let logger: AuditLogPlugin = FileLogger::new("./audit-log.log");
+    let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
+    let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();
+    let pstore: PolicyStorePlugin = SqlitePolicyDataStore::new("./data/policy.db");
+    let rconn: ReasonerConnectorPlugin = EFlintReasonerConnector::new("http://localhost:8080".into());
+    let sresolve: StateResolverPlugin = match StateResolverPlugin::new(args.state_resolver.unwrap_or_else(String::new)) {
         Ok(sresolve) => sresolve,
         Err(err) => {
             error!("{}", err.trace());
             std::process::exit(1);
         },
     };
+
+    // Run them!
     let server = Srv::new(args.address, logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
 
     server.run().await;

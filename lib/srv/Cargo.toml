@@ -24,6 +24,6 @@ serde_json = {version = "1.0" , features = ["raw_value"]}
 state-resolver = { path = "../state-resolver" }
 tokio = { version = "1", features = ["full"] }
 tokio-scoped = "0.2"
-uuid ={version="*", features = ["v4"]}
+uuid ={version="1.7", features = ["v4"]}
 workflow = { path = "../workflow" }
 warp = "0.3"

@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:45:18
 //  Last edited:
-//    16 Jan 2024, 18:08:25
+//    18 Jan 2024, 15:55:17
 //  Auto updated?
 //    Yes
 //
@@ -135,14 +135,15 @@ where
         body: ExecuteTaskRequest,
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
         info!("Handling exec-task request");
+        let ExecuteTaskRequest { use_case, workflow, task_id } = body;
         let verdict_reference: String = uuid::Uuid::new_v4().into();
 
         // First, resolve the task ID in the workflow to the ProgramCounter ID needed for `task_id` below (and before we pass it by ownership to be converted)
         debug!("Compiling WIR workflow to Checker Workflow...");
-        let task_pc: String = body.task_id.resolved(&body.workflow.table).to_string();
+        let task_pc: String = task_id.resolved(&workflow.table).to_string();
 
         // Read the body's workflow as a Checker Workflow
-        let workflow: Workflow = match Workflow::try_from(body.workflow) {
+        let workflow: Workflow = match Workflow::try_from(workflow) {
             Ok(workflow) => workflow,
             Err(err) => {
                 return Ok(warp::reply::with_status(warp::reply::json(&err.to_string()), warp::hyper::StatusCode::BAD_REQUEST));
@@ -153,7 +154,7 @@ where
         debug!("Considering task '{}' in workflow '{}'", task_id, workflow.id);
 
         debug!("Retrieving state...");
-        let state = match this.stateresolver.get_state().await {
+        let state = match this.stateresolver.get_state(use_case).await {
             Ok(state) => state,
             Err(err) => {
                 error!("Could not retrieve state: {err} | request id: {verdict_reference}");
@@ -227,6 +228,7 @@ where
         body: AccessDataRequest,
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
         info!("Handling access-data request");
+        let AccessDataRequest { use_case, workflow, data_id, task_id } = body;
 
         let verdict_reference: String = uuid::Uuid::new_v4().into();
 
@@ -234,8 +236,8 @@ where
 
         // Read the body's workflow as a Checker Workflow
         // NOTE: We need the deep clone of the table here to ensure that the `Arc` in the WIR is not duplicated. Nice design, Tim!
-        let table: SymTable = (*body.workflow.table).clone();
-        let workflow: Workflow = match Workflow::try_from(body.workflow) {
+        let table: SymTable = (*workflow.table).clone();
+        let workflow: Workflow = match Workflow::try_from(workflow) {
             Ok(workflow) => workflow,
             Err(err) => {
                 return Ok(warp::reply::with_status(warp::reply::json(&err.trace().to_string()), warp::hyper::StatusCode::BAD_REQUEST));
@@ -243,7 +245,7 @@ where
         };
 
         debug!("Retrieving state...");
-        let state = match this.stateresolver.get_state().await {
+        let state = match this.stateresolver.get_state(use_case).await {
             Ok(state) => state,
             Err(err) => {
                 error!("Could not retrieve state: {err} | request id: {verdict_reference}");
@@ -265,7 +267,7 @@ where
         };
         debug!("Got policy with {} bodies", policy.content.len());
 
-        let task_id: Option<String> = match body.task_id {
+        let task_id: Option<String> = match task_id {
             Some(task_id) => {
                 // First, resolve the task ID in the workflow to the ProgramCounter ID needed for `task_id` below (and before we pass it by ownership to be converted)
                 let task_pc: String = task_id.resolved(&table).to_string();
@@ -287,7 +289,7 @@ where
                     reasons_for_denial: vec![].into(),
                 });
 
-                this.logger.log_data_access_request(&verdict_reference, &auth_ctx, -1, &state, &workflow, &body.data_id, &task_id).await.map_err(
+                this.logger.log_data_access_request(&verdict_reference, &auth_ctx, -1, &state, &workflow, &data_id, &task_id).await.map_err(
                     |err| {
                         debug!("Could not log data access request to audit log : {:?} | request id: {}", err, verdict_reference);
                         warp::reject::custom(err)
@@ -305,7 +307,7 @@ where
         debug!("Got policy with {} bodies", policy.content.len());
 
         this.logger
-            .log_data_access_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &body.data_id, &task_id)
+            .log_data_access_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &data_id, &task_id)
             .await
             .map_err(|err| {
                 debug!("Could not log data access request to audit log : {:?} | request id: {}", err, verdict_reference);
@@ -321,7 +323,7 @@ where
                 policy,
                 state,
                 workflow,
-                body.data_id,
+                data_id,
                 task_id,
             )
             .await
@@ -359,12 +361,13 @@ where
         body: WorkflowValidationRequest,
     ) -> Result<warp::reply::WithStatus<warp::reply::Json>, warp::reject::Rejection> {
         info!("Handling validate request");
+        let WorkflowValidationRequest { use_case, workflow } = body;
 
         let verdict_reference: String = uuid::Uuid::new_v4().into();
 
         debug!("Compiling WIR workflow to Checker Workflow...");
         // Read the body's workflow as a Checker Workflow
-        let workflow: Workflow = match Workflow::try_from(body.workflow) {
+        let workflow: Workflow = match Workflow::try_from(workflow) {
             Ok(workflow) => workflow,
             Err(err) => {
                 return Ok(warp::reply::with_status(warp::reply::json(&err.to_string()), warp::hyper::StatusCode::BAD_REQUEST));
@@ -372,7 +375,7 @@ where
         };
 
         debug!("Retrieving state...");
-        let state = match this.stateresolver.get_state().await {
+        let state = match this.stateresolver.get_state(use_case).await {
             Ok(state) => state,
             Err(err) => {
                 error!("Could not retrieve state: {err} | request id: {verdict_reference}");

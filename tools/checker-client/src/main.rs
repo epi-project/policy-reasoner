@@ -4,7 +4,7 @@
 //  Created:
 //    15 Dec 2023, 15:08:35
 //  Last edited:
-//    19 Dec 2023, 22:59:23
+//    29 Jan 2024, 16:14:40
 //  Auto updated?
 //    Yes
 //
@@ -42,7 +42,6 @@ use jwt::SignWithKey as _;
 use log::{debug, error, info, trace as trace_log, warn, LevelFilter};
 use policy::Policy;
 use rand::distributions::Alphanumeric;
-use rand::seq::SliceRandom as _;
 use rand::Rng as _;
 use reqwest::blocking::{Client, Request, Response};
 use reqwest::StatusCode;
@@ -54,12 +53,6 @@ use srv::models::{AddPolicyPostModel, PolicyContentPostModel, SetVersionPostMode
 
 
 /***** CONSTANTS *****/
-/// Set of random names to assume
-const NAMES: [&str; 26] = [
-    "Amy", "Bob", "Cho", "Dan", "Eve", "Fey", "Guy", "Han", "Ian", "Joe", "Ken", "Lea", "Mel", "Noa", "Oni", "Pam", "Qin", "Ron", "Sam", "Tim",
-    "Uwe", "Vic", "Wes", "Xin", "Yas", "Zoe",
-];
-
 /// The key to use to create JWTs (for testing purposes only).
 const JWT_KEY: &[u8] = b"wL5hkXZpM929BXRCMgVt1GNdM3cSDovRZsU_mPaOPrNJ8x9TvOv9yb3Ps5GkIqdfCyXWM9HEzh0zNDvc_pA_BqAlLiCtlrSajDtCza42HQgWkE71ocWFB5yMkeVcDWaBwUcDm_lPiy-BdfGjmpdox8H7-mOQoieEMNt8hXQR5E7rA3PC9Ih8lma0pFtkRkuCDYyLmBH7geajvkTE77pB5YVUQ57Qm4uijpBus8083tN2UP-oCqBmpAfZ0BtyGY3oFlRk3sf_HwhSz2gFalYUuK8379hY4BOzuM80pIL18VHVzFgOwRI48RBCk21M5aoFiLMc5Gp9VTKKd9VxQNgExA";
 
@@ -289,6 +282,13 @@ struct CheckArguments {
     /// Subcommand further
     #[clap(subcommand)]
     action: CheckSubcommands,
+
+    /// A use-case to perform the command under.
+    #[clap(short, long, default_value = "default", global = true, help = "Determines the use-case as which to report to the checker.")]
+    use_case:     String,
+    /// A user to designate as receiver of results.
+    #[clap(short, long, global = true, help = "Determines who will be reported as receiving the final result of the submitted workflow.")]
+    result_owner: Option<String>,
 }
 
 /// Defines nested subcommands for the `checker-client check` subcommand.
@@ -569,7 +569,7 @@ fn main() {
     // Resolve the name
     let name: Cow<str> = match args.name {
         Some(name) => Cow::Owned(name),
-        None => Cow::Borrowed(NAMES.choose(&mut rand::thread_rng()).unwrap()),
+        None => Cow::Borrowed(names::three::usualcase::rand()),
     };
     debug!("Working as '{name}'");
 
@@ -1023,8 +1023,11 @@ fn main() {
                     debug!("Workflow after planning:\n\n{}\n", String::from_utf8_lossy(&buf));
                 }
 
+                // Also add a user
+                wir.user = Arc::new(Some(check.result_owner.unwrap_or_else(|| names::three::usualcase::rand().into())));
+
                 // Now put the workflow in a request and serialize it
-                let body: Vec<u8> = match serde_json::to_string(&WorkflowValidationRequest { workflow: wir }) {
+                let body: Vec<u8> = match serde_json::to_string(&WorkflowValidationRequest { use_case: check.use_case, workflow: wir }) {
                     Ok(body) => body.into_bytes(),
                     Err(err) => {
                         error!("{}", trace!(("Failed to serialize given Brane WIR in a WorkflowValidationRequest to JSON"), err));

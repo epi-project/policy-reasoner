@@ -37,6 +37,10 @@ chrono = "0.4"
 reqwest = "*"
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
+graphql_client = { version = "0.13", optional = true }
+nested-cli-parser = { path = "lib/nested-cli-parser" }
+specifications = { git = "https://github.com/epi-project/brane", branch = "develop", optional = true }
+uuid = { version = "1.7", features = ["serde", "v4"], optional = true }
 
 
 [build-dependencies]
@@ -44,6 +48,10 @@ base16ct = { version = "0.2", features = ["alloc"] }
 eflint-to-json = { path = "./lib/eflint-to-json" }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 sha2 = "0.10"
+
+
+[features]
+brane-api-resolver = [ "dep:graphql_client", "dep:specifications", "dep:uuid" ]
 
 
 [workspace]
@@ -58,6 +66,7 @@ members = [
     "lib/state-resolver",
     "lib/workflow",
     "lib/audit-logger",
+    "lib/nested-cli-parser",
 
     "tools/checker-client",
     "tools/policy-builder",
