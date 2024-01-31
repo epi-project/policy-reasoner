@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:14:34
 //  Last edited:
-//    29 Jan 2024, 16:56:55
+//    31 Jan 2024, 14:42:50
 //  Auto updated?
 //    Yes
 //
@@ -279,7 +279,7 @@ impl FileStateResolver {
         let path: PathBuf = match (args.get("p".into()), args.get("path")) {
             (Some(_), Some(_)) => return Err(FileStateResolverError::CliDuplicatePath),
             (Some(Some(path)), _) | (_, Some(Some(path))) => path.into(),
-            _ => return Err(FileStateResolverError::CliMissingPath),
+            _ => concat!(env!("CARGO_MANIFEST_DIR"), "/examples/eflint_reasonerconn/example-state.json").into(),
         };
 
         // Read the file in one go
