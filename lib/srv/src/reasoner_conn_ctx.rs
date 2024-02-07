@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use audit_logger::AuditLogger;
+use audit_logger::{AuditLogger, ConnectorContext};
 use auth_resolver::{AuthContext, AuthResolver};
 use policy::PolicyDataAccess;
 use reasonerconn::ReasonerConnector;
@@ -10,6 +10,12 @@ use state_resolver::StateResolver;
 use warp::Filter;
 
 use crate::Srv;
+
+#[derive(Serialize)]
+struct ConnectorContextViewModel<T> {
+    context: T,
+    hash:    String,
+}
 
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where
@@ -27,7 +33,7 @@ where
     // 200
 
     async fn handle_reasoner_conn_ctx(_: AuthContext, _this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        Ok(warp::reply::json(&C::context()))
+        Ok(warp::reply::json(&ConnectorContextViewModel { context: Box::new(C::context()), hash: C::hash() }))
     }
 
     pub fn reasoner_connector_handlers(this: Arc<Self>) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
