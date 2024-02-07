@@ -23,7 +23,7 @@ use log::{error, info};
 use srv::Srv;
 
 use crate::auth::{JwtConfig, JwtResolver, KidResolver};
-use crate::eflint::EFlintReasonerConnector;
+use crate::eflint::{EFlintLeakNoErrors, EFlintReasonerConnector};
 use crate::logger::FileLogger;
 use crate::sqlite::SqlitePolicyDataStore;
 
@@ -96,17 +96,13 @@ type DeliberationAuthResolverPlugin = JwtResolver<KidResolver>;
 type PolicyStorePlugin = SqlitePolicyDataStore;
 
 /// The plugin used to interact with the backend reasoner.
-type ReasonerConnectorPlugin = EFlintReasonerConnector;
+type ReasonerConnectorPlugin = EFlintReasonerConnector<EFlintLeakNoErrors>;
 
 /// The plugin used to resolve policy input state.
 #[cfg(feature = "brane-api-resolver")]
 type StateResolverPlugin = crate::state::BraneApiResolver;
 #[cfg(not(feature = "brane-api-resolver"))]
 type StateResolverPlugin = crate::state::FileStateResolver;
-
-
-
-
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
@@ -128,7 +124,8 @@ async fn main() {
     let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();
     let pstore: PolicyStorePlugin = SqlitePolicyDataStore::new("./data/policy.db");
-    let rconn: ReasonerConnectorPlugin = EFlintReasonerConnector::new("http://localhost:8080".into());
+    let rconn: ReasonerConnectorPlugin = EFlintReasonerConnector::new("http://localhost:8080".into(), EFlintLeakNoErrors {});
+
     let sresolve: StateResolverPlugin = match StateResolverPlugin::new(args.state_resolver.unwrap_or_else(String::new)) {
         Ok(sresolve) => sresolve,
         Err(err) => {

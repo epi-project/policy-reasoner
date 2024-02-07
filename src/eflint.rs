@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use audit_logger::{ConnectorContext, ConnectorWithContext, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
 use eflint_json::spec::auxillary::Version;
 use eflint_json::spec::{
-    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, Request, RequestCommon, RequestPhrases,
+    ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate, PhraseResult, Request, RequestCommon,
+    RequestPhrases,
 };
 use log::{debug, error, info};
 use policy::{Policy, PolicyContent};
@@ -73,19 +74,51 @@ const JSON_BASE_SPEC_HASH: &str = env!("BASE_DEFS_EFLINT_JSON_HASH");
 
 
 
-
-
-/***** LIBRARY *****/
-pub struct EFlintReasonerConnector {
-    pub addr:  String,
-    base_defs: Vec<Phrase>,
+pub trait EFlintErrorHandler {
+    fn extract_errors(&self, _: Option<&PhraseResult>) -> Vec<String> { vec![] }
 }
 
-impl EFlintReasonerConnector {
-    pub fn new(addr: String) -> Self {
+pub struct EFlintLeakNoErrors {}
+
+impl EFlintErrorHandler for EFlintLeakNoErrors {}
+
+/// EFlintLeakPrefixErrors is an e-flint error handler
+/// that returns errors if the violation identifier start with a certain
+/// prefix. Which prefix is matched against can be configured.
+pub struct EFlintLeakPrefixErrors {
+    prefix: String,
+}
+
+impl EFlintLeakPrefixErrors {
+    pub fn new(prefix: String) -> Self { Self { prefix } }
+}
+
+impl EFlintErrorHandler for EFlintLeakPrefixErrors {
+    fn extract_errors(&self, result: Option<&PhraseResult>) -> Vec<String> {
+        result
+            .map(|r| match r {
+                eflint_json::spec::PhraseResult::StateChange(sc) => match &sc.violations {
+                    Some(v) => v.iter().filter(|v| v.identifier.starts_with(&self.prefix)).map(|v| v.identifier.clone()).collect(),
+                    None => vec![],
+                },
+                _ => vec![],
+            })
+            .unwrap_or_else(Vec::new)
+    }
+}
+
+/***** LIBRARY *****/
+pub struct EFlintReasonerConnector<T: EFlintErrorHandler> {
+    pub addr:    String,
+    err_handler: T,
+    base_defs:   Vec<Phrase>,
+}
+
+impl<T: EFlintErrorHandler> EFlintReasonerConnector<T> {
+    pub fn new(addr: String, err_handler: T) -> Self {
         info!("Creating new EFlintReasonerConnector to '{addr}'");
         let base_defs: RequestPhrases = serde_json::from_str(JSON_BASE_SPEC).unwrap();
-        EFlintReasonerConnector { addr, base_defs: base_defs.phrases }
+        EFlintReasonerConnector { addr, base_defs: base_defs.phrases, err_handler }
     }
 
     fn conv_state_to_eflint(&self, state: State) -> Vec<Phrase> {
@@ -258,20 +291,7 @@ impl EFlintReasonerConnector {
         })?;
 
         debug!("Analysing response...");
-        let _errors: Vec<String> = response
-            .results
-            .last()
-            .map(|r| match r {
-                eflint_json::spec::PhraseResult::StateChange(sc) => match &sc.violations {
-                    Some(v) => v.iter().map(|v| v.identifier.clone()).collect(),
-                    None => vec![],
-                },
-                _ => vec![],
-            })
-            .unwrap_or_else(Vec::new);
-
-        // For now don't leak errors
-        let errors: Vec<String> = Vec::new();
+        let errors: Vec<String> = self.err_handler.extract_errors(response.results.last());
 
         // TODO proper handle invalid query and unexpected result
         let success: Result<bool, String> = response
@@ -324,21 +344,23 @@ impl ConnectorContext for EFlintReasonerConnectorContext {
     fn version(&self) -> String { self.version.clone() }
 }
 
-impl ConnectorWithContext for EFlintReasonerConnector {
+impl<T: EFlintErrorHandler> ConnectorWithContext for EFlintReasonerConnector<T> {
     type Context = EFlintReasonerConnectorContext;
 
     #[inline]
     fn context() -> Self::Context {
         EFlintReasonerConnectorContext {
             t: "eflint-json".into(),
-            version: "0.1.1".into(),
+            version: "0.1.2".into(),
             base_defs: JSON_BASE_SPEC.into(),
             base_defs_hash: JSON_BASE_SPEC_HASH.into(),
         }
     }
 }
 #[async_trait::async_trait]
-impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L> for EFlintReasonerConnector {
+impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static, T: EFlintErrorHandler + Send + Sync + 'static> ReasonerConnector<L>
+    for EFlintReasonerConnector<T>
+{
     async fn execute_task(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
