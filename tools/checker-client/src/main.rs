@@ -4,7 +4,7 @@
 //  Created:
 //    15 Dec 2023, 15:08:35
 //  Last edited:
-//    29 Jan 2024, 16:14:40
+//    07 Feb 2024, 11:56:13
 //  Auto updated?
 //    Yes
 //
@@ -44,7 +44,7 @@ use policy::Policy;
 use rand::distributions::Alphanumeric;
 use rand::Rng as _;
 use reqwest::blocking::{Client, Request, Response};
-use reqwest::StatusCode;
+use reqwest::{Method, StatusCode};
 use serde_json::value::RawValue;
 use sha2::Sha256;
 use specifications::data::DataIndex;
@@ -55,6 +55,15 @@ use srv::models::{AddPolicyPostModel, PolicyContentPostModel, SetVersionPostMode
 /***** CONSTANTS *****/
 /// The key to use to create JWTs (for testing purposes only).
 const JWT_KEY: &[u8] = b"wL5hkXZpM929BXRCMgVt1GNdM3cSDovRZsU_mPaOPrNJ8x9TvOv9yb3Ps5GkIqdfCyXWM9HEzh0zNDvc_pA_BqAlLiCtlrSajDtCza42HQgWkE71ocWFB5yMkeVcDWaBwUcDm_lPiy-BdfGjmpdox8H7-mOQoieEMNt8hXQR5E7rA3PC9Ih8lma0pFtkRkuCDYyLmBH7geajvkTE77pB5YVUQ57Qm4uijpBus8083tN2UP-oCqBmpAfZ0BtyGY3oFlRk3sf_HwhSz2gFalYUuK8379hY4BOzuM80pIL18VHVzFgOwRI48RBCk21M5aoFiLMc5Gp9VTKKd9VxQNgExA";
+
+/// The checker path to the policy API's policy list request path.
+const POLICY_ADD_POLICY_PATH: (Method, &'static str) = (Method::POST, "v1/management/policies");
+/// The checker path to the policy API's set-active-policy request path.
+const POLICY_SET_ACTIVE_POLICY_PATH: (Method, &'static str) = (Method::PUT, "v1/management/policies/active");
+/// The checker path to the policy API's get-active-policy request path.
+const POLICY_GET_ACTIVE_POLICY_PATH: (Method, &'static str) = (Method::GET, "v1/management/policies/active");
+/// The checker path to the deliberation API's workflow check request path.
+const DELIB_WORKFLOW_VALIDATION_PATH: (Method, &'static str) = (Method::POST, "v1/deliberation/execute-workflow");
 
 
 
@@ -676,11 +685,11 @@ fn main() {
                 };
 
                 // Build a request to the checker
-                let addr: String = format!("http://{}:{}/v1/policies", args.address, args.port);
+                let addr: String = format!("http://{}:{}/{}", args.address, args.port, POLICY_ADD_POLICY_PATH.1);
                 debug!("Building request to checker '{addr}'...");
                 let client: Client = Client::new();
                 let req: Request = match client
-                    .post(&addr)
+                    .request(POLICY_ADD_POLICY_PATH.0, &addr)
                     .header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt}"))
                     .header(reqwest::header::CONTENT_LENGTH, body.len())
                     .body(body)
@@ -742,10 +751,14 @@ fn main() {
                 };
 
                 // Build a request to the checker
-                let addr: String = format!("http://{}:{}/v1/policies/active", args.address, args.port);
+                let addr: String = format!("http://{}:{}/{}", args.address, args.port, POLICY_GET_ACTIVE_POLICY_PATH.1);
                 debug!("Building request to checker '{addr}'...");
                 let client: Client = Client::new();
-                let req: Request = match client.get(&addr).header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt}")).build() {
+                let req: Request = match client
+                    .request(POLICY_GET_ACTIVE_POLICY_PATH.0, &addr)
+                    .header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt}"))
+                    .build()
+                {
                     Ok(req) => req,
                     Err(err) => {
                         error!("{}", trace!(("Failed to build request to '{}:{}'", args.address, args.port), err));
@@ -856,11 +869,11 @@ fn main() {
                 };
 
                 // Build a request to the checker
-                let addr: String = format!("http://{}:{}/v1/policies/active", args.address, args.port);
+                let addr: String = format!("http://{}:{}/{}", args.address, args.port, POLICY_SET_ACTIVE_POLICY_PATH.1);
                 debug!("Building request to checker '{addr}'...");
                 let client: Client = Client::new();
                 let req: Request = match client
-                    .put(&addr)
+                    .request(POLICY_SET_ACTIVE_POLICY_PATH.0, &addr)
                     .header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt}"))
                     .header(reqwest::header::CONTENT_LENGTH, body.len())
                     .body(body)
@@ -1036,11 +1049,11 @@ fn main() {
                 };
 
                 // Build a request to the checker
-                let addr: String = format!("http://{}:{}/v1/deliberation/execute-workflow", args.address, args.port);
+                let addr: String = format!("http://{}:{}/{}", args.address, args.port, DELIB_WORKFLOW_VALIDATION_PATH.1);
                 debug!("Building request to checker '{addr}'...");
                 let client: Client = Client::new();
                 let req: Request = match client
-                    .post(&addr)
+                    .request(DELIB_WORKFLOW_VALIDATION_PATH.0, &addr)
                     .header(reqwest::header::AUTHORIZATION, format!("Bearer {jwt}"))
                     .header(reqwest::header::CONTENT_LENGTH, body.len())
                     .body(body)

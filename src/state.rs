@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:14:34
 //  Last edited:
-//    31 Jan 2024, 14:42:50
+//    07 Feb 2024, 18:07:34
 //  Auto updated?
 //    Yes
 //
@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 use log::debug;
 use nested_cli_parser::map_parser::MapParser;
-use nested_cli_parser::NestedCliParser;
+use nested_cli_parser::{NestedCliParser, NestedCliParserHelpFormatter};
 use state_resolver::{State, StateResolver};
 #[cfg(feature = "brane-api-resolver")]
 use ::{
@@ -269,16 +269,15 @@ impl FileStateResolver {
     pub fn new(cli_args: String) -> Result<Self, FileStateResolverError> {
         // Parse the arguments using the [`MapParser`].
         debug!("Parsing nested arguments for FileStateResolver");
-        let parser = MapParser::new(["p", "path"]);
+        let parser = MapParser::new(Self::cli_args());
         let args: HashMap<String, Option<String>> = match parser.parse(&cli_args) {
             Ok(args) => args,
             Err(err) => return Err(FileStateResolverError::CliArgumentsParse { raw: cli_args, err }),
         };
 
         // See what to do with it
-        let path: PathBuf = match (args.get("p".into()), args.get("path")) {
-            (Some(_), Some(_)) => return Err(FileStateResolverError::CliDuplicatePath),
-            (Some(Some(path)), _) | (_, Some(Some(path))) => path.into(),
+        let path: PathBuf = match args.get("path") {
+            Some(Some(path)) => path.into(),
             _ => concat!(env!("CARGO_MANIFEST_DIR"), "/examples/eflint_reasonerconn/example-state.json").into(),
         };
 
@@ -298,6 +297,35 @@ impl FileStateResolver {
 
         // Build ourselves with it
         Ok(Self { state })
+    }
+
+    /// Returns the arguments necessary to build the parser for the FileStateResolver.
+    ///
+    /// # Returns
+    /// A vector of arguments appropriate to use to build a [`MapParser`].
+    #[inline]
+    fn cli_args() -> [(char, &'static str, &'static str); 1] {
+        [(
+            'p',
+            "path",
+            concat!(
+                "The path to the file that we read the state from. Default: '",
+                env!("CARGO_MANIFEST_DIR"),
+                "/examples/eflint_reasonerconn/example-state.json'"
+            ),
+        )]
+    }
+
+    /// Returns a formatter that can be printed to understand the arguments to this resolver.
+    ///
+    /// # Arguments
+    /// - `short`: A shortname for the argument that contains the nested arguments we parse.
+    /// - `long`: A longname for the argument that contains the nested arguments we parse.
+    ///
+    /// # Returns
+    /// A [`NestedCliParserHelpFormatter`] that implements [`Display`].
+    pub fn help<'l>(short: char, long: &'l str) -> NestedCliParserHelpFormatter<'static, 'l, MapParser> {
+        MapParser::new(Self::cli_args()).into_help("FileStateResolver plugin", short, long)
     }
 }
 
@@ -336,16 +364,15 @@ impl BraneApiResolver {
     pub fn new(cli_args: String) -> Result<Self, BraneApiResolverError> {
         // Parse the arguments using the [`MapParser`].
         debug!("Parsing nested arguments for BraneApiResolver");
-        let parser = MapParser::new(["n", "node-file-path"]);
+        let parser = MapParser::new(Self::cli_args());
         let args: HashMap<String, Option<String>> = match parser.parse(&cli_args) {
             Ok(args) => args,
             Err(err) => return Err(BraneApiResolverError::CliArgumentsParse { raw: cli_args, err }),
         };
 
         // See what to do with it
-        let use_cases: HashMap<String, WorkerUsecase> = match (args.get("n".into()), args.get("node-file-path")) {
-            (Some(_), Some(_)) => return Err(BraneApiResolverError::CliDuplicateNodeFilePath),
-            (Some(Some(path)), _) | (_, Some(Some(path))) => {
+        let use_cases: HashMap<String, WorkerUsecase> = match args.get("node-file-path") {
+            Some(Some(path)) => {
                 // Attempt to open the file
                 debug!("Opening node file '{path}'...");
                 let handle: File = match File::open(path) {
@@ -374,6 +401,27 @@ impl BraneApiResolver {
 
         // Done, store the list of use cases!
         Ok(Self { use_cases })
+    }
+
+    /// Returns the arguments necessary to build the parser for the BraneApiResolver.
+    ///
+    /// # Returns
+    /// A vector of arguments appropriate to use to build a [`MapParser`].
+    #[inline]
+    fn cli_args() -> [(char, &'static str, &'static str); 1] {
+        [('n', "node-file-path", "The path to the `node.yml` file that maps use-case identifiers to registry addresses for us.")]
+    }
+
+    /// Returns a formatter that can be printed to understand the arguments to this resolver.
+    ///
+    /// # Arguments
+    /// - `short`: A shortname for the argument that contains the nested arguments we parse.
+    /// - `long`: A longname for the argument that contains the nested arguments we parse.
+    ///
+    /// # Returns
+    /// A [`NestedCliParserHelpFormatter`] that implements [`Display`].
+    pub fn help<'l>(short: char, long: &'l str) -> NestedCliParserHelpFormatter<'static, 'l, MapParser> {
+        MapParser::new(Self::cli_args()).into_help("BraneApiResolver plugin", short, long)
     }
 }
 

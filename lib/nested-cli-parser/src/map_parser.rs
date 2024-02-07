@@ -4,7 +4,7 @@
 //  Created:
 //    18 Jan 2024, 16:07:04
 //  Last edited:
-//    29 Jan 2024, 16:02:40
+//    07 Feb 2024, 18:02:56
 //  Auto updated?
 //    Yes
 //
@@ -13,7 +13,7 @@
 //!   of key/value pairs.
 //
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::error;
 use std::fmt::{Display, Formatter, Result as FResult};
 
@@ -92,7 +92,7 @@ impl error::Error for Error {}
 ///
 /// # Errors
 /// This function errors if the input was not a valid key/value pair.
-fn parse_arg(keys: &HashSet<String>, arg: &str, arg_pos: usize) -> Result<(String, Option<String>), Error> {
+fn parse_arg(keys: &[(char, String, String)], arg: &str, arg_pos: usize) -> Result<(String, Option<String>), Error> {
     // Go through the buffer to find the equals character in a similar fashion
     let mut key: Option<String> = None;
     let mut mode: ArgParseMode = ArgParseMode::Key;
@@ -175,12 +175,13 @@ fn parse_arg(keys: &HashSet<String>, arg: &str, arg_pos: usize) -> Result<(Strin
     };
 
     // Assert the key checks out
-    if !keys.contains(&key) {
-        return Err(Error::UnknownKey { pos: arg_pos, key });
+    match keys.iter().find(|(short, long, _)| {
+        let mut buf: [u8; 4] = [0; 4];
+        short.encode_utf8(&mut buf) == &key || long == &key
+    }) {
+        Some((_, long, _)) => Ok((long.clone(), value)),
+        None => Err(Error::UnknownKey { pos: arg_pos, key }),
     }
-
-    // Alright return them
-    Ok((key, value))
 }
 
 
@@ -231,7 +232,7 @@ enum ArgParseMode {
 #[derive(Debug)]
 pub struct MapParser {
     /// The list of keys that are recognized by this parser.
-    pub keys: HashSet<String>,
+    pub keys: Vec<(char, String, String)>,
 }
 impl MapParser {
     /// Constructor for the MapParser.
@@ -244,22 +245,31 @@ impl MapParser {
     ///
     /// # Panics
     /// This function panics if any of the keys are not simple alphanumber strings (only underscores and dashes are allowed).
-    pub fn new<S: AsRef<str> + Into<String>>(keys: impl IntoIterator<Item = S>) -> Self {
+    pub fn new<S2: Into<String>, S3: Into<String>>(keys: impl IntoIterator<Item = (char, S2, S3)>) -> Self {
         // Build the set of keys
         let iter = keys.into_iter();
         let (min, max): (usize, Option<usize>) = iter.size_hint();
-        let mut keys: HashSet<String> = HashSet::with_capacity(if let Some(max) = max { max } else { min });
-        for key in iter {
-            let rkey: &str = key.as_ref();
-            // Assert it only exists of valid characters
-            for (i, c) in rkey.grapheme_indices(true) {
+        let mut keys: Vec<(char, String, String)> = Vec::with_capacity(if let Some(max) = max { max } else { min });
+        for (short, long, desc) in iter {
+            let long: String = long.into();
+            let desc: String = desc.into();
+
+            // Assert the short- and longname only exists of valid characters
+            let mut buf: [u8; 4] = [0; 4];
+            let sshort: &str = short.encode_utf8(&mut buf);
+            if !is_valid_key_char!(sshort) {
+                panic!("Given shortname {short:?} is not valid (only alphanumeric characters, '-' and '_' are allowed)");
+            }
+            for (i, c) in long.grapheme_indices(true) {
                 if !is_valid_key_char!(c) {
-                    panic!("Given key '{rkey}' has illegal character '{c}' at index {i} (only alphanumeric characters, '-' and '_' are allowed)");
+                    panic!(
+                        "Given longname '{long}' has illegal character {c:?} at index {i} (only alphanumeric characters, '-' and '_' are allowed)"
+                    );
                 }
             }
 
             // Add it if it passes
-            keys.insert(key.into());
+            keys.push((short, long, desc));
         }
 
         // OK, build self
@@ -269,6 +279,18 @@ impl MapParser {
 impl NestedCliParser for MapParser {
     type Args = HashMap<String, Option<String>>;
     type ParseError = Error;
+
+    fn help_fmt(&self, name: &str, short: char, long: &str, f: &mut Formatter<'_>) -> FResult {
+        writeln!(f, "{name} nested arguments")?;
+        writeln!(f, "Usage: -{short},--{long} \"[<OPTIONS...>]\"")?;
+        writeln!(f)?;
+        writeln!(f, "Options:")?;
+        for (short, long, desc) in &self.keys {
+            writeln!(f, "  {short}=<VALUE>,{long}=<VALUE>")?;
+            writeln!(f, "      {desc}")?;
+        }
+        writeln!(f)
+    }
 
     fn parse(&self, args: &str) -> Result<Self::Args, Self::ParseError> {
         // Parse the arguments using a little state machine to be respectful to quotes

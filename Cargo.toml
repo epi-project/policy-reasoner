@@ -53,6 +53,7 @@ sha2 = "0.10"
 
 [features]
 brane-api-resolver = [ "dep:graphql_client", "dep:brane-cfg", "dep:specifications", "dep:uuid" ]
+leak-public-errors = []
 
 
 [workspace]

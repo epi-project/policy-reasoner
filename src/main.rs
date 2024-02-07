@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:32:03
 //  Last edited:
-//    19 Jan 2024, 16:28:23
+//    07 Feb 2024, 18:08:43
 //  Auto updated?
 //    Yes
 //
@@ -23,7 +23,11 @@ use log::{error, info};
 use srv::Srv;
 
 use crate::auth::{JwtConfig, JwtResolver, KidResolver};
-use crate::eflint::{EFlintLeakNoErrors, EFlintReasonerConnector};
+#[cfg(not(feature = "leak-public-errors"))]
+use crate::eflint::EFlintLeakNoErrors;
+#[cfg(feature = "leak-public-errors")]
+use crate::eflint::EFlintLeakPrefixErrors;
+use crate::eflint::EFlintReasonerConnector;
 use crate::logger::FileLogger;
 use crate::sqlite::SqlitePolicyDataStore;
 
@@ -77,6 +81,18 @@ struct Arguments {
         help = "Arguments to pass to the current state resolver plugin. To find which are possible, see '--help-state-resolver'."
     )]
     state_resolver:      Option<String>,
+
+    /// Shows the help menu for the reasoner connector.
+    #[clap(long, help = "If given, shows the possible arguments to pass to the reasoner connector plugin in '--reasoner-connector'.")]
+    help_reasoner_connector: bool,
+    /// Arguments specific to the state resolver.
+    #[clap(
+        short,
+        long,
+        env,
+        help = "Arguments to pass to the current reasoner connector plugin. To find which are possible, see '--help-reasoner-connector'."
+    )]
+    reasoner_connector:      Option<String>,
 }
 
 
@@ -96,6 +112,9 @@ type DeliberationAuthResolverPlugin = JwtResolver<KidResolver>;
 type PolicyStorePlugin = SqlitePolicyDataStore;
 
 /// The plugin used to interact with the backend reasoner.
+#[cfg(feature = "leak-public-errors")]
+type ReasonerConnectorPlugin = EFlintReasonerConnector<EFlintLeakPrefixErrors>;
+#[cfg(not(feature = "leak-public-errors"))]
 type ReasonerConnectorPlugin = EFlintReasonerConnector<EFlintLeakNoErrors>;
 
 /// The plugin used to resolve policy input state.
@@ -117,14 +136,31 @@ async fn main() {
     info!("{} - v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
 
     // Handle help
-
+    let mut exit: bool = false;
+    if args.help_reasoner_connector {
+        println!("{}", ReasonerConnectorPlugin::help('r', "reasoner-connector"));
+        exit = true;
+    }
+    if args.help_state_resolver {
+        println!("{}", StateResolverPlugin::help('s', "state-resolver"));
+        exit = true;
+    }
+    if exit {
+        std::process::exit(0);
+    }
 
     // Initialize the plugins
     let logger: AuditLogPlugin = FileLogger::new("./audit-log.log");
     let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();
     let pstore: PolicyStorePlugin = SqlitePolicyDataStore::new("./data/policy.db");
-    let rconn: ReasonerConnectorPlugin = EFlintReasonerConnector::new("http://localhost:8080".into(), EFlintLeakNoErrors {});
+    let rconn: ReasonerConnectorPlugin = match ReasonerConnectorPlugin::new(args.reasoner_connector.unwrap_or_else(String::new)) {
+        Ok(rconn) => rconn,
+        Err(err) => {
+            error!("{}", err.trace());
+            std::process::exit(1);
+        },
+    };
 
     let sresolve: StateResolverPlugin = match StateResolverPlugin::new(args.state_resolver.unwrap_or_else(String::new)) {
         Ok(sresolve) => sresolve,

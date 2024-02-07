@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::error;
+use std::fmt::{Display, Formatter, Result as FResult};
 
 use audit_logger::{ConnectorContext, ConnectorWithContext, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
 use eflint_json::spec::auxillary::Version;
@@ -7,6 +9,8 @@ use eflint_json::spec::{
     RequestPhrases,
 };
 use log::{debug, error, info};
+use nested_cli_parser::map_parser::MapParser;
+use nested_cli_parser::{NestedCliParser as _, NestedCliParserHelpFormatter};
 use policy::{Policy, PolicyContent};
 use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
 use state_resolver::State;
@@ -74,13 +78,91 @@ const JSON_BASE_SPEC_HASH: &str = env!("BASE_DEFS_EFLINT_JSON_HASH");
 
 
 
-pub trait EFlintErrorHandler {
-    fn extract_errors(&self, _: Option<&PhraseResult>) -> Vec<String> { vec![] }
+
+
+/***** ERRORS *****/
+/// Main error that originates from the [`EFlintReasonerConnector`].
+#[derive(Debug)]
+pub enum Error<E> {
+    /// Failed to parse the CLI arguments to the eFLINT reasoner connector.
+    CliArgumentsParse { raw: String, err: nested_cli_parser::map_parser::Error },
+    /// Failed to construct the nested ErrorHandler plugin.
+    ErrorHandler { name: &'static str, err: E },
+}
+impl<E> Display for Error<E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use Error::*;
+        match self {
+            CliArgumentsParse { raw, .. } => write!(f, "Failed to parse '{raw}' as CLI argument string for an EFlintReasonerConnector"),
+            ErrorHandler { name, .. } => write!(f, "Failed to initialize error handler plugin '{name}'"),
+        }
+    }
+}
+impl<E: 'static + error::Error> error::Error for Error<E> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        use Error::*;
+        match self {
+            CliArgumentsParse { err, .. } => Some(err),
+            ErrorHandler { err, .. } => Some(err),
+        }
+    }
 }
 
-pub struct EFlintLeakNoErrors {}
+/// Error that originates from the [`EFlintLeakPrefixErrors`].
+#[derive(Debug)]
+pub enum EFlintLeakPrefixErrorsError {
+    /// Failed to parse the CLI arguments to the EFlintLeakPrefixErrors.
+    CliArgumentsParse { raw: String, err: nested_cli_parser::map_parser::Error },
+}
+impl Display for EFlintLeakPrefixErrorsError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult {
+        use EFlintLeakPrefixErrorsError::*;
+        match self {
+            CliArgumentsParse { raw, .. } => write!(f, "Failed to parse '{raw}' as CLI argument string for an EFlintLeakPrefixErrors"),
+        }
+    }
+}
+impl error::Error for EFlintLeakPrefixErrorsError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        use EFlintLeakPrefixErrorsError::*;
+        match self {
+            CliArgumentsParse { err, .. } => Some(err),
+        }
+    }
+}
 
-impl EFlintErrorHandler for EFlintLeakNoErrors {}
+
+
+
+
+/***** ERROR HANDLERS *****/
+pub trait EFlintErrorHandler {
+    type Error: error::Error;
+
+    fn new(cli_args: &HashMap<String, Option<String>>) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+
+    #[inline]
+    fn extract_errors(&self, _: Option<&PhraseResult>) -> Vec<String> { vec![] }
+
+    #[inline]
+    fn nested_args() -> Vec<(char, &'static str, &'static str)> { vec![] }
+}
+
+pub struct EFlintLeakNoErrors;
+impl EFlintErrorHandler for EFlintLeakNoErrors {
+    type Error = std::convert::Infallible;
+
+    #[inline]
+    fn new(_cli_args: &HashMap<String, Option<String>>) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        // Doesn't need to parse anything!
+        Ok(Self)
+    }
+}
 
 /// EFlintLeakPrefixErrors is an e-flint error handler
 /// that returns errors if the violation identifier start with a certain
@@ -88,12 +170,23 @@ impl EFlintErrorHandler for EFlintLeakNoErrors {}
 pub struct EFlintLeakPrefixErrors {
     prefix: String,
 }
-
-impl EFlintLeakPrefixErrors {
-    pub fn new(prefix: String) -> Self { Self { prefix } }
-}
-
 impl EFlintErrorHandler for EFlintLeakPrefixErrors {
+    type Error = EFlintLeakPrefixErrorsError;
+
+    fn new(args: &HashMap<String, Option<String>>) -> Result<Self, Self::Error>
+    where
+        Self: Sized,
+    {
+        debug!("Parsing nested arguments for EFlintLeakPrefixErrors");
+        let prefix: String = match args.get("prefix") {
+            Some(Some(path)) => path.into(),
+            _ => "pub-".into(),
+        };
+
+        // Done
+        Ok(Self { prefix })
+    }
+
     fn extract_errors(&self, result: Option<&PhraseResult>) -> Vec<String> {
         result
             .map(|r| match r {
@@ -105,6 +198,11 @@ impl EFlintErrorHandler for EFlintLeakPrefixErrors {
             })
             .unwrap_or_else(Vec::new)
     }
+
+    #[inline]
+    fn nested_args() -> Vec<(char, &'static str, &'static str)> {
+        vec![('p', "prefix", "Any eFLINT facts that have this prefix will be shared with clients. Default: 'pub-'")]
+    }
 }
 
 /***** LIBRARY *****/
@@ -115,10 +213,56 @@ pub struct EFlintReasonerConnector<T: EFlintErrorHandler> {
 }
 
 impl<T: EFlintErrorHandler> EFlintReasonerConnector<T> {
-    pub fn new(addr: String, err_handler: T) -> Self {
-        info!("Creating new EFlintReasonerConnector to '{addr}'");
+    pub fn new(cli_args: String) -> Result<Self, Error<T::Error>> {
+        info!("Creating new EFlintReasonerConnector with {} plugin", std::any::type_name::<T>());
+
+        debug!("Parsing nested arguments for EFlintReasonerConnector<{}>", std::any::type_name::<T>());
+        let parser = MapParser::new(Self::cli_args());
+        let args: HashMap<String, Option<String>> = match parser.parse(&cli_args) {
+            Ok(args) => args,
+            Err(err) => return Err(Error::CliArgumentsParse { raw: cli_args, err }),
+        };
+
+        // See what to do with it
+        let addr: String = match args.get("reasoner-address") {
+            Some(Some(path)) => path.into(),
+            _ => "http://localhost:8080".into(),
+        };
+        let err_handler: T = match T::new(&args) {
+            Ok(handler) => handler,
+            Err(err) => return Err(Error::ErrorHandler { name: std::any::type_name::<T>(), err }),
+        };
+
+        debug!("Creating new EFlintReasonerConnector to '{addr}'");
         let base_defs: RequestPhrases = serde_json::from_str(JSON_BASE_SPEC).unwrap();
-        EFlintReasonerConnector { addr, base_defs: base_defs.phrases, err_handler }
+        Ok(EFlintReasonerConnector { addr, base_defs: base_defs.phrases, err_handler })
+    }
+
+    /// Returns the arguments necessary to build the parser for the EFlintReasonerConnector.
+    ///
+    /// # Returns
+    /// A vector of arguments appropriate to use to build a [`MapParser`].
+    #[inline]
+    fn cli_args() -> Vec<(char, &'static str, &'static str)> {
+        let mut args: Vec<(char, &'static str, &'static str)> = vec![(
+            'r',
+            "reasoner-address",
+            "The address (as `<scheme>://<hostname>:<port>`) of the actual reasoner to connect with. Default: 'http://localhost:8080'",
+        )];
+        args.extend(T::nested_args());
+        args
+    }
+
+    /// Returns a formatter that can be printed to understand the arguments to this connector.
+    ///
+    /// # Arguments
+    /// - `short`: A shortname for the argument that contains the nested arguments we parse.
+    /// - `long`: A longname for the argument that contains the nested arguments we parse.
+    ///
+    /// # Returns
+    /// A [`NestedCliParserHelpFormatter`] that implements [`Display`].
+    pub fn help<'l>(short: char, long: &'l str) -> NestedCliParserHelpFormatter<'static, 'l, MapParser> {
+        MapParser::new(Self::cli_args()).into_help("EFlintReasonerConnector plugin", short, long)
     }
 
     fn conv_state_to_eflint(&self, state: State) -> Vec<Phrase> {

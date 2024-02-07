@@ -4,7 +4,7 @@
 //  Created:
 //    18 Jan 2024, 16:06:11
 //  Last edited:
-//    18 Jan 2024, 16:13:31
+//    07 Feb 2024, 18:02:27
 //  Auto updated?
 //    Yes
 //
@@ -14,6 +14,28 @@
 //
 
 use std::error::Error;
+use std::fmt::{Display, Formatter, Result as FResult};
+
+
+/***** FORMATTERS *****/
+/// Formats any given [`NestedCliParser`].
+pub struct NestedCliParserHelpFormatter<'n, 'l, P> {
+    /// A name for whatever we're parsing.
+    name:   &'n str,
+    /// A shortname for the argument that contains the nested arguments we parse.
+    short:  char,
+    /// A longname for the argument that contains the nested arguments we parse.
+    long:   &'l str,
+    /// The parser in question.
+    parser: P,
+}
+impl<'n, 'l, P: NestedCliParser> Display for NestedCliParserHelpFormatter<'n, 'l, P> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FResult { self.parser.help_fmt(self.name, self.short, self.long, f) }
+}
+
+
+
 
 
 /***** LIBRARY *****/
@@ -26,6 +48,51 @@ pub trait NestedCliParser {
     /// Any error that is thrown when parsing.
     type ParseError: Error;
 
+
+    /// Formats the help string of the NestedCliParser.
+    ///
+    /// You typically don't call this method yourself, but instead use [`NestedCliParser::help()`] to call it for you through [`Display`].
+    ///
+    /// # Arguments
+    /// - `name`: Some name of whatever we're parsing.
+    /// - `short`: A shortname for the argument that contains the nested arguments we parse.
+    /// - `long`: A longname for the argument that contains the nested arguments we parse.
+    /// - `f`: Some [`Formatter`] to which to write the help string.
+    ///
+    /// # Errors
+    /// This function errors if it failed to write to the given `f`ormatter.
+    fn help_fmt(&self, name: &str, short: char, long: &str, f: &mut Formatter<'_>) -> FResult;
+    /// Returns a formatter that can be used to [`Display`] the help string for this NestedCliParser.
+    ///
+    /// In contrast to [`NestedCliParser::help()`], this one consumes the parser to avoid the lifetime dependency.
+    ///
+    /// # Arguments
+    /// - `name`: Some name of whatever we're parsing.
+    /// - `short`: A shortname for the argument that contains the nested arguments we parse.
+    /// - `long`: A longname for the argument that contains the nested arguments we parse.
+    ///
+    /// # Returns
+    /// A [`NestedCliParserHelpFormatter`] that calls [`NestedCliParser::help_fmt()`] for the formatter to which it is applied.
+    #[inline]
+    fn into_help<'n, 'l>(self, name: &'n str, short: char, long: &'l str) -> NestedCliParserHelpFormatter<'n, 'l, Self>
+    where
+        Self: Sized,
+    {
+        NestedCliParserHelpFormatter { name, short, long, parser: self }
+    }
+    /// Returns a formatter that can be used to [`Display`] the help string for this NestedCliParser.
+    ///
+    /// # Arguments
+    /// - `name`: Some name of whatever we're parsing.
+    /// - `short`: A shortname for the argument that contains the nested arguments we parse.
+    /// - `long`: A longname for the argument that contains the nested arguments we parse.
+    ///
+    /// # Returns
+    /// A [`NestedCliParserHelpFormatter`] that calls [`NestedCliParser::help_fmt()`] for the formatter to which it is applied.
+    #[inline]
+    fn help<'s, 'n, 'l>(&'s self, name: &'n str, short: char, long: &'l str) -> NestedCliParserHelpFormatter<'n, 'l, &'s Self> {
+        NestedCliParserHelpFormatter { name, short, long, parser: self }
+    }
 
     /// Parses the given string as a set of nested CLI arguments.
     ///

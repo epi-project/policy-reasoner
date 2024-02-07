@@ -203,6 +203,7 @@ dependencies = [
  "auth-resolver",
  "deliberation",
  "enum-debug",
+ "hex",
  "policy",
  "serde",
  "serde_json",
