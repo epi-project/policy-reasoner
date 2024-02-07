@@ -274,7 +274,8 @@ where
             .and_then(Self::handle_deactivate_policy);
 
         warp::path("v1")
-            .and(warp::path!("management" / "policies"))
+            .and(warp::path("management"))
+            .and(warp::path("policies"))
             .and(get_latest.or(get_version).or(get_all).or(get_active).or(set_active).or(add_version).or(deactivate))
     }
 
