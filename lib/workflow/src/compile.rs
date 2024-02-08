@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    16 Jan 2024, 17:52:50
+//    08 Feb 2024, 10:36:08
 //  Auto updated?
 //    Yes
 //
@@ -24,8 +24,7 @@ use brane_ast::{ast, MergeStrategy};
 use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
 use log::{debug, trace, Level};
-use rand::Rng as _;
-use specifications::data::{AvailabilityKind, PreprocessKind};
+use specifications::data::{AvailabilityKind, DataName, PreprocessKind};
 
 use super::preprocess;
 use super::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
@@ -113,16 +112,6 @@ impl error::Error for Error {
 
 
 /***** HELPER FUNCTIONS *****/
-/// Generates a random ID for a task/commit/workflow.
-///
-/// # Arguments
-/// - `len`: The length of random characters to generate.
-///
-/// # Returns
-/// A string with the new identifier.
-#[inline]
-fn generate_id(len: usize) -> String { rand::thread_rng().sample_iter(rand::distributions::Alphanumeric).take(len).map(char::from).collect() }
-
 /// Analyses the given [`WIR`](ast::Workflow) graph to find the Last Known Locations (LKLs) of the datasets and results mentioned.
 ///
 /// # Arguments
@@ -130,12 +119,7 @@ fn generate_id(len: usize) -> String { rand::thread_rng().sample_iter(rand::dist
 /// - `wir`: The entire workflow graph.
 /// - `pc`: The [`ProgramCounter`] pointing to the current edge we're analysing.
 /// - `breakpoint`: Some possible edge that, if encounters, halts the analysis and returns immediately.
-fn analyse_data_lkls(
-    lkls: &mut HashMap<ast::DataName, HashSet<String>>,
-    wir: &ast::Workflow,
-    pc: ProgramCounter,
-    breakpoint: Option<ProgramCounter>,
-) {
+fn analyse_data_lkls(lkls: &mut HashMap<DataName, HashSet<String>>, wir: &ast::Workflow, pc: ProgramCounter, breakpoint: Option<ProgramCounter>) {
     // Stop if we hit the breakpoint
     if let Some(breakpoint) = breakpoint {
         if pc == breakpoint {
@@ -168,7 +152,7 @@ fn analyse_data_lkls(
                             *lkls.entry(i.clone()).or_default() = HashSet::from([at.clone()]);
                         }
                     },
-                    Some(AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, address: _ } }) => {
+                    Some(AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, dataname: _ } }) => {
                         // It's available at the planned location
                         *lkls.entry(i.clone()).or_default() = HashSet::from([location.clone()]);
                     },
@@ -178,7 +162,7 @@ fn analyse_data_lkls(
 
             // Mark where the output is, if any
             if let (Some(result), Some(at)) = (result, at) {
-                *lkls.entry(ast::DataName::IntermediateResult(result.clone())).or_default() = HashSet::from([at.clone()]);
+                *lkls.entry(DataName::IntermediateResult(result.clone())).or_default() = HashSet::from([at.clone()]);
             }
 
             // Continue the analysis
@@ -257,7 +241,7 @@ fn reconstruct_graph(
     wir: &ast::Workflow,
     wf_id: &str,
     calls: &HashMap<ProgramCounter, usize>,
-    lkls: &mut HashMap<ast::DataName, HashSet<String>>,
+    lkls: &mut HashMap<DataName, HashSet<String>>,
     pc: ProgramCounter,
     plug: Elem,
     breakpoint: Option<ProgramCounter>,
@@ -310,7 +294,7 @@ fn reconstruct_graph(
                             .as_ref()
                             .map(|avail| match avail {
                                 AvailabilityKind::Available { how: _ } => None,
-                                AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, address: _ } } => {
+                                AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, dataname: _ } } => {
                                     Some(location.clone())
                                 },
                             })
@@ -428,7 +412,7 @@ fn reconstruct_graph(
                     return Err(Error::CommitTooMuchOutput { pc: pc.resolved(&wir.table), got: result.len() });
                 }
                 let data_name: String = if let Some(name) = result.iter().next() {
-                    if let ast::DataName::Data(name) = name {
+                    if let DataName::Data(name) = name {
                         name.clone()
                     } else {
                         return Err(Error::CommitReturnsResult { pc: pc.resolved(&wir.table) });
@@ -485,6 +469,7 @@ impl TryFrom<ast::Workflow> for Workflow {
         };
 
         // First, analyse the calls in the workflow as much as possible (and simplify)
+        let wf_id: String = value.id.clone();
         let (wir, calls): (ast::Workflow, HashMap<ProgramCounter, usize>) = match preprocess::simplify(value) {
             Ok(res) => res,
             Err(err) => return Err(Error::Preprocess { err }),
@@ -497,11 +482,10 @@ impl TryFrom<ast::Workflow> for Workflow {
         }
 
         // Collect the map of data to Last Known Locations (LKL).
-        let mut lkls: HashMap<ast::DataName, HashSet<String>> = HashMap::new();
+        let mut lkls: HashMap<DataName, HashSet<String>> = HashMap::new();
         analyse_data_lkls(&mut lkls, &wir, ProgramCounter::start(), None);
 
         // Alright now attempt to re-build the graph in the new style
-        let wf_id: String = format!("workflow-{}", generate_id(8));
         let graph: Elem = reconstruct_graph(&wir, &wf_id, &calls, &mut lkls, ProgramCounter::start(), Elem::Stop(HashSet::new()), None)?;
 
         // Build a new Workflow with that!

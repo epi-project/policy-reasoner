@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    16 Jan 2024, 17:51:28
+//    08 Feb 2024, 10:35:16
 //  Auto updated?
 //    Yes
 //
@@ -1019,7 +1019,7 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
 
     {
         // Tear open the Workflow to satisfy the borrow checker
-        let Workflow { graph: wir_graph, metadata: _, funcs: wir_funcs, table: wir_table, user: _ } = &mut wir;
+        let Workflow { id: _, graph: wir_graph, metadata: _, funcs: wir_funcs, table: wir_table, user: _ } = &mut wir;
 
         // Extract the graph behind the Arc
         let mut graph: Arc<Vec<Edge>> = Arc::new(vec![]);
