@@ -23,25 +23,6 @@ where
     DA: 'static + AuthResolver + Send + Sync,
     C::Context: Send + Sync + Debug + Serialize,
 {
-    // Get Policy, default latest version
-    // GET /v1/policies
-
-    async fn handle_get_latest_policy(_auth_ctx: AuthContext, this: Arc<Self>) -> Result<warp::reply::Json, warp::reject::Rejection> {
-        match this.policystore.get_most_recent().await {
-            Ok(v) => Ok(warp::reply::json(&v)),
-            Err(err) => match err {
-                PolicyDataError::NotFound => {
-                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::NOT_FOUND);
-                    Err(warp::reject::custom(Problem(p)))
-                },
-                PolicyDataError::GeneralError(msg) => {
-                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(msg);
-                    Err(warp::reject::custom(Problem(p)))
-                },
-            },
-        }
-    }
-
     // GET specific version
     // GET /v1/policies/:version
     // out:
@@ -65,7 +46,7 @@ where
     }
 
     // List policy's versions
-    // GET /v1/policies/versions (version, version_description, created_at)
+    // GET /v1/policies
     // out:
     // - 200 Vec<PolicyVersionDescription>
 
@@ -236,12 +217,6 @@ where
             .and(warp::body::json())
             .and_then(Self::handle_add_policy);
 
-        let get_latest = warp::get()
-            .and(warp::path::end())
-            .and(Self::with_policy_api_auth(this.clone()))
-            .and(Self::with_self(this.clone()))
-            .and_then(Self::handle_get_latest_policy);
-
         let get_version = warp::get()
             .and(Self::with_policy_api_auth(this.clone()))
             .and(warp::path!(i64))
@@ -249,7 +224,7 @@ where
             .and_then(Self::handle_get_policy_version);
 
         let get_all = warp::get()
-            .and(warp::path!("versions"))
+            .and(warp::path::end())
             .and(Self::with_policy_api_auth(this.clone()))
             .and(Self::with_self(this.clone()))
             .and_then(Self::handle_get_all_policies);
@@ -276,7 +251,7 @@ where
         warp::path("v1")
             .and(warp::path("management"))
             .and(warp::path("policies"))
-            .and(get_latest.or(get_version).or(get_all).or(get_active).or(set_active).or(add_version).or(deactivate))
+            .and(get_version.or(get_all).or(get_active).or(set_active).or(add_version).or(deactivate))
     }
 
     fn with_policy_api_auth(this: Arc<Self>) -> impl Filter<Extract = (AuthContext,), Error = warp::Rejection> + Clone {
