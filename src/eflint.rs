@@ -495,7 +495,9 @@ impl<T: EFlintErrorHandler> ConnectorWithContext for EFlintReasonerConnector<T> 
     fn context() -> Self::Context {
         EFlintReasonerConnectorContext {
             t: "eflint-json".into(),
-            version: "0.1.2".into(),
+            // NOTE: Must stay at 0.1.0, since else Olaf's reasoner will complain it's the wrong version lol
+            // TODO: Decouple reasoner version from the version on the wire (at least for now)
+            version: "0.1.0".into(),
             base_defs: JSON_BASE_SPEC.into(),
             base_defs_hash: JSON_BASE_SPEC_HASH.into(),
         }
