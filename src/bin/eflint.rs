@@ -12,6 +12,9 @@
 //!   Entrypoint to the main `policy-reasoner` binary.
 //
 
+pub mod implementation;
+
+
 use std::env;
 use std::fs::File;
 use std::net::SocketAddr;
@@ -22,22 +25,14 @@ use humanlog::{DebugMode, HumanLogger};
 use log::{error, info};
 use srv::Srv;
 
-use crate::auth::{JwtConfig, JwtResolver, KidResolver};
+use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 #[cfg(not(feature = "leak-public-errors"))]
-use crate::eflint::EFlintLeakNoErrors;
+use implementation::eflint::EFlintLeakNoErrors;
 #[cfg(feature = "leak-public-errors")]
-use crate::eflint::EFlintLeakPrefixErrors;
-use crate::eflint::EFlintReasonerConnector;
-use crate::logger::FileLogger;
-use crate::sqlite::SqlitePolicyDataStore;
-
-pub mod auth;
-pub mod eflint;
-pub mod logger;
-pub mod models;
-pub mod schema;
-pub mod sqlite;
-pub mod state;
+use implementation::eflint::EFlintLeakPrefixErrors;
+use implementation::eflint::EFlintReasonerConnector;
+use policy_reasoner::logger::FileLogger;
+use policy_reasoner::sqlite::SqlitePolicyDataStore;
 
 
 /***** HELPER FUNCTIONS *****/
@@ -121,7 +116,7 @@ type ReasonerConnectorPlugin = EFlintReasonerConnector<EFlintLeakNoErrors>;
 #[cfg(feature = "brane-api-resolver")]
 type StateResolverPlugin = crate::state::BraneApiResolver;
 #[cfg(not(feature = "brane-api-resolver"))]
-type StateResolverPlugin = crate::state::FileStateResolver;
+type StateResolverPlugin = policy_reasoner::state::FileStateResolver;
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
@@ -150,7 +145,8 @@ async fn main() {
     }
 
     // Initialize the plugins
-    let logger: AuditLogPlugin = FileLogger::new("./audit-log.log");
+    let log_identifier = format!("{binary} v{version}", binary=env!("CARGO_BIN_NAME"), version=env!("CARGO_PKG_VERSION"));
+    let logger: AuditLogPlugin = FileLogger::new(log_identifier, "./audit-log.log");
     let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();
     let pstore: PolicyStorePlugin = SqlitePolicyDataStore::new("./data/policy.db");
