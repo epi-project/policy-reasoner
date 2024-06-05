@@ -190,6 +190,7 @@ curl -X PUT -H "Authorization: Bearer $JWT_EXPERT" -H "Content-Type: application
 ## Contribution
 Contributions to this project are welcome! If you have thoughts, suggestions or encounter bugs, you can leave an issue on this repository's [issue-page](https://github.com/epi-project/policy-reasoner/issues). If you have concrete fixes already implemented, you can also create [pull requests](https://github.com/epi-project/policy-reasoner/pulls) directly.
 
+An overview the structure of this repository can be found in [Architecture.md](./ARCHITECTURE.md)
 
 ## License
 This project is licensed under the Apache 2.0 license. See [LICENSE](./LICENSE) for more details.
