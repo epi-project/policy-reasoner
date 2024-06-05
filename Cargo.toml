@@ -40,8 +40,12 @@ error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 graphql_client = { version = "0.13", optional = true }
 nested-cli-parser = { path = "lib/nested-cli-parser" }
 brane-cfg = { git = "https://github.com/epi-project/brane", optional = true }
-specifications = { git = "https://github.com/epi-project/brane", optional = true }
+specifications = { git = "https://github.com/epi-project/brane" }
 uuid = { version = "1.7.0", features = ["serde", "v4"], optional = true }
+brane-shr = { git = "https://github.com/epi-project/brane" }
+itertools = "0.13.0"
+thiserror = "1.0.61"
+dotenvy = "0.15.7"
 
 
 [build-dependencies]
@@ -55,7 +59,7 @@ sha2 = "0.10.6"
 
 
 [features]
-brane-api-resolver = [ "dep:graphql_client", "dep:brane-cfg", "dep:specifications", "dep:uuid" ]
+brane-api-resolver = [ "dep:graphql_client", "dep:brane-cfg", "dep:uuid" ]
 leak-public-errors = []
 
 
