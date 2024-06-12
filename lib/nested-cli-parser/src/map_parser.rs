@@ -4,7 +4,7 @@
 //  Created:
 //    18 Jan 2024, 16:07:04
 //  Last edited:
-//    07 Feb 2024, 18:02:56
+//    12 Jun 2024, 17:50:54
 //  Auto updated?
 //    Yes
 //
@@ -137,15 +137,15 @@ fn parse_arg(keys: &[(char, String, String)], arg: &str, arg_pos: usize) -> Resu
             ArgParseMode::Escaped(_, prev_mode) => match c {
                 // A list of special whitespace characters
                 "n" => {
-                    buf.push_str("\n");
+                    buf.push('\n');
                     mode = (**prev_mode).clone();
                 },
                 "t" => {
-                    buf.push_str("\t");
+                    buf.push('\t');
                     mode = (**prev_mode).clone();
                 },
                 "0" => {
-                    buf.push_str("\0");
+                    buf.push('\0');
                     mode = (**prev_mode).clone();
                 },
 
@@ -169,6 +169,8 @@ fn parse_arg(keys: &[(char, String, String)], arg: &str, arg_pos: usize) -> Resu
     let (key, value): (String, Option<String>) = if key.is_none() {
         (buf, None)
     } else if !buf.is_empty() {
+        // I'll allow this warning here, because refactoring into `match` will ruin the nice three-case logic here IMO
+        #[allow(clippy::unnecessary_unwrap)]
         (key.unwrap(), Some(buf))
     } else {
         return Err(Error::EmptyValue { pos: arg_pos + buf.len() });
@@ -331,15 +333,15 @@ impl NestedCliParser for MapParser {
                 ParseMode::Escaped(_, prev_mode) => match c {
                     // A list of special whitespace characters
                     "n" => {
-                        buf.push_str("\n");
+                        buf.push('\n');
                         mode = *prev_mode;
                     },
                     "t" => {
-                        buf.push_str("\t");
+                        buf.push('\t');
                         mode = *prev_mode;
                     },
                     "0" => {
-                        buf.push_str("\0");
+                        buf.push('\0');
                         mode = *prev_mode;
                     },
 

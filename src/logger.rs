@@ -101,7 +101,12 @@ impl Error for FileLoggerError {
 ///
 /// Just here for testing purposes.
 pub struct MockLogger {}
+impl Default for MockLogger {
+    #[inline]
+    fn default() -> Self { Self::new() }
+}
 impl MockLogger {
+    #[inline]
     pub fn new() -> Self { MockLogger {} }
 }
 impl Clone for MockLogger {

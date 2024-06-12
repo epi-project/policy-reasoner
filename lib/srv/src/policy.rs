@@ -138,18 +138,15 @@ where
     ) -> Result<warp::reply::Json, warp::reject::Rejection> {
         // Reject activation of policy with invalid base defs
         let conn_hash = C::hash();
-        match this.policystore.get_version(body.version).await {
-            Ok(policy) => {
-                if policy.version.reasoner_connector_context != conn_hash {
-                    let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(format!(
-                        "Cannot activate policy which has a different base policy than current the reasoners connector's base. Policy base defs \
-                         hash is '{}' and connector's base defs hash is '{}'",
-                        policy.version.reasoner_connector_context, conn_hash
-                    ));
-                    return Err(warp::reject::custom(Problem(p)));
-                }
-            },
-            Err(_) => {},
+        if let Ok(policy) = this.policystore.get_version(body.version).await {
+            if policy.version.reasoner_connector_context != conn_hash {
+                let p = ProblemDetails::new().with_status(warp::http::StatusCode::BAD_REQUEST).with_detail(format!(
+                    "Cannot activate policy which has a different base policy than current the reasoners connector's base. Policy base defs hash is \
+                     '{}' and connector's base defs hash is '{}'",
+                    policy.version.reasoner_connector_context, conn_hash
+                ));
+                return Err(warp::reject::custom(Problem(p)));
+            }
         }
 
         let t = this.clone();

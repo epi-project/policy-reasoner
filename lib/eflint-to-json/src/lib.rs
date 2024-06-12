@@ -4,7 +4,7 @@
 //  Created:
 //    30 Nov 2023, 10:38:50
 //  Last edited:
-//    13 Dec 2023, 15:15:26
+//    12 Jun 2024, 17:49:13
 //  Auto updated?
 //    Yes
 //
@@ -124,7 +124,9 @@ pub enum Error {
     /// Failed to write to child stdin.
     ChildWrite { err: std::io::Error },
     /// Failed to download the compiler.
-    CompilerDownload { from: String, to: PathBuf, err: crate::download::Error },
+    ///
+    /// NOTE: `err` is boxed to not make this variant much larger in memory than the rest.
+    CompilerDownload { from: String, to: PathBuf, err: Box<crate::download::Error> },
     /// Failed to create the output file.
     FileCreate { path: PathBuf, err: std::io::Error },
     /// Failed to get metadata of file.
@@ -230,6 +232,8 @@ fn potentially_include(imported: &mut HashSet<PathBuf>, path: &Path, line: &str)
 
     // Build the path
     let parent: Option<&Path> = path.parent();
+    // NOTE: Allowing the `is_none()`, `unwrap()` because else we ruin the logic
+    #[allow(clippy::unnecessary_unwrap)]
     let incl_path: PathBuf = if incl_path.is_absolute() || parent.is_none() { incl_path } else { parent.unwrap().join(incl_path) };
     let incl_path: PathBuf = match incl_path.canonicalize() {
         Ok(path) => path,
@@ -286,6 +290,8 @@ async fn potentially_include_async(imported: &mut HashSet<PathBuf>, path: &Path,
 
     // Build the path
     let parent: Option<&Path> = path.parent();
+    // NOTE: Allowing the `is_none()`, `unwrap()` because else we ruin the logic
+    #[allow(clippy::unnecessary_unwrap)]
     let incl_path: PathBuf = if incl_path.is_absolute() || parent.is_none() { incl_path } else { parent.unwrap().join(incl_path) };
     let incl_path: PathBuf = match tfs::canonicalize(&incl_path).await {
         Ok(path) => path,
@@ -431,7 +437,7 @@ pub fn compile(input_path: &Path, mut output: impl Write, compiler_path: Option<
                     DownloadSecurity { checksum: Some(&COMPILER_CHECKSUM), https: true },
                     Some(Style::new().bold().green()),
                 ) {
-                    return Err(Error::CompilerDownload { from: COMPILER_URL.into(), to: compiler_path, err });
+                    return Err(Error::CompilerDownload { from: COMPILER_URL.into(), to: compiler_path, err: Box::new(err) });
                 }
 
                 #[cfg(unix)]
@@ -489,8 +495,8 @@ pub fn compile(input_path: &Path, mut output: impl Write, compiler_path: Option<
     };
     if !status.success() {
         return Err(Error::ChildFailed {
-            cmd:    format!("{cmd:?}"),
-            status: status.into(),
+            cmd: format!("{cmd:?}"),
+            status,
             output: ChildStreams(vec![
                 ChildStream::new("stdout", handle.stdout.take().unwrap()),
                 ChildStream::new("stderr", handle.stderr.take().unwrap()),
@@ -554,7 +560,7 @@ pub async fn compile_async(input_path: &Path, mut output: impl Write, compiler_p
                 )
                 .await
                 {
-                    return Err(Error::CompilerDownload { from: COMPILER_URL.into(), to: compiler_path, err });
+                    return Err(Error::CompilerDownload { from: COMPILER_URL.into(), to: compiler_path, err: Box::new(err) });
                 }
 
                 #[cfg(unix)]
@@ -612,8 +618,8 @@ pub async fn compile_async(input_path: &Path, mut output: impl Write, compiler_p
     };
     if !status.success() {
         return Err(Error::ChildFailed {
-            cmd:    format!("{cmd:?}"),
-            status: status.into(),
+            cmd: format!("{cmd:?}"),
+            status,
             output: ChildStreams(vec![
                 ChildStream::new_async("stdout", handle.stdout.take().unwrap()).await,
                 ChildStream::new_async("stderr", handle.stderr.take().unwrap()).await,

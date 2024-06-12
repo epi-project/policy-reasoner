@@ -4,7 +4,7 @@
 //  Created:
 //    08 Nov 2023, 14:44:31
 //  Last edited:
-//    20 Dec 2023, 09:01:00
+//    12 Jun 2024, 17:39:40
 //  Auto updated?
 //    Yes
 //
@@ -176,7 +176,7 @@ fn analyse_loop_body(
                         loop_names.get(&(l as *const ElemLoop)).unwrap_or_else(|| panic!("Encountered loop without name after loop naming"));
 
                     // Set this loop as the first node, combining all the input dataset from the children
-                    *first = vec![(id.clone(), body_first.into_iter().map(|(_, data)| data).flatten().collect::<HashSet<Dataset>>())]
+                    *first = vec![(id.clone(), body_first.into_iter().flat_map(|(_, data)| data).collect::<HashSet<Dataset>>())]
                 }
                 *last = body_last;
 
@@ -408,7 +408,7 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, loop_names: &Has
             },
             Elem::Loop(ElemLoop { body, next }) => {
                 // Serialize the body phrases first
-                compile_eflint(&**body, wf_id, wf_user, loop_names, phrases);
+                compile_eflint(body, wf_id, wf_user, loop_names, phrases);
 
                 // Serialize the node
                 // ```eflint
