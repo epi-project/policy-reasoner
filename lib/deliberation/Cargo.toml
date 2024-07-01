@@ -11,16 +11,16 @@ repository.workspace = true
 brane-ast = { git = "https://github.com/epi-project/brane" }
 brane-exe = { git = "https://github.com/epi-project/brane" }
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
-log = "0.4"
-serde = {version="1.0", features=["derive"]}
-serde_json = "1.0"
+log = "0.4.21"
+serde = {version="1.0.203", features=["derive"]}
+serde_json = "1.0.117"
 transform = { git = "https://github.com/Lut99/transform-rs" }
-uuid = "*"
-workflow = "*"
+uuid = "1.7.0"
+workflow = "0.3"
 
 
 [dev-dependencies]
-clap = { version = "4.4", features = ["derive"] }
+clap = { version = "4.4.0", features = ["derive"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
-log = "0.4"
+log = "0.4.21"

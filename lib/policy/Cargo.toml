@@ -9,17 +9,17 @@ repository.workspace = true
 
 [dependencies]
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
-log = "0.4"
+log = "0.4.21"
 transform = { git = "https://github.com/Lut99/transform-rs" }
-chrono = "*"
-serde = {version="1.0", features=["derive"]}
-serde_json = {version = "1.0" , features = ["raw_value"]}
-async-trait = "*"
+chrono = { version = "0.4.35", features=["serde"] }
+serde = {version="1.0.203", features=["derive"]}
+serde_json = {version = "1.0.117" , features = ["raw_value"]}
+async-trait = "0.1.67"
 warp = "0.3"
 
 [dev-dependencies]
-clap = { version = "4.4", features = ["derive"] }
+clap = { version = "4.4.0", features = ["derive"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
-log = "0.4"
+log = "0.4.21"
 

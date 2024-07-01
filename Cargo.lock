@@ -263,7 +263,7 @@ dependencies = [
 [[package]]
 name = "audit-logger"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
  "async-trait",
  "auth-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
@@ -290,7 +290,7 @@ dependencies = [
 [[package]]
 name = "auth-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
  "async-trait",
  "serde",
@@ -475,31 +475,10 @@ dependencies = [
 [[package]]
 name = "brane-ast"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#9dee91472117b477274fb4da5b7e5c09a1dd2953"
-dependencies = [
- "brane-dsl 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "console",
- "enum-debug",
- "im",
- "lazy_static",
- "log",
- "num-traits",
- "rand 0.8.5",
- "serde",
- "serde_json_any_key",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "strum 0.25.0",
- "uuid",
-]
-
-[[package]]
-name = "brane-ast"
-version = "3.0.0"
 source = "git+https://github.com/epi-project/brane#b72fd2086acf99ed606c3c5ac7a8b6fa5f570ed9"
 dependencies = [
- "brane-dsl 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-dsl",
+ "brane-shr",
  "console",
  "enum-debug",
  "im",
@@ -509,7 +488,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json_any_key",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "strum 0.25.0",
  "uuid",
 ]
@@ -520,14 +499,14 @@ version = "3.0.0"
 source = "git+https://github.com/epi-project/brane#b72fd2086acf99ed606c3c5ac7a8b6fa5f570ed9"
 dependencies = [
  "async-trait",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-shr",
  "enum-debug",
  "log",
  "rustls 0.21.12",
  "rustls-pemfile 1.0.4",
  "serde",
  "serde_yml",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "tokio",
  "x509-parser",
 ]
@@ -540,7 +519,7 @@ dependencies = [
  "base64ct",
  "bollard",
  "brane-cfg",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-shr",
  "brane-tsk",
  "clap 4.5.8",
  "console",
@@ -569,7 +548,7 @@ dependencies = [
  "serde_json",
  "serde_yml",
  "shlex",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "srv 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "tempfile",
  "tokio",
@@ -578,9 +557,9 @@ dependencies = [
 [[package]]
 name = "brane-dsl"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#9dee91472117b477274fb4da5b7e5c09a1dd2953"
+source = "git+https://github.com/epi-project/brane#b72fd2086acf99ed606c3c5ac7a8b6fa5f570ed9"
 dependencies = [
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
+ "brane-shr",
  "bytes",
  "enum-debug",
  "itertools 0.10.5",
@@ -592,52 +571,8 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
+ "specifications",
  "thiserror",
-]
-
-[[package]]
-name = "brane-dsl"
-version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#b72fd2086acf99ed606c3c5ac7a8b6fa5f570ed9"
-dependencies = [
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
- "bytes",
- "enum-debug",
- "itertools 0.10.5",
- "log",
- "nom",
- "nom_locate",
- "rand 0.8.5",
- "regex",
- "semver",
- "serde",
- "serde_json",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
- "thiserror",
-]
-
-[[package]]
-name = "brane-exe"
-version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#9dee91472117b477274fb4da5b7e5c09a1dd2953"
-dependencies = [
- "async-recursion",
- "async-trait",
- "base64 0.13.1",
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "console",
- "enum-debug",
- "futures",
- "lazy_static",
- "log",
- "num-traits",
- "serde",
- "serde_json",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -648,8 +583,8 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "base64 0.13.1",
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-ast",
+ "brane-shr",
  "console",
  "enum-debug",
  "futures",
@@ -658,36 +593,9 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "tokio",
  "uuid",
-]
-
-[[package]]
-name = "brane-shr"
-version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#9dee91472117b477274fb4da5b7e5c09a1dd2953"
-dependencies = [
- "async-compression",
- "console",
- "dialoguer 0.10.4",
- "enum-debug",
- "fs2",
- "futures-util",
- "hex",
- "humanlog",
- "indicatif",
- "log",
- "num-derive",
- "num-traits",
- "regex",
- "reqwest 0.11.27",
- "sha2",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "tokio",
- "tokio-stream",
- "tokio-tar",
- "url",
 ]
 
 [[package]]
@@ -710,7 +618,7 @@ dependencies = [
  "regex",
  "reqwest 0.11.27",
  "sha2",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "tokio",
  "tokio-stream",
  "tokio-tar",
@@ -726,10 +634,10 @@ dependencies = [
  "base64 0.21.7",
  "base64ct",
  "bollard",
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-ast",
  "brane-cfg",
- "brane-exe 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-exe",
+ "brane-shr",
  "chrono",
  "console",
  "dialoguer 0.11.0",
@@ -749,7 +657,7 @@ dependencies = [
  "serde_json",
  "serde_yml",
  "sha2",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "tokio",
  "tokio-tar",
  "tokio-util",
@@ -798,8 +706,8 @@ name = "checker-client"
 version = "0.1.0"
 dependencies = [
  "audit-logger 0.1.0",
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-ast",
+ "brane-shr",
  "chrono",
  "clap 4.5.8",
  "console",
@@ -815,10 +723,10 @@ dependencies = [
  "names",
  "policy 0.1.0",
  "rand 0.8.5",
- "reqwest 0.11.27",
+ "reqwest 0.12.5",
  "serde_json",
  "sha2",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "srv 0.1.0",
 ]
 
@@ -1050,8 +958,8 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 name = "deliberation"
 version = "0.1.0"
 dependencies = [
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-exe 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-ast",
+ "brane-exe",
  "clap 4.5.8",
  "enum-debug",
  "error-trace",
@@ -1067,10 +975,10 @@ dependencies = [
 [[package]]
 name = "deliberation"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "brane-exe 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
+ "brane-ast",
+ "brane-exe",
  "enum-debug",
  "log",
  "serde",
@@ -1263,7 +1171,7 @@ dependencies = [
  "hex-literal",
  "indicatif",
  "log",
- "reqwest 0.11.27",
+ "reqwest 0.12.5",
  "sha2",
  "tokio",
 ]
@@ -1271,7 +1179,7 @@ dependencies = [
 [[package]]
 name = "eflint-to-json"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
  "async-recursion",
  "console",
@@ -1876,9 +1784,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe575dd17d0862a9a33781c8c4696a55c320909004a67a00fb286ba8b1bc496d"
+checksum = "c4fe55fb7a772d59a5ff1dfbff4fe0258d19b89fec4b233e75d35d5d2316badc"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1916,7 +1824,7 @@ checksum = "5ee4be2c948921a1a5320b629c4193916ed787a7f7f293fd3f7f5a6c9de74155"
 dependencies = [
  "futures-util",
  "http 1.1.0",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "hyper-util",
  "rustls 0.23.10",
  "rustls-pki-types",
@@ -1958,7 +1866,7 @@ checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
  "http-body-util",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "hyper-util",
  "native-tls",
  "tokio",
@@ -1968,16 +1876,16 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b875924a60b96e5d7b9ae7b066540b1dd1cbd90d1828f54c92e02a283351c56"
+checksum = "3ab92f4f49ee4fb4f997c784b7a2e0fa70050211e0b6a287f898c3c9785ca956"
 dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.0",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "pin-project-lite",
  "socket2",
  "tokio",
@@ -2660,7 +2568,7 @@ dependencies = [
 [[package]]
 name = "policy"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2713,9 +2621,9 @@ dependencies = [
  "reqwest 0.12.5",
  "serde",
  "serde_json",
- "serde_yaml 0.9.34+deprecated",
+ "serde_yml",
  "sha2",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "srv 0.1.0",
  "state-resolver 0.1.0",
  "tokio",
@@ -2916,7 +2824,7 @@ dependencies = [
 [[package]]
 name = "reasonerconn"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3070,7 +2978,7 @@ dependencies = [
  "http 1.1.0",
  "http-body 1.0.0",
  "http-body-util",
- "hyper 1.3.1",
+ "hyper 1.4.0",
  "hyper-rustls 0.27.2",
  "hyper-tls 0.6.0",
  "hyper-util",
@@ -3090,10 +2998,12 @@ dependencies = [
  "system-configuration",
  "tokio",
  "tokio-native-tls",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-streams",
  "web-sys",
  "winreg 0.52.0",
 ]
@@ -3448,19 +3358,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap 2.2.6",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
-]
-
-[[package]]
 name = "serde_yml"
 version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3583,39 +3480,6 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane?branch=develop#9dee91472117b477274fb4da5b7e5c09a1dd2953"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.21.7",
- "base64ct",
- "chrono",
- "const_format",
- "enum-debug",
- "futures",
- "jsonwebtoken",
- "log",
- "num-traits",
- "parking_lot",
- "prost",
- "prost-types",
- "reqwest 0.11.27",
- "semver",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_test",
- "serde_with 3.8.2",
- "serde_yml",
- "strum 0.24.1",
- "strum_macros 0.24.3",
- "tonic",
- "uuid",
-]
-
-[[package]]
-name = "specifications"
-version = "3.0.0"
 source = "git+https://github.com/epi-project/brane#b72fd2086acf99ed606c3c5ac7a8b6fa5f570ed9"
 dependencies = [
  "anyhow",
@@ -3658,8 +3522,8 @@ version = "0.1.0"
 dependencies = [
  "audit-logger 0.1.0",
  "auth-resolver 0.1.0",
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-exe 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-ast",
+ "brane-exe",
  "chrono",
  "deliberation 0.1.0",
  "error-trace",
@@ -3681,12 +3545,12 @@ dependencies = [
 [[package]]
 name = "srv"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
  "audit-logger 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "auth-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "brane-exe 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
+ "brane-ast",
+ "brane-exe",
  "chrono",
  "deliberation 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "error-trace",
@@ -3717,7 +3581,7 @@ dependencies = [
 [[package]]
 name = "state-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
  "async-trait",
  "serde",
@@ -4290,12 +4154,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
-
-[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4714,9 +4572,9 @@ dependencies = [
 name = "workflow"
 version = "0.1.0"
 dependencies = [
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-exe 3.0.0 (git+https://github.com/epi-project/brane)",
- "brane-shr 3.0.0 (git+https://github.com/epi-project/brane)",
+ "brane-ast",
+ "brane-exe",
+ "brane-shr",
  "clap 4.5.8",
  "eflint-json",
  "enum-debug",
@@ -4728,24 +4586,24 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_json",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane)",
+ "specifications",
  "transform",
 ]
 
 [[package]]
 name = "workflow"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#ee783def8ba6a80193244abdd12de7bad18b5377"
+source = "git+https://github.com/epi-project/policy-reasoner#7566f131bfd65db2cd6775b579d59687a5162f6b"
 dependencies = [
- "brane-ast 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
- "brane-exe 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
+ "brane-ast",
+ "brane-exe",
  "eflint-json",
  "enum-debug",
  "log",
  "num-traits",
  "rand 0.8.5",
  "serde",
- "specifications 3.0.0 (git+https://github.com/epi-project/brane?branch=develop)",
+ "specifications",
  "transform",
 ]
 
@@ -4758,7 +4616,7 @@ dependencies = [
  "clap 2.34.0",
  "log",
  "serde",
- "serde_yaml 0.8.26",
+ "serde_yaml",
  "simple_logger",
  "walkdir",
 ]
