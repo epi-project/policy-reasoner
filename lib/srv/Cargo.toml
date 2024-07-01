@@ -9,8 +9,8 @@ repository.workspace = true
 [dependencies]
 audit-logger = { path = "../audit-logger" }
 auth-resolver = { path = "../auth-resolver" }
-brane-ast = { git = "https://github.com/epi-project/brane", branch = "develop" }
-brane-exe = { git = "https://github.com/epi-project/brane", branch = "develop" }
+brane-ast = { git = "https://github.com/epi-project/brane" }
+brane-exe = { git = "https://github.com/epi-project/brane" }
 chrono = "*"
 deliberation = { path = "../deliberation" }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }

@@ -8,9 +8,9 @@ description = "A tool to make requests to the checker conveniently, for demo/tes
 
 
 [dependencies]
-brane-ast = { git = "https://github.com/epi-project/brane", branch = "develop" }
-brane-shr = { git = "https://github.com/epi-project/brane", branch = "develop" }
-specifications = { git = "https://github.com/epi-project/brane", branch = "develop" }
+brane-ast = { git = "https://github.com/epi-project/brane" }
+brane-shr = { git = "https://github.com/epi-project/brane" }
+specifications = { git = "https://github.com/epi-project/brane" }
 chrono = "0.4"
 clap = { version = "4.4", features = ["derive"] }
 console = "0.15"

@@ -8,7 +8,7 @@ description = "A tool that copies `branectl`s behaviour in making it easy to gen
 
 
 [dependencies]
-brane-ctl = { git = "https://github.com/epi-project/brane", branch = "develop" }
+brane-ctl = { git = "https://github.com/epi-project/brane" }
 clap = { version = "4.5", features = ["derive"] }
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
 humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
