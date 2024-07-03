@@ -9,12 +9,12 @@ repository = "https://github.com/epi-project/policy-reasoner"
 
 [dependencies]
 async-recursion = "1.0"
-console = "0.15"
-futures-util = "0.3"
-hex = "0.4"
+console = "0.15.5"
+futures-util = "0.3.30"
+hex = "0.4.3"
 hex-literal = "0.4"
 indicatif = "0.17"
-log = "0.4"
-reqwest = { version = "0.11", features = ["blocking", "stream"] }
-sha2 = "0.10"
-tokio = { version = "1.34", default-features = false, features = ["fs", "process"]}
+log = "0.4.21"
+reqwest = { version = "0.12.0", features = ["blocking", "stream"] }
+sha2 = "0.10.6"
+tokio = { version = "1.38.0", default-features = false, features = ["fs", "process"]}

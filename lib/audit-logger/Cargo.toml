@@ -7,14 +7,14 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "*"
+async-trait = "0.1.67"
 auth-resolver = {path = "../auth-resolver"}
 enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
 policy = {path = "../policy"}
 deliberation = {path = "../deliberation"}
 state-resolver = {path = "../state-resolver"}
 workflow = {path = "../workflow"}
-serde = "1.0"
-serde_json = "1.0"
+serde = "1.0.203"
+serde_json = "1.0.117"
 warp = "0.3"
 hex = "0.4.3"
