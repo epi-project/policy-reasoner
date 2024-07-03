@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 15:11:34
 //  Last edited:
-//    16 Jan 2024, 15:01:05
+//    12 Jun 2024, 17:42:17
 //  Auto updated?
 //    Yes
 //
@@ -27,5 +27,5 @@ use brane_exe::pc::ProgramCounter;
 /// The edge the `pc` pointed to, or [`None`] if it was out-of-bounds.
 #[inline]
 pub fn get_edge(wir: &ast::Workflow, pc: ProgramCounter) -> Option<&ast::Edge> {
-    if pc.func_id.is_main() { wir.graph.get(pc.edge_idx) } else { wir.funcs.get(&pc.func_id.id()).map(|edges| edges.get(pc.edge_idx)).flatten() }
+    if pc.func_id.is_main() { wir.graph.get(pc.edge_idx) } else { wir.funcs.get(&pc.func_id.id()).and_then(|edges| edges.get(pc.edge_idx)) }
 }

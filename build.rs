@@ -4,7 +4,7 @@
 //  Created:
 //    13 Dec 2023, 11:45:11
 //  Last edited:
-//    12 Mar 2024, 13:53:16
+//    12 Jun 2024, 17:49:49
 //  Auto updated?
 //    Yes
 //
@@ -99,7 +99,7 @@ fn compile_eflint() {
     let mut handle: HashWriter<File> = HashWriter::new(handle);
 
     // Alright run the compiler, after which we reset the handle
-    if let Err(err) = compile(&main_path, &mut handle, eflint_to_json_exe.as_ref().map(|p| p.as_path())) {
+    if let Err(err) = compile(&main_path, &mut handle, eflint_to_json_exe.as_deref()) {
         panic!("{}", trace!(("Failed to compile input file '{}'", main_path.display()), err));
     }
 

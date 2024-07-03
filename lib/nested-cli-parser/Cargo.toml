@@ -13,3 +13,8 @@ unicode-segmentation = { version = "1.10", optional = true }
 [features]
 default = [ "map_parser" ]
 map_parser = [ "dep:unicode-segmentation" ]
+
+
+[lints.clippy]
+# I truly don't know why they feel the range.contains() syntax is easier on the eyes
+manual_range_contains = "allow"

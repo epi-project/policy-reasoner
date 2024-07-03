@@ -34,7 +34,7 @@ impl KeyResolver for KidResolver {
         let kid = header.kid.as_ref().ok_or_else(|| AuthResolverError::new("No kid present in header".into()))?;
 
         // Get the key
-        let key: &Jwk = match self.jwk_store.find(&kid) {
+        let key: &Jwk = match self.jwk_store.find(kid) {
             Some(key) => key,
             None => return Err(AuthResolverError::new(format!("Could not find key for kid: {}", kid))),
         };
@@ -73,7 +73,8 @@ impl<KR> JwtResolver<KR>
 where
     KR: KeyResolver + Sync,
 {
-    pub fn new(config: JwtConfig, key_resolver: KR) -> Result<Self, Box<dyn std::error::Error>> { return Ok(JwtResolver { config, key_resolver }); }
+    #[inline]
+    pub fn new(config: JwtConfig, key_resolver: KR) -> Result<Self, Box<dyn std::error::Error>> { Ok(JwtResolver { config, key_resolver }) }
 
     pub fn extract_jwt(&self, auth_header: Option<&HeaderValue>) -> Result<String, AuthResolverError> {
         let header_val: &str = match auth_header {
@@ -86,7 +87,7 @@ where
             },
         };
 
-        let parts = header_val.splitn(2, " ").collect::<Vec<&str>>();
+        let parts = header_val.splitn(2, ' ').collect::<Vec<&str>>();
 
         if parts[0] != "Bearer" {
             return Err(AuthResolverError::new("Invalid authorization header".into()));

@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:45:18
 //  Last edited:
-//    18 Jan 2024, 15:55:17
+//    12 Jun 2024, 17:51:56
 //  Auto updated?
 //    Yes
 //
@@ -196,19 +196,18 @@ where
             .await
         {
             Ok(v) => {
-                let resp: Verdict;
-                if !v.success {
-                    resp = Verdict::Deny(DeliberationDenyResponse {
+                let resp: Verdict = if !v.success {
+                    Verdict::Deny(DeliberationDenyResponse {
                         shared: TaskExecResponse { verdict_reference: verdict_reference.clone() },
                         reasons_for_denial: Some(v.errors),
-                    });
+                    })
                 } else {
-                    resp = Verdict::Allow(DeliberationAllowResponse {
+                    Verdict::Allow(DeliberationAllowResponse {
                         shared:    TaskExecResponse { verdict_reference: verdict_reference.clone() },
                         // TODO implement signature
                         signature: "signature".into(),
                     })
-                }
+                };
 
                 this.logger.log_verdict(&verdict_reference, &resp).await.map_err(|err| {
                     debug!("Could not log execute task verdict to audit log : {:?} | request id: {}", err, verdict_reference);
@@ -329,19 +328,18 @@ where
             .await
         {
             Ok(v) => {
-                let resp: Verdict;
-                if !v.success {
-                    resp = Verdict::Deny(DeliberationDenyResponse {
+                let resp: Verdict = if !v.success {
+                    Verdict::Deny(DeliberationDenyResponse {
                         shared: DataAccessResponse { verdict_reference: verdict_reference.clone() },
                         reasons_for_denial: Some(v.errors),
-                    });
+                    })
                 } else {
-                    resp = Verdict::Allow(DeliberationAllowResponse {
+                    Verdict::Allow(DeliberationAllowResponse {
                         shared:    DataAccessResponse { verdict_reference: verdict_reference.clone() },
                         // TODO implement signature
                         signature: "signature".into(),
                     })
-                }
+                };
 
                 this.logger.log_verdict(&verdict_reference, &resp).await.map_err(|err| {
                     debug!("Could not log data access verdict to audit log : {:?} | request id: {}", err, verdict_reference);
@@ -415,19 +413,18 @@ where
             .await
         {
             Ok(v) => {
-                let resp: Verdict;
-                if !v.success {
-                    resp = Verdict::Deny(DeliberationDenyResponse {
+                let resp: Verdict = if !v.success {
+                    Verdict::Deny(DeliberationDenyResponse {
                         shared: WorkflowValidationResponse { verdict_reference: verdict_reference.clone() },
                         reasons_for_denial: Some(v.errors),
-                    });
+                    })
                 } else {
-                    resp = Verdict::Allow(DeliberationAllowResponse {
+                    Verdict::Allow(DeliberationAllowResponse {
                         shared:    WorkflowValidationResponse { verdict_reference: verdict_reference.clone() },
                         // TODO implement signature
                         signature: "signature".into(),
                     })
-                }
+                };
 
                 this.logger.log_verdict(&verdict_reference, &resp).await.map_err(|err| {
                     debug!("Could not log workflow validation verdict to audit log : {:?} | request id: {}", err, verdict_reference);

@@ -52,7 +52,7 @@ pub trait ConnectorWithContext {
         Self::context().hash(&mut hasher);
         // digest()
         let h = hasher.finish();
-        return hex::encode(h.to_be_bytes());
+        hex::encode(h.to_be_bytes())
     }
     /// Returns so-called "full context" about the reasoner connector that is relevant for the audit log.
     ///
@@ -282,6 +282,8 @@ pub trait AuditLogger: ReasonerConnectorAuditLogger {
         task: &str,
     ) -> Result<(), Error>;
 
+    // OK so it _may_ have a few functions. But again, not worth it to make a struct IMO.
+    #[allow(clippy::too_many_arguments)]
     async fn log_data_access_request(
         &self,
         reference: &str,

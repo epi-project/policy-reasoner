@@ -4,7 +4,7 @@
 //  Created:
 //    09 Jan 2024, 13:14:34
 //  Last edited:
-//    07 Feb 2024, 18:07:34
+//    12 Jun 2024, 18:00:40
 //  Auto updated?
 //    Yes
 //
@@ -285,14 +285,14 @@ impl FileStateResolver {
         debug!("Opening input file '{}'...", path.display());
         let state: String = match fs::read_to_string(&path) {
             Ok(state) => state,
-            Err(err) => return Err(FileStateResolverError::FileRead { path: path.into(), err }),
+            Err(err) => return Err(FileStateResolverError::FileRead { path, err }),
         };
 
         // Parse it as JSON
         debug!("Parsing input file '{}'...", path.display());
         let state: State = match serde_json::from_str(&state) {
             Ok(state) => state,
-            Err(err) => return Err(FileStateResolverError::FileDeserialize { path: path.into(), err }),
+            Err(err) => return Err(FileStateResolverError::FileDeserialize { path, err }),
         };
 
         // Build ourselves with it
@@ -324,6 +324,8 @@ impl FileStateResolver {
     ///
     /// # Returns
     /// A [`NestedCliParserHelpFormatter`] that implements [`Display`].
+    // Don't agree with clippy again about the elided lifetimes. Not clearer!
+    #[allow(clippy::needless_lifetimes)]
     pub fn help<'l>(short: char, long: &'l str) -> NestedCliParserHelpFormatter<'static, 'l, MapParser> {
         MapParser::new(Self::cli_args()).into_help("FileStateResolver plugin", short, long)
     }

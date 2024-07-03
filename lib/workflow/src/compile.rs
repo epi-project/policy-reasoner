@@ -4,7 +4,7 @@
 //  Created:
 //    27 Oct 2023, 17:39:59
 //  Last edited:
-//    08 Feb 2024, 10:36:08
+//    12 Jun 2024, 17:38:33
 //  Auto updated?
 //    Yes
 //
@@ -169,7 +169,7 @@ fn analyse_data_lkls(lkls: &mut HashMap<DataName, HashSet<String>>, wir: &ast::W
             analyse_data_lkls(lkls, wir, pc.jump(*next), breakpoint)
         },
 
-        ast::Edge::Stop {} => return,
+        ast::Edge::Stop {} => (),
 
         ast::Edge::Branch { true_next, false_next, merge } => {
             // Do the branches first...
@@ -290,15 +290,12 @@ fn reconstruct_graph(
                     .iter()
                     .map(|(name, avail)| Dataset {
                         name: name.name().into(),
-                        from: avail
-                            .as_ref()
-                            .map(|avail| match avail {
-                                AvailabilityKind::Available { how: _ } => None,
-                                AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, dataname: _ } } => {
-                                    Some(location.clone())
-                                },
-                            })
-                            .flatten(),
+                        from: avail.as_ref().and_then(|avail| match avail {
+                            AvailabilityKind::Available { how: _ } => None,
+                            AvailabilityKind::Unavailable { how: PreprocessKind::TransferRegistryTar { location, dataname: _ } } => {
+                                Some(location.clone())
+                            },
+                        }),
                     })
                     .collect(),
                 output: result.as_ref().map(|name| Dataset { name: name.clone(), from: None }),
@@ -396,7 +393,7 @@ fn reconstruct_graph(
                 let mut new_input: Vec<Dataset> = Vec::with_capacity(input.len());
                 for i in input {
                     // See if it has any known locations
-                    let location: Option<String> = lkls.get(&i).map(|locs| locs.iter().cloned().next()).flatten();
+                    let location: Option<String> = lkls.get(i).and_then(|locs| locs.iter().next().cloned());
 
                     // Add it to the list of possible input locations
                     if let Some(location) = &location {

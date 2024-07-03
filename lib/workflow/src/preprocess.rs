@@ -4,7 +4,7 @@
 //  Created:
 //    02 Nov 2023, 14:52:26
 //  Last edited:
-//    08 Feb 2024, 10:35:16
+//    12 Jun 2024, 17:41:53
 //  Auto updated?
 //    Yes
 //
@@ -522,7 +522,7 @@ fn find_inlinable_funcs(
             find_inlinable_funcs(wir, calls, trace, pc.jump(*next), breakpoint, inlinable)
         },
 
-        Edge::Stop {} => return HashSet::new(),
+        Edge::Stop {} => HashSet::new(),
 
         Edge::Branch { true_next, false_next, merge } => {
             // Analyse the left branch...
@@ -624,7 +624,7 @@ fn find_inlinable_funcs(
             dependencies
         },
 
-        Edge::Return { result: _ } => return HashSet::new(),
+        Edge::Return { result: _ } => HashSet::new(),
     }
 }
 
@@ -731,7 +731,7 @@ fn prep_func_body(
             prep_func_body(edges, calls, func_id, start_idx, ret_idx, old_next, breakpoint);
         },
 
-        Edge::Stop {} => return,
+        Edge::Stop {} => (),
 
         Edge::Branch { true_next, false_next, merge } => {
             let (old_true_next, old_false_next, old_merge): (usize, Option<usize>, Option<usize>) = (*true_next, *false_next, *merge);
@@ -834,16 +834,16 @@ fn prep_func_body(
 /// - `calls`: The map of call indices to which function is actually called.
 /// - `funcs`: A map of call IDs to function bodies ready to be substituted in the `body`.
 /// - `inlinable`: A collection of functions that determines if functions are inlinable. If the set of `deps` is [`Some`], it's inlinable; else it's not.
-/// - `table`: The parent scope's [`SymTable`] we use to resolve definitions.
 /// - `func_id`: The ID of the function we're inlining.
 /// - `pc`: Points to the current [`Edge`] to analyse.
 /// - `breakpoint`: If given, then analysis should stop when this PC is hit.
+// It's a compiler function, too many arguments are kinda its thing :P No it's not worth it to come up with structs for this.
+#[allow(clippy::too_many_arguments)]
 fn inline_funcs_in_body(
     body: &mut Vec<Edge>,
     calls: &mut HashMap<ProgramCounter, usize>,
     funcs: &HashMap<usize, Vec<Edge>>,
     inlinable: &HashMap<usize, Option<HashSet<usize>>>,
-    table: &SymTable,
     func_id: FunctionId,
     pc: usize,
     breakpoint: Option<usize>,
@@ -865,23 +865,23 @@ fn inline_funcs_in_body(
     match edge {
         Edge::Node { next, .. } | Edge::Linear { next, .. } => {
             let next: usize = *next;
-            inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, next, breakpoint)
+            inline_funcs_in_body(body, calls, funcs, inlinable, func_id, next, breakpoint)
         },
 
-        Edge::Stop {} => return,
+        Edge::Stop {} => (),
 
         Edge::Branch { true_next, false_next, merge } => {
             let (true_next, false_next, merge): (usize, Option<usize>, Option<usize>) = (*true_next, *false_next, *merge);
 
             // Analyse the left branch...
-            inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, true_next, merge);
+            inline_funcs_in_body(body, calls, funcs, inlinable, func_id, true_next, merge);
             // ...the right branch...
             if let Some(false_next) = false_next {
-                inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, false_next, merge)
+                inline_funcs_in_body(body, calls, funcs, inlinable, func_id, false_next, merge)
             }
             // ...and the merge!
             if let Some(merge) = merge {
-                inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, merge, breakpoint)
+                inline_funcs_in_body(body, calls, funcs, inlinable, func_id, merge, breakpoint)
             }
         },
 
@@ -890,28 +890,28 @@ fn inline_funcs_in_body(
 
             // Collect all the branches
             for branch in branches {
-                inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, branch, Some(merge));
+                inline_funcs_in_body(body, calls, funcs, inlinable, func_id, branch, Some(merge));
             }
 
             // Run merge and done is Cees
-            inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, merge, breakpoint);
+            inline_funcs_in_body(body, calls, funcs, inlinable, func_id, merge, breakpoint);
         },
 
         Edge::Join { next, .. } => {
             let next: usize = *next;
-            inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, next, breakpoint)
+            inline_funcs_in_body(body, calls, funcs, inlinable, func_id, next, breakpoint)
         },
 
         Edge::Loop { cond, body: lbody, next } => {
             let (cond, lbody, next): (usize, usize, Option<usize>) = (*cond, *lbody, *next);
 
             // Traverse the condition...
-            inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, cond, Some(lbody - 1));
+            inline_funcs_in_body(body, calls, funcs, inlinable, func_id, cond, Some(lbody - 1));
             // ...the body...
-            inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, lbody, Some(cond));
+            inline_funcs_in_body(body, calls, funcs, inlinable, func_id, lbody, Some(cond));
             // ...and finally, the next step, if any
             if let Some(next) = next {
-                inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, next, breakpoint);
+                inline_funcs_in_body(body, calls, funcs, inlinable, func_id, next, breakpoint);
             }
         },
 
@@ -930,7 +930,7 @@ fn inline_funcs_in_body(
             if inlinable.get(&call_id).map(|deps| deps.is_none()).unwrap_or(true) {
                 // Simply skip after doing the next
                 trace!("Not inlining function call to function {call_id} at {pc}");
-                inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, next, breakpoint);
+                inline_funcs_in_body(body, calls, funcs, inlinable, func_id, next, breakpoint);
                 return;
             }
             trace!("Inlining function call to function {call_id} at {pc}");
@@ -952,10 +952,10 @@ fn inline_funcs_in_body(
             body.extend(call_body);
 
             // End with the next edges
-            inline_funcs_in_body(body, calls, funcs, inlinable, table, func_id, next, breakpoint);
+            inline_funcs_in_body(body, calls, funcs, inlinable, func_id, next, breakpoint);
         },
 
-        Edge::Return { result: _ } => return,
+        Edge::Return { result: _ } => (),
     }
 }
 
@@ -1042,14 +1042,14 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
 
             // Inline the functions in this body
             debug!("Inlining functions in function {id}");
-            inline_funcs_in_body(&mut new_body, calls, &new_funcs, &inlinable, &table, FunctionId::Func(id), 0, None);
+            inline_funcs_in_body(&mut new_body, calls, &new_funcs, &inlinable, FunctionId::Func(id), 0, None);
             new_funcs.insert(id, new_body);
         }
         funcs = new_funcs;
 
         // Now inline the main with all function bodies inlined correctly
         debug!("Inlining functions in main");
-        inline_funcs_in_body(&mut graph, calls, &funcs, &inlinable, &table, FunctionId::Main, 0, None);
+        inline_funcs_in_body(&mut graph, calls, &funcs, &inlinable, FunctionId::Main, 0, None);
 
         // Write the functions and graphs back
         let mut table: Arc<SymTable> = Arc::new(table);

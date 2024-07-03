@@ -59,6 +59,11 @@ brane-api-resolver = [ "dep:graphql_client", "dep:brane-cfg", "dep:specification
 leak-public-errors = []
 
 
+[lints.clippy]
+# I daren't listen to this, I'm pretty sure new Rust versions claim the opposite
+redundant_static_lifetimes = "allow"
+
+
 [workspace]
 resolver = "2"
 members = [

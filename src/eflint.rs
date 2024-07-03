@@ -72,9 +72,9 @@ pub const EFLINT_JSON_ID: &'static str = "eflint-json";
 
 // Externalized "constants"
 /// The entire base specification, already serialized as eFLINT JSON. See `build.rs` to find how the `BASE_DEFS_EFLINT_JSON` environment variable is populated.
-const JSON_BASE_SPEC: &str = include_str!(env!("BASE_DEFS_EFLINT_JSON"));
+const JSON_BASE_SPEC: &'static str = include_str!(env!("BASE_DEFS_EFLINT_JSON"));
 /// A hash of the entire base specification, precomputed by `build.rs`.
-const JSON_BASE_SPEC_HASH: &str = env!("BASE_DEFS_EFLINT_JSON_HASH");
+const JSON_BASE_SPEC_HASH: &'static str = env!("BASE_DEFS_EFLINT_JSON_HASH");
 
 
 
@@ -196,7 +196,7 @@ impl EFlintErrorHandler for EFlintLeakPrefixErrors {
                 },
                 _ => vec![],
             })
-            .unwrap_or_else(Vec::new)
+            .unwrap_or_default()
     }
 
     #[inline]
@@ -261,6 +261,8 @@ impl<T: EFlintErrorHandler> EFlintReasonerConnector<T> {
     ///
     /// # Returns
     /// A [`NestedCliParserHelpFormatter`] that implements [`Display`].
+    // Don't agree with clippy about the unnecessary lifetimes here. Removing them needs me to write a `'_`, implying its disconnected from `long`.
+    #[allow(clippy::needless_lifetimes)]
     pub fn help<'l>(short: char, long: &'l str) -> NestedCliParserHelpFormatter<'static, 'l, MapParser> {
         MapParser::new(Self::cli_args()).into_help("EFlintReasonerConnector plugin", short, long)
     }
@@ -320,7 +322,7 @@ impl<T: EFlintErrorHandler> EFlintReasonerConnector<T> {
         let function_len: usize = result.len();
         debug!("Generated {} function phrases", function_len - dataset_len);
 
-        return result;
+        result
     }
 
     fn extract_eflint_policy(&self, policy: &Policy) -> Vec<Phrase> {
@@ -353,7 +355,7 @@ impl<T: EFlintErrorHandler> EFlintReasonerConnector<T> {
         info!("Retrieving eFLINT reasoner version from policy...");
         let eflint_content: Vec<&PolicyContent> = policy.content.iter().filter(|x| x.reasoner == EFLINT_JSON_ID).collect();
         let eflint_content = eflint_content.first().unwrap();
-        let parts: Vec<&str> = eflint_content.reasoner_version.split(".").collect();
+        let parts: Vec<&str> = eflint_content.reasoner_version.split('.').collect();
 
         if parts.len() != 3 {
             return Err(format!("Invalid version format, should be 'maj.min.patch', got '{}'", eflint_content.reasoner_version));
@@ -389,7 +391,7 @@ impl<T: EFlintErrorHandler> EFlintReasonerConnector<T> {
         phrases.extend(workflow_phrases);
 
         // 5. Add Policy
-        let policy_phrases: Vec<Phrase> = self.extract_eflint_policy(&policy);
+        let policy_phrases: Vec<Phrase> = self.extract_eflint_policy(policy);
         debug!("Loading policy ({} phrase(s))", policy_phrases.len());
         phrases.extend(policy_phrases);
 
@@ -402,7 +404,7 @@ impl<T: EFlintErrorHandler> EFlintReasonerConnector<T> {
         policy: &Policy,
         phrases: Vec<Phrase>,
     ) -> Result<ReasonerResponse, ReasonerConnError> {
-        let version = self.extract_eflint_version(policy).map_err(|err| ReasonerConnError::new(err))?;
+        let version = self.extract_eflint_version(policy).map_err(ReasonerConnError::new)?;
         debug!("Full request length: {} phrase(s)", phrases.len());
         let request = Request::Phrases(RequestPhrases { common: RequestCommon { version, extensions: HashMap::new() }, phrases, updates: true });
         debug!("Full request:\n\n{}\n\n", serde_json::to_string_pretty(&request).unwrap_or_else(|_| "<serialization failure>".into()));

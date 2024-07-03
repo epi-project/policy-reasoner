@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use ::policy::{Context, Policy, PolicyContent, PolicyDataAccess, PolicyDataError, PolicyVersion};
-use chrono::{Utc, DateTime};
+use chrono::{DateTime, Utc};
 use diesel::r2d2::{ConnectionManager, Pool};
 use diesel::result::Error;
 use diesel::sqlite::SqliteConnection;
@@ -40,7 +40,7 @@ impl SqlitePolicyDataStore {
         // Refer to the `r2d2` documentation for more methods to use
         // when building a connection pool
         let pool = Pool::builder().test_on_check_out(true).build(manager).expect("Could not build connection pool");
-        return Self { pool };
+        Self { pool }
     }
 
     async fn _get_active(&self) -> Result<i64, PolicyDataError> {
@@ -62,7 +62,7 @@ impl SqlitePolicyDataStore {
             Err(err) => return Err(PolicyDataError::GeneralError(err.to_string())),
         };
 
-        if !av.deactivated_on.is_none() {
+        if av.deactivated_on.is_some() {
             return Err(PolicyDataError::NotFound);
         }
 
@@ -137,7 +137,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
 
         let model = SqlitePolicy {
             description: version.description.clone(),
-            version: next_version.clone(),
+            version: next_version,
             version_description: version.version.version_description.clone(),
             creator: context.initiator,
             created_at: version.version.created_at.timestamp_micros(),
@@ -148,7 +148,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         let rt_handle: Handle = Handle::current();
         match tokio::task::spawn_blocking(move || {
             conn.exclusive_transaction(|conn| -> Result<Policy, SqlitePolicyDataStoreError> {
-                let policy = match diesel::insert_into(policies).values(&model).execute(conn.into()) {
+                let policy = match diesel::insert_into(policies).values(&model).execute(conn) {
                     Ok(_) => {
                         version.version.version = Some(next_version);
                         version
@@ -156,7 +156,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
                     Err(err) => return Err(SqlitePolicyDataStoreError { msg: err.to_string() }),
                 };
 
-                rt_handle.block_on(transaction(policy.clone())).map_err(|err| SqlitePolicyDataStoreError::from(err))?;
+                rt_handle.block_on(transaction(policy.clone())).map_err(SqlitePolicyDataStoreError::from)?;
 
                 Ok(policy)
             })
@@ -269,9 +269,9 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         let rt_handle: Handle = Handle::current();
         match tokio::task::spawn_blocking(move || {
             conn.exclusive_transaction(|conn| {
-                diesel::insert_into(active_version).values(&model).execute(conn.into())?;
+                diesel::insert_into(active_version).values(&model).execute(conn)?;
 
-                rt_handle.block_on(transaction(policy.clone())).map_err(|err| SqlitePolicyDataStoreError::from(err))?;
+                rt_handle.block_on(transaction(policy.clone())).map_err(SqlitePolicyDataStoreError::from)?;
 
                 Ok(policy)
             })
@@ -300,9 +300,9 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
                 diesel::update(active_version)
                     .filter(version.eq(av))
                     .set((deactivated_on.eq(Utc::now().naive_local()), deactivated_by.eq(context.initiator)))
-                    .execute(conn.into())?;
+                    .execute(conn)?;
 
-                rt_handle.block_on(transaction()).map_err(|err| SqlitePolicyDataStoreError::from(err))?;
+                rt_handle.block_on(transaction()).map_err(SqlitePolicyDataStoreError::from)?;
 
                 Ok(())
             })

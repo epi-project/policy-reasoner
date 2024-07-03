@@ -4,7 +4,7 @@
 //  Created:
 //    29 Nov 2023, 15:11:58
 //  Last edited:
-//    13 Dec 2023, 15:15:32
+//    12 Jun 2024, 17:45:43
 //  Auto updated?
 //    Yes
 //
@@ -213,8 +213,10 @@ pub fn download_file(source: impl AsRef<str>, target: impl AsRef<Path>, security
 
     // Assert the download directory exists
     let dir: Option<&Path> = target.parent();
-    if dir.is_some() && !dir.unwrap().exists() {
-        return Err(Error::DirNotFound { path: dir.unwrap().into() });
+    if let Some(dir) = dir {
+        if !dir.exists() {
+            return Err(Error::DirNotFound { path: dir.into() });
+        }
     }
 
     // Open the target file for writing
@@ -283,11 +285,7 @@ pub fn download_file(source: impl AsRef<str>, target: impl AsRef<Path>, security
 
     // Assert it succeeded
     if !res.status().is_success() {
-        return Err(Error::RequestFailure {
-            address: source.into(),
-            code:    res.status(),
-            err:     res.text().ok().map(|body| ResponseBodyError(body)),
-        });
+        return Err(Error::RequestFailure { address: source.into(), code: res.status(), err: res.text().ok().map(ResponseBodyError) });
     }
 
     // Create the progress bar based on whether if there is a length
@@ -315,13 +313,13 @@ pub fn download_file(source: impl AsRef<str>, target: impl AsRef<Path>, security
     };
     for next in body.chunks(16384) {
         // Write it to the file
-        if let Err(err) = handle.write(&next) {
+        if let Err(err) = handle.write(next) {
             return Err(Error::FileWrite { path: target.into(), err });
         }
 
         // If desired, update the hash
         if let Some(hasher) = &mut hasher {
-            hasher.update(&*next);
+            hasher.update(next);
         }
 
         // Update what we've written if needed
@@ -389,8 +387,10 @@ pub async fn download_file_async(
 
     // Assert the download directory exists
     let dir: Option<&Path> = target.parent();
-    if dir.is_some() && !dir.unwrap().exists() {
-        return Err(Error::DirNotFound { path: dir.unwrap().into() });
+    if let Some(dir) = dir {
+        if !dir.exists() {
+            return Err(Error::DirNotFound { path: dir.into() });
+        }
     }
 
     // Open the target file for writing
@@ -459,11 +459,7 @@ pub async fn download_file_async(
 
     // Assert it succeeded
     if !res.status().is_success() {
-        return Err(Error::RequestFailure {
-            address: source.into(),
-            code:    res.status(),
-            err:     res.text().await.ok().map(|body| ResponseBodyError(body)),
-        });
+        return Err(Error::RequestFailure { address: source.into(), code: res.status(), err: res.text().await.ok().map(ResponseBodyError) });
     }
 
     // Create the progress bar based on whether if there is a length
