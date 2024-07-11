@@ -29,7 +29,6 @@ use log::{debug, trace};
 
 use super::utils;
 
-
 /***** TESTS *****/
 #[cfg(test)]
 mod tests {
@@ -44,7 +43,6 @@ mod tests {
     use specifications::package::PackageIndex;
 
     use super::*;
-
 
     /// Runs checks to verify the workflow inlining analysis
     #[test]
@@ -209,10 +207,6 @@ mod tests {
     }
 }
 
-
-
-
-
 /***** ERRORS *****/
 /// Defines errors that may occur when preprocessing a [`Workflow`].
 #[derive(Debug)]
@@ -235,10 +229,6 @@ impl Display for Error {
     }
 }
 impl error::Error for Error {}
-
-
-
-
 
 /***** ANALYSIS FUNCTIONS *****/
 /// Checks whether the given stream of instructions would end with a function ID on top of the stack.
@@ -959,10 +949,6 @@ fn inline_funcs_in_body(
     }
 }
 
-
-
-
-
 /***** SIMPLIFICATION FUNCTIONS *****/
 /// Attempts to inline functions in the WIR as much as possible.
 ///
@@ -1063,10 +1049,6 @@ pub fn inline_functions(mut wir: Workflow, calls: &mut HashMap<ProgramCounter, u
     // OK, we did all we could
     wir
 }
-
-
-
-
 
 /***** LIBRARY *****/
 /// Simplifies the given WIR-workflow as much as possible to increase the compatability with checker workflows.

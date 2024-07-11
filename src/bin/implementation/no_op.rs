@@ -4,7 +4,6 @@
 //! Furthermore it can be used for testing. The reasoner approves all workflow validation requests by default (it does
 //! not perform any permission checks, and thus never rejects a request).
 use audit_logger::{ConnectorContext, ConnectorWithContext, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
-
 use log::debug;
 use policy::Policy;
 use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
@@ -17,16 +16,12 @@ use workflow::spec::Workflow;
 pub struct NoOpReasonerConnector;
 
 impl NoOpReasonerConnector {
-  pub fn new() -> Self {
-      Default::default()
-  }
+    pub fn new() -> Self { Default::default() }
 }
 
 /***** LIBRARY *****/
 #[async_trait::async_trait]
-impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L>
-    for NoOpReasonerConnector
-{
+impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<L> for NoOpReasonerConnector {
     async fn execute_task(
         &self,
         _logger: SessionedConnectorAuditLogger<L>,
@@ -51,7 +46,6 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<
         debug!("NoOpReasonerConnector: Access data request received");
         return Ok(ReasonerResponse::new(true, vec![]));
     }
-
 
     async fn workflow_validation_request(
         &self,
@@ -83,23 +77,14 @@ impl std::hash::Hash for NoOpReasonerConnectorContext {
 }
 
 impl ConnectorContext for NoOpReasonerConnectorContext {
-    fn r#type(&self) -> String {
-        self.t.clone()
-    }
+    fn r#type(&self) -> String { self.t.clone() }
 
-    fn version(&self) -> String {
-        self.version.clone()
-    }
+    fn version(&self) -> String { self.version.clone() }
 }
 
 impl ConnectorWithContext for NoOpReasonerConnector {
     type Context = NoOpReasonerConnectorContext;
 
     #[inline]
-    fn context() -> Self::Context {
-        NoOpReasonerConnectorContext {
-            t: "noop".into(),
-            version: "0.1.0".into(),
-        }
-    }
+    fn context() -> Self::Context { NoOpReasonerConnectorContext { t: "noop".into(), version: "0.1.0".into() } }
 }

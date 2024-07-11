@@ -10,9 +10,12 @@ pub mod implementation;
 use clap::Parser;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
-use log::{error, info};
-use policy_reasoner::{auth::{KidResolver, JwtConfig, JwtResolver}, logger::FileLogger, sqlite::SqlitePolicyDataStore, state};
 use implementation::no_op::NoOpReasonerConnector;
+use log::{error, info};
+use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
+use policy_reasoner::logger::FileLogger;
+use policy_reasoner::sqlite::SqlitePolicyDataStore;
+use policy_reasoner::state;
 use reasonerconn::ReasonerConnector;
 use srv::Srv;
 
@@ -83,7 +86,7 @@ where
     R: ReasonerConnector<AuditLogPlugin> + Send + Sync + 'static,
 {
     // Initialize the plugins
-    let log_identifier = format!("{binary} v{version}", binary=env!("CARGO_BIN_NAME"), version=env!("CARGO_PKG_VERSION"));
+    let log_identifier = format!("{binary} v{version}", binary = env!("CARGO_BIN_NAME"), version = env!("CARGO_PKG_VERSION"));
     let logger: AuditLogPlugin = FileLogger::new(log_identifier, "./audit-log.log");
     let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();

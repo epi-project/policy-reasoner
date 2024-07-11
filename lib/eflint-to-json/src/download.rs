@@ -27,7 +27,6 @@ use sha2::{Digest as _, Sha256};
 use tokio::fs as tfs;
 use tokio::io::AsyncWriteExt as _;
 
-
 /***** ERRORS *****/
 /// Wraps the contents of an error body.
 #[derive(Debug)]
@@ -36,8 +35,6 @@ impl Display for ResponseBodyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult { write!(f, "{}", self.0) }
 }
 impl error::Error for ResponseBodyError {}
-
-
 
 /// Defines errors occurring with [`download_file_async()`].
 #[derive(Debug)]
@@ -105,10 +102,6 @@ impl std::error::Error for Error {
         }
     }
 }
-
-
-
-
 
 /***** AUXILLARY *****/
 /// Defines things to do to assert a downloaded file is secure and what we expect.
@@ -182,10 +175,6 @@ impl<'c> Display for DownloadSecurity<'c> {
         }
     }
 }
-
-
-
-
 
 /***** LIBRARY *****/
 /// Downloads some file from the interwebs to the given location.

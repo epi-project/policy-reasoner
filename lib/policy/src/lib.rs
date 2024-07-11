@@ -63,7 +63,6 @@ impl warp::reject::Reject for PolicyDataError {}
 //     }
 // }
 
-
 // pub trait Transaction {
 //     pub fn cancel(self) -> Result<(), Error> {
 //         // Do the rollback

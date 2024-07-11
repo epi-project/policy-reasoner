@@ -26,7 +26,6 @@ use eflint_to_json::compile;
 use error_trace::trace;
 use sha2::{Digest as _, Sha256};
 
-
 /***** HELPERS *****/
 /// Wraps around another Writer to always Write while updating a hash of whatever we write.
 struct HashWriter<W>(W, Sha256);
@@ -62,10 +61,6 @@ impl<W: Write> Write for HashWriter<W> {
         self.0.flush()
     }
 }
-
-
-
-
 
 /***** TASKS *****/
 /// Compile & embed the eFLINT base definitions.
@@ -110,8 +105,6 @@ fn compile_eflint() {
     // Done
 }
 
-
-
 /// Runs the Diesel migrations for the database.
 fn build_database() {
     // Setup the triggers for running this script
@@ -148,10 +141,6 @@ fn build_database() {
         }
     }
 }
-
-
-
-
 
 /***** ENTRYPOINT *****/
 fn main() {

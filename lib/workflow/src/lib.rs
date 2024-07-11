@@ -24,6 +24,5 @@ pub mod tests;
 pub mod utils;
 pub mod visualize;
 
-
 // Bring some of it into the main namespace
 pub use spec::*;

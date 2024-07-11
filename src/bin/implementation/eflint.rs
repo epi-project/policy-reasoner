@@ -16,7 +16,6 @@ use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
 use state_resolver::State;
 use workflow::spec::Workflow;
 
-
 /***** HELPER MACROS *****/
 /// Shortcut for creating an eFLINT JSON Specification [`Phrase::Create`].
 ///
@@ -62,10 +61,6 @@ macro_rules! str_lit {
     };
 }
 
-
-
-
-
 /***** CONSTANTS *****/
 /// The identifier used for this connector backend.
 pub const EFLINT_JSON_ID: &'static str = "eflint-json";
@@ -75,10 +70,6 @@ pub const EFLINT_JSON_ID: &'static str = "eflint-json";
 const JSON_BASE_SPEC: &'static str = include_str!(env!("BASE_DEFS_EFLINT_JSON"));
 /// A hash of the entire base specification, precomputed by `build.rs`.
 const JSON_BASE_SPEC_HASH: &'static str = env!("BASE_DEFS_EFLINT_JSON_HASH");
-
-
-
-
 
 /***** ERRORS *****/
 /// Main error that originates from the [`EFlintReasonerConnector`].
@@ -130,10 +121,6 @@ impl error::Error for EFlintLeakPrefixErrorsError {
         }
     }
 }
-
-
-
-
 
 /***** ERROR HANDLERS *****/
 pub trait EFlintErrorHandler {
@@ -474,7 +461,6 @@ pub struct EFlintReasonerConnectorContext {
     pub base_defs: String,
     pub base_defs_hash: String,
 }
-
 
 impl std::hash::Hash for EFlintReasonerConnectorContext {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

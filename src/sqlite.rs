@@ -213,8 +213,6 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         use crate::schema::policies::dsl::{created_at, creator, policies, reasoner_connector_context, version, version_description};
         let mut conn = self.pool.get().unwrap();
 
-
-
         match policies
             .order_by(crate::schema::policies::dsl::created_at.desc())
             .select((version, version_description, creator, created_at, reasoner_connector_context))

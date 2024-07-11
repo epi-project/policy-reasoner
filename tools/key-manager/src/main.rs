@@ -21,7 +21,6 @@ use humantime::Duration;
 use jsonwebtoken::jwk::KeyAlgorithm;
 use log::{error, info};
 
-
 /***** ARGUMENTS *****/
 /// The toplevel arguments!
 #[derive(Debug, Parser)]
@@ -45,8 +44,6 @@ enum Subcommands {
     Generate(GenerateArguments),
 }
 
-
-
 /// Generate-level arguments.
 #[derive(Debug, Parser)]
 struct GenerateArguments {
@@ -63,8 +60,6 @@ enum GenerateSubcommands {
     #[clap(name = "token", alias = "jwt", about = "Generates a token (as a JWT) for the policy reasoner using an existing key (JWK).")]
     Token(GenerateTokenArguments),
 }
-
-
 
 /// Defines the arguments for the `generate key`-subcommand.
 #[derive(Debug, Parser)]
@@ -115,10 +110,6 @@ struct GenerateTokenArguments {
     #[clap(short, long, help = "The path to the private key (JWK) to use.")]
     key:      PathBuf,
 }
-
-
-
-
 
 /***** ENTRYPOINT *****/
 fn main() {

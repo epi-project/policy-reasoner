@@ -26,7 +26,6 @@ use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
 use log::{debug, error, info};
 
-
 /***** ERRORS *****/
 /// Defines errors originating in the binary itself.
 #[derive(Debug)]
@@ -50,10 +49,6 @@ impl error::Error for Error {
         }
     }
 }
-
-
-
-
 
 /***** ARGUMENTS *****/
 /// The arguments for the tool.
@@ -86,10 +81,6 @@ struct Arguments {
     )]
     compiler: Option<PathBuf>,
 }
-
-
-
-
 
 /***** ENTRYPOINT *****/
 fn main() {

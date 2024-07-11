@@ -25,14 +25,9 @@ use specifications::package::PackageIndex;
 
 use super::spec::Workflow;
 
-
 /***** CONSTANTS *****/
 /// Defines the location of the tests
 pub(crate) const TESTS_DIR: &str = "../../tests";
-
-
-
-
 
 /***** HELPER FUNCTIONS *****/
 /// Injects some (random) data in a workflow to simulate required information from the Brane runtime.
@@ -46,10 +41,6 @@ fn prepare_workflow(wir: &mut ast::Workflow) {
     // Inject the user with a random name
     wir.user = Arc::new(Some(names::three::rand().into()));
 }
-
-
-
-
 
 /***** LIBRARY *****/
 /// Run all the BraneScript tests

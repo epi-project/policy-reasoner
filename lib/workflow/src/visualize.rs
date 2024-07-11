@@ -17,7 +17,6 @@ use std::fmt::{Display, Formatter, Result as FResult};
 
 use super::spec::{Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, Workflow};
 
-
 /***** HELPER MACROS *****/
 /// Prints a given iterator somewhat nicely to a string.
 macro_rules! write_iter {
@@ -37,10 +36,6 @@ macro_rules! write_iter {
         )
     }};
 }
-
-
-
-
 
 /***** HELPER FUNCTIONS *****/
 /// Writes an [`Elem`] to the given formatter.
@@ -162,10 +157,6 @@ fn print_elem(f: &mut Formatter, elem: &Elem, prefix: &dyn Display) -> FResult {
     }
 }
 
-
-
-
-
 /***** HELPERS *****/
 /// Writes two display things successively.
 struct Pair<D1, D2>(D1, D2);
@@ -184,10 +175,6 @@ impl Display for Indent {
         Ok(())
     }
 }
-
-
-
-
 
 /***** FORMATTERS *****/
 /// Capable of printing the [`Workflow`] to some writer.
@@ -227,10 +214,6 @@ impl<'w> Display for WorkflowFormatter<'w> {
         write!(f, "]")
     }
 }
-
-
-
-
 
 impl Workflow {
     /// Returns a nice formatter that visualizes the workflow more easily understandable than its [`Debug`](std::fmt::Debug)-implementation.

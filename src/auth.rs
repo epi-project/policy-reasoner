@@ -133,7 +133,6 @@ where
     }
 }
 
-
 pub struct MockAuthResolver {
     ctx: AuthContext,
 }

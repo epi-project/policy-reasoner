@@ -37,7 +37,6 @@ use workflow::Workflow;
 
 use crate::Srv;
 
-
 /***** HELPER FUNCTIONS *****/
 /// Retrieves the currently active policy, or immediately denies the request if there is no such policy.
 ///
@@ -85,10 +84,6 @@ async fn get_active_policy<L: AuditLogger, P: PolicyDataAccess>(
     }
 }
 
-
-
-
-
 /***** HELPERS *****/
 /// Defines a wrapper around a [`String`] to make it [`Reject`]able.
 struct RejectableString(String);
@@ -97,8 +92,6 @@ impl Debug for RejectableString {
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult { if f.alternate() { write!(f, "{:#?}", self.0) } else { write!(f, "{:?}", self.0) } }
 }
 impl Reject for RejectableString {}
-
-
 
 /// Defines a wrapper around an [`Error`] that also makes it [`Reject`].
 #[derive(Debug)]
@@ -112,10 +105,6 @@ impl<E: Error> Error for RejectableError<E> {
     fn source(&self) -> Option<&(dyn Error + 'static)> { self.0.source() }
 }
 impl<E: 'static + Debug + Send + Sync> Reject for RejectableError<E> {}
-
-
-
-
 
 /***** IMPLEMENTATION *****/
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>

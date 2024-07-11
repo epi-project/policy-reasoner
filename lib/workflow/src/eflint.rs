@@ -23,7 +23,6 @@ use rand::Rng as _;
 
 use crate::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, Metadata, User, Workflow};
 
-
 /***** HELPER MACROS *****/
 /// Shorthand for creating an eFLINT JSON Specification true postulation.
 macro_rules! create {
@@ -48,10 +47,6 @@ macro_rules! str_lit {
         Expression::Primitive(ExpressionPrimitive::String(($val).into()))
     };
 }
-
-
-
-
 
 /***** HELPER FUNCTIONS *****/
 /// Simple traversal that names all [`ElemLoop`]s.
@@ -499,10 +494,6 @@ fn compile_eflint(mut elem: &Elem, wf_id: &str, wf_user: &User, loop_names: &Has
         }
     }
 }
-
-
-
-
 
 /***** LIBRARY *****/
 impl Workflow {

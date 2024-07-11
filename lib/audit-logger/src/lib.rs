@@ -31,8 +31,6 @@ impl std::error::Error for Error {}
 
 impl warp::reject::Reject for Error {}
 
-
-
 pub trait ConnectorContext {
     fn r#type(&self) -> String;
     fn version(&self) -> String;
@@ -324,7 +322,6 @@ pub trait AuditLogger: ReasonerConnectorAuditLogger {
 pub trait ReasonerConnectorAuditLogger {
     async fn log_reasoner_response(&self, reference: &str, response: &str) -> Result<(), Error>;
 }
-
 
 pub struct SessionedConnectorAuditLogger<Logger: ReasonerConnectorAuditLogger> {
     pub reference: String,

@@ -35,7 +35,6 @@ impl ReasonerResponse {
     pub fn new(success: bool, errors: Vec<String>) -> Self { ReasonerResponse { success, errors } }
 }
 
-
 #[async_trait::async_trait]
 pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger>: ConnectorWithContext {
     async fn execute_task(
@@ -73,13 +72,11 @@ pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger>: ConnectorWithConte
 //     fn new_session(&self, session_id: String) -> Self;
 // }
 
-
 // pub struct DefaultLoggingReasonerConnector<Connector: ReasonerConnector, Logger: ReasonerConnectorAuditLogger> {
 //     session:   Option<String>,
 //     connector: Arc<Connector>,
 //     logger:    Arc<Logger>,
 // }
-
 
 // impl<Connector: ReasonerConnector, Logger: ReasonerConnectorAuditLogger> DefaultLoggingReasonerConnector<Connector, Logger> {
 //     fn new(connector: Connector, logger: Logger) -> Self { Self { session: None, connector: Arc::new(connector), logger: Arc::new(logger) } }

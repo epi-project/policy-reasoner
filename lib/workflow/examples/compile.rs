@@ -32,7 +32,6 @@ use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use workflow::spec::Workflow;
 
-
 /***** ERRORS *****/
 /// Defines what may go wrong when parsing [`InputLanguage`]s from strings.
 #[derive(Debug)]
@@ -97,10 +96,6 @@ impl error::Error for Error {
     }
 }
 
-
-
-
-
 /***** ARGUMENTS *****/
 /// Defines the possible input languages.
 #[derive(Clone, Copy, Debug, EnumDebug, Eq, Hash, PartialEq)]
@@ -153,8 +148,6 @@ impl FromStr for OutputLanguage {
         }
     }
 }
-
-
 
 /// Defines the toplevel arguments of the binary.
 #[derive(Debug, Parser)]
@@ -213,10 +206,6 @@ struct Arguments {
     #[clap(short, long, help = "If given, determines the name to add to the compiled workflow. Chooses a random one if omitted.")]
     user: Option<String>,
 }
-
-
-
-
 
 /***** ENTRYPOINT *****/
 fn main() {
