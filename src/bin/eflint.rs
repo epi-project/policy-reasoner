@@ -114,7 +114,7 @@ type ReasonerConnectorPlugin = EFlintReasonerConnector<EFlintLeakNoErrors>;
 
 /// The plugin used to resolve policy input state.
 #[cfg(feature = "brane-api-resolver")]
-type StateResolverPlugin = crate::state::BraneApiResolver;
+type StateResolverPlugin = policy_reasoner::state::BraneApiResolver;
 #[cfg(not(feature = "brane-api-resolver"))]
 type StateResolverPlugin = policy_reasoner::state::FileStateResolver;
 
