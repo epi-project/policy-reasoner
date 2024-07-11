@@ -12,7 +12,7 @@ on:
 
 jobs:
   cargo-check:
-    name: Cargo Check
+    name: ${{ inputs.os }}
     runs-on: ${{ inputs.os }}
 
     steps:

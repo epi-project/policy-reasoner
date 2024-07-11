@@ -6,7 +6,7 @@ on:
 jobs:
   # The complete workspace only needs to be compiled for linux x86
   check-stable-all:
-    name: "Check & Build / All"
+    name: "Check & Build"
     uses: ./.github/workflows/mixin-cargo-check.yml
     with:
       os: ubuntu-latest
