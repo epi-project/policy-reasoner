@@ -25,6 +25,9 @@ jobs:
           toolchain: ${{ inputs.rust-version }}
           components: rustfmt, clippy
 
+      - name: Install Cargo Hack
+        uses: taiki-e/install-action@cargo-hack
+
       - name: Install protoc
         uses: arduino/setup-protoc@v3
         with:
@@ -32,7 +35,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check project
-        run: cargo check --locked --workspace
+        run: cargo hack check --feature-powerset --locked --workspace
 
       - name: Build project
-        run: cargo build --workspace
+        run: cargo hack build --feature-powerset --workspace
