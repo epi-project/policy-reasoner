@@ -21,9 +21,12 @@ use std::net::SocketAddr;
 use clap::Parser;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
-use log::{error, info};
-use policy_reasoner::{auth::{KidResolver, JwtConfig, JwtResolver}, logger::FileLogger, sqlite::SqlitePolicyDataStore, state};
 use implementation::posix;
+use log::{error, info};
+use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
+use policy_reasoner::logger::FileLogger;
+use policy_reasoner::sqlite::SqlitePolicyDataStore;
+use policy_reasoner::state;
 use reasonerconn::ReasonerConnector;
 use srv::Srv;
 
@@ -63,7 +66,7 @@ struct Arguments {
         env,
         help = "Arguments to pass to the current state resolver plugin. To find which are possible, see '--help-state-resolver'."
     )]
-    state_resolver: Option<String>,
+    state_resolver:      Option<String>,
 
     /// Shows the help menu for the reasoner connector.
     #[clap(long, help = "If given, shows the possible arguments to pass to the reasoner connector plugin in '--reasoner-connector'.")]
@@ -75,7 +78,7 @@ struct Arguments {
         env,
         help = "Arguments to pass to the current reasoner connector plugin. To find which are possible, see '--help-reasoner-connector'."
     )]
-    reasoner_connector: Option<String>,
+    reasoner_connector:      Option<String>,
 }
 
 /***** PLUGINS *****/
@@ -109,7 +112,9 @@ async fn main() {
     // Parse arguments
     let args: Arguments = Arguments::parse();
 
-    let data_index = brane_shr::utilities::create_data_index_from(std::env::var("DATA_INDEX").expect("Data index should either be provided by environment variable (DATA_INDEX) or in the .env file."));
+    let data_index = brane_shr::utilities::create_data_index_from(
+        std::env::var("DATA_INDEX").expect("Data index should either be provided by environment variable (DATA_INDEX) or in the .env file."),
+    );
     let rconn = PosixReasonerConnectorPlugin::new(data_index);
 
     // Setup a logger
@@ -141,7 +146,7 @@ where
     R: ReasonerConnector<AuditLogPlugin> + Send + Sync + 'static,
 {
     // Initialize the plugins
-    let log_identifier = format!("{binary} v{version}", binary=env!("CARGO_BIN_NAME"), version=env!("CARGO_PKG_VERSION"));
+    let log_identifier = format!("{binary} v{version}", binary = env!("CARGO_BIN_NAME"), version = env!("CARGO_PKG_VERSION"));
     let logger: AuditLogPlugin = FileLogger::new(log_identifier, "./audit-log.log");
     let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();

@@ -17,8 +17,7 @@ use std::collections::HashSet;
 use brane_ast::ast;
 use brane_exe::pc::ProgramCounter;
 
-use crate::{Elem, ElemTask, ElemCommit, ElemBranch, ElemParallel, ElemLoop, Dataset};
-
+use crate::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask};
 
 /***** LIBRARY FUNCTIONS *****/
 /// Gets a workflow edge from a PC.
@@ -34,16 +33,15 @@ pub fn get_edge(wir: &ast::Workflow, pc: ProgramCounter) -> Option<&ast::Edge> {
     if pc.func_id.is_main() { wir.graph.get(pc.edge_idx) } else { wir.funcs.get(&pc.func_id.id()).and_then(|edges| edges.get(pc.edge_idx)) }
 }
 
-
 /// A definition of a visitor for Workflow graphs
 pub trait WorkflowVisitor {
-    fn visit_task(&mut self, _task: &ElemTask){}
-    fn visit_commit(&mut self, _commit: &ElemCommit){}
-    fn visit_branch(&mut self, _branch: &ElemBranch){}
-    fn visit_parallel(&mut self, _parallel: &ElemParallel){}
-    fn visit_loop(&mut self, _loop: &ElemLoop){}
-    fn visit_next(&mut self){}
-    fn visit_stop(&mut self, _stop: &HashSet<Dataset>){}
+    fn visit_task(&mut self, _task: &ElemTask) {}
+    fn visit_commit(&mut self, _commit: &ElemCommit) {}
+    fn visit_branch(&mut self, _branch: &ElemBranch) {}
+    fn visit_parallel(&mut self, _parallel: &ElemParallel) {}
+    fn visit_loop(&mut self, _loop: &ElemLoop) {}
+    fn visit_next(&mut self) {}
+    fn visit_stop(&mut self, _stop: &HashSet<Dataset>) {}
 }
 
 /// A walker that visits all [`Elem`]s in preorder

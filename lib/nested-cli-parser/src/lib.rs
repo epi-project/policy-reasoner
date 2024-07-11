@@ -18,6 +18,5 @@
 pub mod map_parser;
 pub mod spec;
 
-
 // Bring some of it into the main namespace
 pub use spec::*;

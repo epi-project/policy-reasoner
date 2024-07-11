@@ -30,7 +30,6 @@ use super::preprocess;
 use super::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
 use crate::{utils, Metadata};
 
-
 /***** ERRORS *****/
 /// Defines errors that may occur when compiling an [`ast::Workflow`] to a [`Workflow`].
 #[derive(Debug)]
@@ -106,10 +105,6 @@ impl error::Error for Error {
         }
     }
 }
-
-
-
-
 
 /***** HELPER FUNCTIONS *****/
 /// Analyses the given [`WIR`](ast::Workflow) graph to find the Last Known Locations (LKLs) of the datasets and results mentioned.
@@ -443,10 +438,6 @@ fn reconstruct_graph(
         ast::Edge::Return { result } => Ok(Elem::Stop(result.iter().map(|data| Dataset { name: data.name().into(), from: None }).collect())),
     }
 }
-
-
-
-
 
 /***** LIBRARY *****/
 impl TryFrom<ast::Workflow> for Workflow {

@@ -21,7 +21,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::NestedCliParser;
 
-
 /***** HELPER MACROS *****/
 /// Given a character, determines if it's valid for a key identifier.
 macro_rules! is_valid_key_char {
@@ -34,10 +33,6 @@ macro_rules! is_valid_key_char {
         }
     }};
 }
-
-
-
-
 
 /***** ERRORS *****/
 /// Defines errors that may originate from the [`MapParser`].
@@ -74,10 +69,6 @@ impl Display for Error {
     }
 }
 impl error::Error for Error {}
-
-
-
-
 
 /***** HELPER FUNCTIONS *****/
 /// Parses a single key/value argument.
@@ -186,10 +177,6 @@ fn parse_arg(keys: &[(char, String, String)], arg: &str, arg_pos: usize) -> Resu
     }
 }
 
-
-
-
-
 /***** HELPERS *****/
 /// Defines possible modes of parsing the entire CLI string.
 #[derive(Clone, Debug)]
@@ -224,10 +211,6 @@ enum ArgParseMode {
     /// The position of the backslash (`\`) is stored, together with the previous state.
     Escaped(usize, Box<Self>),
 }
-
-
-
-
 
 /***** LIBRARY *****/
 /// Common implementation of a nested parser that simply parses a list of key/value pairs.

@@ -41,7 +41,6 @@ use ::{
     workflow::{Dataset, User},
 };
 
-
 /***** CONSTANTS *****/
 /// The list of recognized keys for the arguments of the [`FileStateResolver`].
 pub const FILE_STATE_RESOLVER_KEYS: [&'static str; 2] = ["f", "file"];
@@ -50,18 +49,10 @@ pub const FILE_STATE_RESOLVER_KEYS: [&'static str; 2] = ["f", "file"];
 #[cfg(feature = "brane-api-resolver")]
 pub const BRANE_API_STATE_RESOLVER_KEYS: [&'static str; 2] = ["u", "use-case-file"];
 
-
-
-
-
 /***** TYPE ALIASES *****/
 /// Type alias for [`DateTime<Utc>`] required by the GraphQL client.
 #[cfg(feature = "brane-api-resolver")]
 pub type DateTimeUtc = DateTime<Utc>;
-
-
-
-
 
 /***** ERRORS *****/
 /// Defines errors occurring in the [`FileStateResolver`].
@@ -104,8 +95,6 @@ impl Error for FileStateResolverError {
         }
     }
 }
-
-
 
 /// Defines a wrapper around a list of [`graphql_client::Error`]s.
 #[cfg(feature = "brane-api-resolver")]
@@ -242,10 +231,6 @@ impl StateResolverError for BraneApiResolverError {
     fn try_as_unknown_use_case(&self) -> Option<&String> { if let Self::UnknownUseCase { raw } = self { Some(raw) } else { None } }
 }
 
-
-
-
-
 /***** LIBRARY *****/
 /// Defines a resolver that resolves from a static file.
 #[derive(Debug)]
@@ -340,8 +325,6 @@ impl StateResolver for FileStateResolver {
         Ok(self.state.clone())
     }
 }
-
-
 
 /// Defines a resolver that resolves state using Brane's API service.
 #[cfg(feature = "brane-api-resolver")]

@@ -21,7 +21,6 @@ use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
 use specifications::version::Version;
 
-
 /***** AUXILLARY DATA *****/
 /// Defines how a user looks like.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -71,10 +70,6 @@ pub struct Metadata {
     pub signature: Option<(String, String)>,
 }
 
-
-
-
-
 /***** LIBRARY *****/
 /// Defines the workflow's toplevel view.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -91,8 +86,6 @@ pub struct Workflow {
     /// The signature verifying this workflow.
     pub signature: String,
 }
-
-
 
 /// Defines an element in the graph. This is either a _Node_, which defines a task execution, or an _Edge_, which defines how next tasks may be reached.
 #[derive(Clone, Debug, Deserialize, EnumDebug, Serialize)]

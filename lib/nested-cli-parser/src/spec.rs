@@ -16,7 +16,6 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FResult};
 
-
 /***** FORMATTERS *****/
 /// Formats any given [`NestedCliParser`].
 pub struct NestedCliParserHelpFormatter<'n, 'l, P> {
@@ -34,10 +33,6 @@ impl<'n, 'l, P: NestedCliParser> Display for NestedCliParserHelpFormatter<'n, 'l
     fn fmt(&self, f: &mut Formatter<'_>) -> FResult { self.parser.help_fmt(self.name, self.short, self.long, f) }
 }
 
-
-
-
-
 /***** LIBRARY *****/
 /// Defines that a particular type can parse nested CLI commands.
 ///
@@ -47,7 +42,6 @@ pub trait NestedCliParser {
     type Args;
     /// Any error that is thrown when parsing.
     type ParseError: Error;
-
 
     /// Formats the help string of the NestedCliParser.
     ///

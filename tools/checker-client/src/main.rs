@@ -51,7 +51,6 @@ use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use srv::models::{AddPolicyPostModel, PolicyContentPostModel, SetVersionPostModel};
 
-
 /***** CONSTANTS *****/
 /// The key to use to create JWTs (for testing purposes only).
 const JWT_KEY: &[u8] = b"wL5hkXZpM929BXRCMgVt1GNdM3cSDovRZsU_mPaOPrNJ8x9TvOv9yb3Ps5GkIqdfCyXWM9HEzh0zNDvc_pA_BqAlLiCtlrSajDtCza42HQgWkE71ocWFB5yMkeVcDWaBwUcDm_lPiy-BdfGjmpdox8H7-mOQoieEMNt8hXQR5E7rA3PC9Ih8lma0pFtkRkuCDYyLmBH7geajvkTE77pB5YVUQ57Qm4uijpBus8083tN2UP-oCqBmpAfZ0BtyGY3oFlRk3sf_HwhSz2gFalYUuK8379hY4BOzuM80pIL18VHVzFgOwRI48RBCk21M5aoFiLMc5Gp9VTKKd9VxQNgExA";
@@ -64,10 +63,6 @@ const POLICY_SET_ACTIVE_POLICY_PATH: (Method, &'static str) = (Method::PUT, "v1/
 const POLICY_GET_ACTIVE_POLICY_PATH: (Method, &'static str) = (Method::GET, "v1/management/policies/active");
 /// The checker path to the deliberation API's workflow check request path.
 const DELIB_WORKFLOW_VALIDATION_PATH: (Method, &'static str) = (Method::POST, "v1/deliberation/execute-workflow");
-
-
-
-
 
 /***** ERRORS *****/
 /// Defines errors that originate from parsing [`PolicyLanguage`]s.
@@ -127,10 +122,6 @@ impl Error for JwtError {
     }
 }
 
-
-
-
-
 /***** HELPERS *****/
 /// Defines accepted policy input languages.
 #[derive(Clone, Copy, Debug, EnumDebug, Eq, Hash, PartialEq)]
@@ -171,10 +162,6 @@ impl FromStr for WorkflowLanguage {
         }
     }
 }
-
-
-
-
 
 /***** ARGUMENTS *****/
 /// Defines the arguments of the `checker-client` binary.
@@ -222,8 +209,6 @@ enum Subcommands {
     #[clap(name = "log", about = "Groups commands for better understanding audit logs.")]
     Log(LogArguments),
 }
-
-
 
 /// Defines arguments for the `checker-client policy` subcommand.
 #[derive(Debug, Parser)]
@@ -283,8 +268,6 @@ struct PolicySetArguments {
     version: i64,
 }
 
-
-
 /// Defines arguments for the `checker-client check` subcommand.
 #[derive(Debug, Parser)]
 struct CheckArguments {
@@ -331,8 +314,6 @@ struct CheckWorkflowArguments {
     data:     PathBuf,
 }
 
-
-
 /// Defines arguments for the `checker-client log` subcommand.
 #[derive(Debug, Parser)]
 struct LogArguments {
@@ -360,10 +341,6 @@ struct LogReasonArguments {
     #[clap(name = "REFERENCE_ID", help = "The reference ID provided by the checker to find why the request failed.")]
     reference_id: String,
 }
-
-
-
-
 
 /***** HELPER FUNCTIONS *****/
 /// Given a potentially given JWT, uses it or generates a new one.
@@ -531,14 +508,12 @@ fn line_is_log_line(line: &str) -> Option<usize> {
     let second: &str = &rem[..brack_pos2];
     let rem: &str = &rem[brack_pos2 + 1..];
 
-
     /* FIRST PART */
     // Assert it begins with '[policy-reasoner v'
     if first.len() < 18 || &first[..18] != "[policy-reasoner v" {
         trace_log!("Line '{line}' is not a log line because the first part ('{first}')  does not begin with '[policy-reasoner v'");
         return None;
     }
-
 
     /* SECOND PART */
     // Assert it begins with '['
@@ -554,15 +529,10 @@ fn line_is_log_line(line: &str) -> Option<usize> {
         return None;
     }
 
-
     /* REMAINDER */
     // Now all that remains is to check for the final space
     rem.chars().next().filter(|c| *c == ' ').map(|_| brack_pos + 1 + brack_pos2 + 2)
 }
-
-
-
-
 
 /***** ENTRYPOINT *****/
 fn main() {

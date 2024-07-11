@@ -14,7 +14,6 @@
 
 pub mod implementation;
 
-
 use std::env;
 use std::fs::File;
 use std::net::SocketAddr;
@@ -22,18 +21,16 @@ use std::net::SocketAddr;
 use clap::Parser;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
-use log::{error, info};
-use srv::Srv;
-
-use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 #[cfg(not(feature = "leak-public-errors"))]
 use implementation::eflint::EFlintLeakNoErrors;
 #[cfg(feature = "leak-public-errors")]
 use implementation::eflint::EFlintLeakPrefixErrors;
 use implementation::eflint::EFlintReasonerConnector;
+use log::{error, info};
+use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 use policy_reasoner::logger::FileLogger;
 use policy_reasoner::sqlite::SqlitePolicyDataStore;
-
+use srv::Srv;
 
 /***** HELPER FUNCTIONS *****/
 fn get_pauth_resolver() -> JwtResolver<KidResolver> {
@@ -48,10 +45,6 @@ fn get_dauth_resolver() -> JwtResolver<KidResolver> {
     let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
     JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
 }
-
-
-
-
 
 /***** ARGUMENTS *****/
 /// Defines the arguments for the `policy-reasoner` server.
@@ -89,10 +82,6 @@ struct Arguments {
     )]
     reasoner_connector:      Option<String>,
 }
-
-
-
-
 
 /***** PLUGINS *****/
 /// The plugin used to do the audit logging.
@@ -145,7 +134,7 @@ async fn main() {
     }
 
     // Initialize the plugins
-    let log_identifier = format!("{binary} v{version}", binary=env!("CARGO_BIN_NAME"), version=env!("CARGO_PKG_VERSION"));
+    let log_identifier = format!("{binary} v{version}", binary = env!("CARGO_BIN_NAME"), version = env!("CARGO_PKG_VERSION"));
     let logger: AuditLogPlugin = FileLogger::new(log_identifier, "./audit-log.log");
     let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();

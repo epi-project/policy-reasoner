@@ -20,7 +20,6 @@ use transform::Transform as _;
 
 use super::spec::{Elem, ElemBranch, Workflow};
 
-
 /***** HELPER FUNCTIONS *****/
 /// Attempts to optimize the given branch of [`Elem`]s.
 ///
@@ -116,10 +115,6 @@ fn optimize_elem(elem: Elem) -> (bool, Elem) {
         Elem::Stop(returns) => (false, Elem::Stop(returns)),
     }
 }
-
-
-
-
 
 /***** LIBRARY *****/
 impl Workflow {

@@ -14,7 +14,6 @@ use tokio::fs::{File, OpenOptions};
 use tokio::io::AsyncWriteExt;
 use workflow::Workflow;
 
-
 /***** HELPER MACROS *****/
 /// Wraps a [`write!`]-macro to return its error as a [`FileLoggerError`].
 macro_rules! write_file {
@@ -47,10 +46,6 @@ macro_rules! writeln_file {
         }
     };
 }
-
-
-
-
 
 /***** ERRORS *****/
 /// Defines errors originating from the [`FileLogger`].

@@ -128,13 +128,10 @@
 //! [no_op](crate::no_op)) reasoner can help guide future contributors in either extension of the current reasoners or
 //! the addition of new reasoner types.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::iter::repeat;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::Path;
-use std::collections::HashMap;
-
-use std::os::unix::fs::MetadataExt;
-use std::os::unix::fs::PermissionsExt;
 
 use audit_logger::{ConnectorContext, ConnectorWithContext, ReasonerConnectorAuditLogger, SessionedConnectorAuditLogger};
 use itertools::{Either, Itertools};
@@ -144,8 +141,9 @@ use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
 use serde::Deserialize;
 use specifications::data::{DataIndex, Location};
 use state_resolver::State;
+use workflow::spec::Workflow;
 use workflow::utils::{walk_workflow_preorder, WorkflowVisitor};
-use workflow::{spec::Workflow, Dataset};
+use workflow::Dataset;
 
 /// This location is an assumption right now, and is needed as long as the location is not passed to the workflow
 /// validator.
@@ -169,9 +167,7 @@ impl PosixPolicy {
     fn from_policy(policy: Policy) -> Self {
         let policy_content: PolicyContent = policy.content.first().expect("Failed to parse PolicyContent").clone();
         let content_str = policy_content.content.get().trim();
-        PosixPolicy {
-            datasets: serde_json::from_str(content_str).expect("Failed to parse PosixPolicy")
-        }
+        PosixPolicy { datasets: serde_json::from_str(content_str).expect("Failed to parse PosixPolicy") }
     }
 
     /// Given a location (e.g., `st_antonius_ect`) and the workflow user's name (e.g., `test`), returns the
@@ -230,7 +226,7 @@ pub struct PosixPolicyLocation {
 #[derive(Deserialize, Debug)]
 struct PosixLocalIdentity {
     /// The user identifier of a Linux user.
-    uid: u32,
+    uid:  u32,
     /// A list of Linux group identifiers.
     gids: Vec<u32>,
 }
@@ -335,11 +331,7 @@ enum ValidationError {
 /// Check if all the data accesses performed in the `workflow` are done on behalf of users that have the required
 /// permissions. If not all permissions are met, then [`ValidationError`]s are returned. These errors contain more
 /// information about the problems that occurred during validation.
-fn validate_dataset_permissions(
-    workflow: &Workflow,
-    data_index: &DataIndex,
-    policy: &PosixPolicy,
-) -> Result<ValidationOutput, Vec<ValidationError>> {
+fn validate_dataset_permissions(workflow: &Workflow, data_index: &DataIndex, policy: &PosixPolicy) -> Result<ValidationOutput, Vec<ValidationError>> {
     // The datasets used in the workflow. E.g., `st_antonius_ect`.
     let datasets = find_datasets_in_workflow(workflow);
 
@@ -474,39 +466,30 @@ impl std::hash::Hash for PosixReasonerConnectorContext {
 }
 
 impl ConnectorContext for PosixReasonerConnectorContext {
-    fn r#type(&self) -> String {
-        self.t.clone()
-    }
+    fn r#type(&self) -> String { self.t.clone() }
 
-    fn version(&self) -> String {
-        self.version.clone()
-    }
+    fn version(&self) -> String { self.version.clone() }
 }
 
 impl ConnectorWithContext for PosixReasonerConnector {
     type Context = PosixReasonerConnectorContext;
 
     #[inline]
-    fn context() -> Self::Context {
-        PosixReasonerConnectorContext { t: "posix".into(), version: "0.1.0".into() }
-    }
+    fn context() -> Self::Context { PosixReasonerConnectorContext { t: "posix".into(), version: "0.1.0".into() } }
 }
 
 /// The datasets accessed and/or modified in a workflow. These are grouped by file permission type. For creating this
 /// struct see: [`find_datasets_in_workflow`].
 struct WorkflowDatasets {
-    read_sets: Vec<(Location, Dataset)>,
-    write_sets: Vec<(Location, Dataset)>,
+    read_sets:    Vec<(Location, Dataset)>,
+    write_sets:   Vec<(Location, Dataset)>,
     execute_sets: Vec<(Location, Dataset)>,
 }
 
 fn find_datasets_in_workflow(workflow: &Workflow) -> WorkflowDatasets {
     debug!("Walking the workflow in order to find datasets. Starting with {:?}", &workflow.start);
-    let mut visitor = DatasetCollectorVisitor {
-        read_sets: Default::default(),
-        write_sets: Default::default(),
-        execute_sets: Default::default(),
-    };
+    let mut visitor =
+        DatasetCollectorVisitor { read_sets: Default::default(), write_sets: Default::default(), execute_sets: Default::default() };
 
     walk_workflow_preorder(&workflow.start, &mut visitor);
 
@@ -516,8 +499,8 @@ fn find_datasets_in_workflow(workflow: &Workflow) -> WorkflowDatasets {
 /// Implements a visitor that traverses a [`Workflow`] and collect the datasets that are accessed and/or modified in
 /// the workflow. See: [`WorkflowDatasets`] and [`WorkflowVisitor`].
 struct DatasetCollectorVisitor {
-    pub read_sets: Vec<(Location, Dataset)>,
-    pub write_sets: Vec<(Location, Dataset)>,
+    pub read_sets:    Vec<(Location, Dataset)>,
+    pub write_sets:   Vec<(Location, Dataset)>,
     pub execute_sets: Vec<(Location, Dataset)>,
 }
 

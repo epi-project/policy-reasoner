@@ -3,7 +3,6 @@ use std::error::Error;
 use serde::{Deserialize, Serialize};
 use workflow::spec::{Dataset, User};
 
-
 /***** ERRORS *****/
 /// Defines some errors being constructable in the type used in the [`StateResolver`].
 pub trait StateResolverError {
@@ -23,10 +22,6 @@ impl StateResolverError for std::convert::Infallible {
     }
 }
 
-
-
-
-
 /***** AUXILLARY *****/
 /// The state that captures runtime context, returned by a [`StateResolver`] dynamically.
 ///
@@ -42,10 +37,6 @@ pub struct State {
     // TODO: Somehow add duties or duty policies, maybe encode in Dataset?
 }
 
-
-
-
-
 /***** LIBRARY *****/
 /// Defines how a state resolver looks like in general.
 #[async_trait::async_trait]
@@ -54,7 +45,6 @@ pub trait StateResolver {
     ///
     /// Note that the error is supposed to implement [`StateResolverError`] to communicate standard errors.
     type Error: 'static + Send + StateResolverError + Sync + Error;
-
 
     /// Retrieves the current reasoner state necessary for resolving policies.
     ///

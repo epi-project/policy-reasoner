@@ -24,7 +24,4 @@ diesel::table! {
 
 diesel::joinable!(active_version -> policies (version));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    active_version,
-    policies,
-);
+diesel::allow_tables_to_appear_in_same_query!(active_version, policies,);

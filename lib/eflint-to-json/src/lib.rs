@@ -34,16 +34,11 @@ use tokio::process::{Child as TChild, ChildStdin as TChildStdin, ChildStdout as 
 
 use crate::download::{download_file, download_file_async, DownloadSecurity};
 
-
 /***** CONSTANTS *****/
 /// Compiler download URL.
 const COMPILER_URL: &str = "https://github.com/Olaf-Erkemeij/eflint-server/raw/bd3997df89441f13cbc82bd114223646df41540d/eflint-to-json";
 /// Compiler download checksum.
 const COMPILER_CHECKSUM: [u8; 32] = hex_literal::hex!("4e4e59b158ca31e532ec0a22079951788696ffa5d020b36790b4461dbadec83d");
-
-
-
-
 
 /***** ERRORS *****/
 /// Defines a wrapper around multiple streams.
@@ -109,8 +104,6 @@ impl Display for ChildStream {
     }
 }
 impl error::Error for ChildStream {}
-
-
 
 /// Defines toplevel errors.
 #[derive(Debug)]
@@ -192,10 +185,6 @@ impl error::Error for Error {
         }
     }
 }
-
-
-
-
 
 /***** HELPER FUNCTIONS *****/
 /// Analyses a potential `#input(...)` or `#require(...)` line from eFLINT.
@@ -314,7 +303,6 @@ async fn potentially_include_async(imported: &mut HashSet<PathBuf>, path: &Path,
     Ok(Some(Some((incl_path, handle))))
 }
 
-
 /// Streams the given file's contents to the stdin of the given process, including files as necessary halfway.
 ///
 /// # Arguments
@@ -402,9 +390,6 @@ async fn load_input_async(imported: &mut HashSet<PathBuf>, path: &Path, handle: 
     // Done!
     Ok(())
 }
-
-
-
 
 /***** LIBRARY *****/
 /// Compiles a (tree of) `.eflint` files using Olaf's `eflint-to-json` compiler.

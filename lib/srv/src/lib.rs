@@ -143,7 +143,6 @@ where
             res
         });
 
-
         // Log reasoner connector context
         let ctx_hash = C::hash();
         match this_arc.clone().logger.log_reasoner_context::<C>().await {
