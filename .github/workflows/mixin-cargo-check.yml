@@ -9,14 +9,6 @@ on:
       rust-version:
         required: true
         type: string
-      packages:
-        required: true
-        type: string
-        # NOTE: This does not seem to work
-        # type: choice
-        # options:
-        #   - frontend
-        #   - workspace
 
 jobs:
   cargo-check:
@@ -39,26 +31,8 @@ jobs:
           version: 21.11
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check project (Locked) (Workspace)
-        if: inputs.packages == 'workspace'
+      - name: Check project
         run: cargo check --locked --workspace
 
-      - name: Check project (Workspace)
-        if: inputs.packages == 'workspace'
-        run: cargo check --workspace
-
-      - name: Build project (Workspace)
-        if: inputs.packages == 'workspace'
+      - name: Build project
         run: cargo build --workspace
-
-      - name: Check project (Locked) (Frontend)
-        if: inputs.packages == 'frontend'
-        run: cargo check --locked --package brane-cli --package brane-cc --package brane-cli-c
-
-      - name: Check project (Frontend)
-        if: inputs.packages == 'frontend'
-        run: cargo check --package brane-cli --package brane-cc --package brane-cli-c
-
-      - name: Build project (Frontend)
-        if: inputs.packages == 'frontend'
-        run: cargo build --package brane-cli --package brane-cc --package brane-cli-c

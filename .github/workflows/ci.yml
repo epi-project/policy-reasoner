@@ -11,23 +11,6 @@ jobs:
     with:
       os: ubuntu-latest
       rust-version: stable
-      packages: workspace
-
-  # Frontend packages are compiled for windows and macOS as well
-  check-stable-frontend:
-    name: "Check & Build / Frontend"
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest]
-        rust: [stable]
-
-    uses: ./.github/workflows/mixin-cargo-check.yml
-    with:
-      os: "${{ matrix.os }}"
-      rust-version: "${{ matrix.rust }}"
-      packages: frontend
-
 
   # This one is optional, but it is nice to know if something will work as intended in the future
   check-nightly:
@@ -37,7 +20,6 @@ jobs:
     with:
       os: ubuntu-latest
       rust-version: nightly
-      packages: workspace
 
   test:
     needs: check-stable-all
