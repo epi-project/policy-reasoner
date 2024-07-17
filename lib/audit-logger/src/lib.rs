@@ -121,7 +121,14 @@ impl<'a> LogStatement<'a> {
     /// # Returns
     /// A new [`LogStatement::ExecuteTask`] that is initialized with the given properties.
     #[inline]
-    pub fn execute_task(reference: &'a str, auth: &'a AuthContext, policy: Option<i64>, state: &'a State, workflow: &'a Workflow, task: &'a str) -> Self {
+    pub fn execute_task(
+        reference: &'a str,
+        auth: &'a AuthContext,
+        policy: Option<i64>,
+        state: &'a State,
+        workflow: &'a Workflow,
+        task: &'a str,
+    ) -> Self {
         Self::ExecuteTask {
             reference: Cow::Borrowed(reference),
             auth: Cow::Borrowed(auth),

@@ -20,8 +20,8 @@ use audit_logger::{AuditLogger, SessionedConnectorAuditLogger};
 use auth_resolver::{AuthContext, AuthResolver};
 use brane_ast::SymTable;
 use deliberation::spec::{
-    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest,
-    TaskExecResponse, Verdict, WorkflowValidationRequest, WorkflowValidationResponse,
+    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest, TaskExecResponse, Verdict,
+    WorkflowValidationRequest, WorkflowValidationResponse,
 };
 use error_trace::ErrorTrace as _;
 use log::{debug, error, info};
@@ -54,9 +54,7 @@ async fn get_active_policy<L: AuditLogger, P: PolicyDataAccess>(
     // Attempt to get the policy first
     match policystore.get_active().await {
         Ok(policy) => Ok(Ok(policy)),
-        Err(PolicyDataError::NotFound) => {
-            Ok(Ok(None))
-        },
+        Err(PolicyDataError::NotFound) => Ok(Ok(None)),
         Err(PolicyDataError::GeneralError(err)) => {
             error!("Failed to get currently active policy: {err}");
             Err(warp::reject::custom(RejectableString(err)))
@@ -154,7 +152,14 @@ where
         }
 
         this.logger
-            .log_exec_task_request(&verdict_reference, &auth_ctx, policy.as_ref().map(|policy| policy.version.version.unwrap()), &state, &workflow, &task_id)
+            .log_exec_task_request(
+                &verdict_reference,
+                &auth_ctx,
+                policy.as_ref().map(|policy| policy.version.version.unwrap()),
+                &state,
+                &workflow,
+                &task_id,
+            )
             .await
             .map_err(|err| {
                 debug!("Could not log exec task request to audit log : {:?} | request id: {}", err, verdict_reference);
@@ -289,7 +294,15 @@ where
         }
 
         this.logger
-            .log_data_access_request(&verdict_reference, &auth_ctx, policy.as_ref().map(|policy| policy.version.version.unwrap()), &state, &workflow, &data_id, &task_id)
+            .log_data_access_request(
+                &verdict_reference,
+                &auth_ctx,
+                policy.as_ref().map(|policy| policy.version.version.unwrap()),
+                &state,
+                &workflow,
+                &data_id,
+                &task_id,
+            )
             .await
             .map_err(|err| {
                 debug!("Could not log data access request to audit log : {:?} | request id: {}", err, verdict_reference);
@@ -386,12 +399,19 @@ where
             debug!("No policy set");
         }
 
-        this.logger.log_validate_workflow_request(&verdict_reference, &auth_ctx, policy.as_ref().map(|policy| policy.version.version.unwrap()), &state, &workflow).await.map_err(
-            |err| {
+        this.logger
+            .log_validate_workflow_request(
+                &verdict_reference,
+                &auth_ctx,
+                policy.as_ref().map(|policy| policy.version.version.unwrap()),
+                &state,
+                &workflow,
+            )
+            .await
+            .map_err(|err| {
                 debug!("Could not log validate workflow request to audit log : {:?} | request id: {}", err, verdict_reference);
                 warp::reject::custom(err)
-            },
-        )?;
+            })?;
 
         debug!("Consulting reasoner connector...");
 

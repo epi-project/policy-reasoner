@@ -247,7 +247,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
 
         match self.get_version(active_version).await {
             Ok(policy) => Ok(Some(policy)),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
