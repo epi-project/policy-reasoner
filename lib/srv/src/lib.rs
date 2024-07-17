@@ -151,32 +151,33 @@ where
         }
 
         // Disable active policy if base definitions changed
-        if let Ok(v) = this_arc.policystore.get_active().await {
-            let t = this_arc.clone();
-            if v.version.reasoner_connector_context != ctx_hash {
-                let ap = this_arc.policystore.get_active().await.unwrap();
-                let result = t
-                    .policystore
-                    .deactivate_policy(Context { initiator: "system".into() }, || async move {
-                        this_arc
-                            .logger
-                            .log_deactivate_policy(&AuthContext { initiator: "system".into(), system: "self".into() })
-                            .await
-                            .map_err(|err| PolicyDataError::GeneralError(err.to_string()))
-                    })
-                    .await;
+        if let Ok(policy_opt) = this_arc.policystore.get_active().await {
+            if let Some(policy) = policy_opt {
+                let t = this_arc.clone();
+                if policy.version.reasoner_connector_context != ctx_hash {
+                    let result = t
+                        .policystore
+                        .deactivate_policy(Context { initiator: "system".into() }, || async move {
+                            this_arc
+                                .logger
+                                .log_deactivate_policy(&AuthContext { initiator: "system".into(), system: "self".into() })
+                                .await
+                                .map_err(|err| PolicyDataError::GeneralError(err.to_string()))
+                        })
+                        .await;
 
-                match result {
-                    Ok(_) => {},
-                    Err(err) => {
-                        panic!("Could not deactivate policy because of changed base definition: {:?}", err);
-                    },
+                    match result {
+                        Ok(_) => {},
+                        Err(err) => {
+                            panic!("Could not deactivate policy because of changed base definition: {:?}", err);
+                        },
+                    }
+
+                    debug!(
+                        "Deactivated policy because of changed base definition; hash changed from '{}' to '{}'",
+                        policy.version.reasoner_connector_context, ctx_hash
+                    )
                 }
-
-                debug!(
-                    "Deactivated policy because of changed base definition; hash changed from '{}' to '{}'",
-                    ap.version.reasoner_connector_context, ctx_hash
-                )
             }
         }
 

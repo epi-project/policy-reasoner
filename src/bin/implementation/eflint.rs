@@ -498,11 +498,14 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static, T: EFlintErrorHand
     async fn execute_task(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         state: State,
         workflow: Workflow,
         task: String,
     ) -> Result<ReasonerResponse, ReasonerConnError> {
+        let Some(policy) = policy else {
+            return Ok(ReasonerResponse::new(false, vec![String::from("No policy is currently active, denying by default")]));
+        };
         info!("Considering task '{}' in workflow '{}' for execution", task, workflow.id);
 
         // Add the question for this task
@@ -522,7 +525,7 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static, T: EFlintErrorHand
     async fn access_data_request(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         state: State,
         workflow: Workflow,
         data: String,
@@ -562,6 +565,10 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static, T: EFlintErrorHand
             },
         };
 
+        let Some(policy) = policy else {
+            return Ok(ReasonerResponse::new(false, vec![String::from("No policy is currently active, denying by default")]));
+        };
+
         let phrases = self.build_phrases(&policy, state, workflow, question);
         self.process_phrases(logger, &policy, phrases).await
     }
@@ -569,11 +576,14 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static, T: EFlintErrorHand
     async fn workflow_validation_request(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         state: State,
         workflow: Workflow,
     ) -> Result<ReasonerResponse, ReasonerConnError> {
         info!("Considering workflow '{}'", workflow.id);
+        let Some(policy) = policy else {
+            return Ok(ReasonerResponse::new(false, vec![String::from("No policy is currently active, denying by default")]));
+        };
 
         // Add the question for this task
         // ```eflint
