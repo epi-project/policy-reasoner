@@ -43,7 +43,7 @@ impl SqlitePolicyDataStore {
         Self { pool }
     }
 
-    async fn _get_active(&self) -> Result<i64, PolicyDataError> {
+    async fn _get_active(&self) -> Result<Option<i64>, PolicyDataError> {
         use crate::schema::active_version::dsl::active_version;
         let mut conn = self.pool.get().unwrap();
         let av: SqliteActiveVersion = match active_version
@@ -54,6 +54,7 @@ impl SqlitePolicyDataStore {
         {
             Ok(mut r) => {
                 if r.len() != 1 {
+                    // TODO: This error can probably be replaced with the Option structure
                     return Err(PolicyDataError::NotFound);
                 }
 
@@ -66,7 +67,7 @@ impl SqlitePolicyDataStore {
             return Err(PolicyDataError::NotFound);
         }
 
-        Ok(av.version)
+        Ok(Some(av.version))
     }
 }
 
@@ -239,10 +240,15 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         }
     }
 
-    async fn get_active(&self) -> Result<Policy, PolicyDataError> {
-        let av = self._get_active().await?;
+    async fn get_active(&self) -> Result<Option<Policy>, PolicyDataError> {
+        let Some(active_version) = self._get_active().await? else {
+            return Ok(None);
+        };
 
-        self.get_version(av).await
+        match self.get_version(active_version).await {
+            Ok(policy) => Ok(Some(policy)),
+            Err(e) => Err(e)
+        }
     }
 
     async fn set_active<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
@@ -258,7 +264,7 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
 
         let av = self._get_active().await;
 
-        if av.is_ok_and(|v| v == version) {
+        if av.is_ok_and(|v| v == Some(version)) {
             return Err(PolicyDataError::GeneralError(format!("Version already active: {}", version)));
         }
 
@@ -290,13 +296,15 @@ impl PolicyDataAccess for SqlitePolicyDataStore {
         use crate::schema::active_version::dsl::{active_version, deactivated_by, deactivated_on, version};
         let mut conn = self.pool.get().unwrap();
 
-        let av = self._get_active().await?;
+        let Some(active_ver) = self._get_active().await? else {
+            return Err(PolicyDataError::GeneralError("Attempted to deactivate a policy while none was active".to_string()));
+        };
 
         let rt_handle: Handle = Handle::current();
         match tokio::task::spawn_blocking(move || {
             conn.exclusive_transaction(|conn| {
                 diesel::update(active_version)
-                    .filter(version.eq(av))
+                    .filter(version.eq(active_ver))
                     .set((deactivated_on.eq(Utc::now().naive_local()), deactivated_by.eq(context.initiator)))
                     .execute(conn)?;
 

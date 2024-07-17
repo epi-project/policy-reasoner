@@ -394,11 +394,14 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<
     async fn execute_task(
         &self,
         _logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         _state: State,
         workflow: Workflow,
         _task: String,
     ) -> Result<ReasonerResponse, ReasonerConnError> {
+        let Some(policy) = policy else {
+            return Ok(ReasonerResponse::new(false, vec![String::from("No policy is currently active, denying by default")]));
+        };
         let posix_policy = PosixPolicy::from_policy(policy);
         match validate_dataset_permissions(&workflow, &self.data_index, &posix_policy) {
             Ok(ValidationOutput::Ok) => Ok(ReasonerResponse::new(true, vec![])),
@@ -413,12 +416,15 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<
     async fn access_data_request(
         &self,
         _logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         _state: State,
         workflow: Workflow,
         _data: String,
         _task: Option<String>,
     ) -> Result<ReasonerResponse, ReasonerConnError> {
+        let Some(policy) = policy else {
+            return Ok(ReasonerResponse::new(false, vec![String::from("No policy is currently active, denying by default")]));
+        };
         let posix_policy = PosixPolicy::from_policy(policy);
         match validate_dataset_permissions(&workflow, &self.data_index, &posix_policy) {
             Ok(ValidationOutput::Ok) => Ok(ReasonerResponse::new(true, vec![])),
@@ -433,10 +439,13 @@ impl<L: ReasonerConnectorAuditLogger + Send + Sync + 'static> ReasonerConnector<
     async fn workflow_validation_request(
         &self,
         _logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         _state: State,
         workflow: Workflow,
     ) -> Result<ReasonerResponse, ReasonerConnError> {
+        let Some(policy) = policy else {
+            return Ok(ReasonerResponse::new(false, vec![String::from("No policy is currently active, denying by default")]));
+        };
         let posix_policy = PosixPolicy::from_policy(policy);
         match validate_dataset_permissions(&workflow, &self.data_index, &posix_policy) {
             Ok(ValidationOutput::Ok) => Ok(ReasonerResponse::new(true, vec![])),

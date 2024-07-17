@@ -68,7 +68,7 @@ pub enum LogStatement<'a> {
     ExecuteTask {
         reference: Cow<'a, str>,
         auth:      Cow<'a, AuthContext>,
-        policy:    i64,
+        policy:    Option<i64>,
         state:     Cow<'a, State>,
         workflow:  Cow<'a, Workflow>,
         task:      Cow<'a, str>,
@@ -77,7 +77,7 @@ pub enum LogStatement<'a> {
     AssetAccess {
         reference: Cow<'a, str>,
         auth:      Cow<'a, AuthContext>,
-        policy:    i64,
+        policy:    Option<i64>,
         state:     Cow<'a, State>,
         workflow:  Cow<'a, Workflow>,
         data:      Cow<'a, str>,
@@ -88,7 +88,7 @@ pub enum LogStatement<'a> {
     WorkflowValidate {
         reference: Cow<'a, str>,
         auth:      Cow<'a, AuthContext>,
-        policy:    i64,
+        policy:    Option<i64>,
         state:     Cow<'a, State>,
         workflow:  Cow<'a, Workflow>,
     },
@@ -121,7 +121,7 @@ impl<'a> LogStatement<'a> {
     /// # Returns
     /// A new [`LogStatement::ExecuteTask`] that is initialized with the given properties.
     #[inline]
-    pub fn execute_task(reference: &'a str, auth: &'a AuthContext, policy: i64, state: &'a State, workflow: &'a Workflow, task: &'a str) -> Self {
+    pub fn execute_task(reference: &'a str, auth: &'a AuthContext, policy: Option<i64>, state: &'a State, workflow: &'a Workflow, task: &'a str) -> Self {
         Self::ExecuteTask {
             reference: Cow::Borrowed(reference),
             auth: Cow::Borrowed(auth),
@@ -148,7 +148,7 @@ impl<'a> LogStatement<'a> {
     pub fn asset_access(
         reference: &'a str,
         auth: &'a AuthContext,
-        policy: i64,
+        policy: Option<i64>,
         state: &'a State,
         workflow: &'a Workflow,
         data: &'a str,
@@ -178,7 +178,7 @@ impl<'a> LogStatement<'a> {
     /// # Returns
     /// A new [`LogStatement::WorkflowValidate`] that is initialized with the given properties.
     #[inline]
-    pub fn workflow_validate(reference: &'a str, auth: &'a AuthContext, policy: i64, state: &'a State, workflow: &'a Workflow) -> Self {
+    pub fn workflow_validate(reference: &'a str, auth: &'a AuthContext, policy: Option<i64>, state: &'a State, workflow: &'a Workflow) -> Self {
         Self::WorkflowValidate {
             reference: Cow::Borrowed(reference),
             auth: Cow::Borrowed(auth),
@@ -274,7 +274,7 @@ pub trait AuditLogger: ReasonerConnectorAuditLogger {
         &self,
         reference: &str,
         auth: &AuthContext,
-        policy: i64,
+        policy: Option<i64>,
         state: &State,
         workflow: &Workflow,
         task: &str,
@@ -286,7 +286,7 @@ pub trait AuditLogger: ReasonerConnectorAuditLogger {
         &self,
         reference: &str,
         auth: &AuthContext,
-        policy: i64,
+        policy: Option<i64>,
         state: &State,
         workflow: &Workflow,
         data: &str,
@@ -297,7 +297,7 @@ pub trait AuditLogger: ReasonerConnectorAuditLogger {
         &self,
         reference: &str,
         auth: &AuthContext,
-        policy: i64,
+        policy: Option<i64>,
         state: &State,
         workflow: &Workflow,
     ) -> Result<(), Error>;

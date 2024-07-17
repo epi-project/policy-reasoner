@@ -40,7 +40,7 @@ pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger>: ConnectorWithConte
     async fn execute_task(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         state: State,
         workflow: Workflow,
         task: String,
@@ -48,7 +48,7 @@ pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger>: ConnectorWithConte
     async fn access_data_request(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         state: State,
         workflow: Workflow,
         data: String,
@@ -57,7 +57,7 @@ pub trait ReasonerConnector<L: ReasonerConnectorAuditLogger>: ConnectorWithConte
     async fn workflow_validation_request(
         &self,
         logger: SessionedConnectorAuditLogger<L>,
-        policy: Policy,
+        policy: Option<Policy>,
         state: State,
         workflow: Workflow,
     ) -> Result<ReasonerResponse, ReasonerConnError>;

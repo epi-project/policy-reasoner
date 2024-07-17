@@ -103,7 +103,7 @@ pub trait PolicyDataAccess {
     async fn get_version(&self, version: i64) -> Result<Policy, PolicyDataError>;
     async fn get_most_recent(&self) -> Result<Policy, PolicyDataError>;
     async fn get_versions(&self) -> Result<Vec<PolicyVersion>, PolicyDataError>;
-    async fn get_active(&self) -> Result<Policy, PolicyDataError>;
+    async fn get_active(&self) -> Result<Option<Policy>, PolicyDataError>;
     #[must_use]
     async fn set_active<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
         &self,

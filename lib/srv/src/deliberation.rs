@@ -20,7 +20,7 @@ use audit_logger::{AuditLogger, SessionedConnectorAuditLogger};
 use auth_resolver::{AuthContext, AuthResolver};
 use brane_ast::SymTable;
 use deliberation::spec::{
-    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, DeliberationResponse, ExecuteTaskRequest,
+    AccessDataRequest, DataAccessResponse, DeliberationAllowResponse, DeliberationDenyResponse, ExecuteTaskRequest,
     TaskExecResponse, Verdict, WorkflowValidationRequest, WorkflowValidationResponse,
 };
 use error_trace::ErrorTrace as _;
@@ -29,7 +29,6 @@ use policy::{Policy, PolicyDataAccess, PolicyDataError};
 use reasonerconn::ReasonerConnector;
 use serde::Serialize;
 use state_resolver::StateResolver;
-use warp::hyper::StatusCode;
 use warp::reject::{Reject, Rejection};
 use warp::reply::{Json, WithStatus};
 use warp::Filter;
@@ -48,34 +47,15 @@ use crate::Srv;
 /// # Errors
 /// This function may error (= reject the request) if no active policy was found or there was another error trying to retrieve it.
 async fn get_active_policy<L: AuditLogger, P: PolicyDataAccess>(
-    logger: &L,
-    reference: &str,
+    _logger: &L,
+    _reference: &str,
     policystore: &P,
-) -> Result<Result<Policy, WithStatus<Json>>, Rejection> {
+) -> Result<Result<Option<Policy>, WithStatus<Json>>, Rejection> {
     // Attempt to get the policy first
     match policystore.get_active().await {
         Ok(policy) => Ok(Ok(policy)),
         Err(PolicyDataError::NotFound) => {
-            debug!("Denying incoming request by default (no active policy found)");
-
-            // Create the verdict
-            let verdict = Verdict::Deny(DeliberationDenyResponse {
-                shared: DeliberationResponse { verdict_reference: reference.into() },
-                reasons_for_denial: None,
-            });
-
-            // Log it: first, the "actual response" with the reason and then the verdict returned to the user
-            logger.log_reasoner_response(reference, "<reasoner not queried because no active policy is present>").await.map_err(|err| {
-                debug!("Could not log \"reasoner response\" to audit log : {:?} | request id: {}", err, reference);
-                warp::reject::custom(err)
-            })?;
-            logger.log_verdict(reference, &verdict).await.map_err(|err| {
-                debug!("Could not log verdict to audit log : {:?} | request id: {}", err, reference);
-                warp::reject::custom(err)
-            })?;
-
-            // Then send it to the user as promised
-            Ok(Err(warp::reply::with_status(warp::reply::json(&verdict), StatusCode::OK)))
+            Ok(Ok(None))
         },
         Err(PolicyDataError::GeneralError(err)) => {
             error!("Failed to get currently active policy: {err}");
@@ -162,15 +142,19 @@ where
         debug!("Generated verdict_reference: {}", verdict_reference);
 
         debug!("Retrieving active policy...");
-        let policy: Policy = match get_active_policy(&this.logger, &verdict_reference, &this.policystore).await? {
+        let policy: Option<Policy> = match get_active_policy(&this.logger, &verdict_reference, &this.policystore).await? {
             Ok(policy) => policy,
             Err(err) => return Ok(err),
         };
         // let policy = this.policystore.get_active().await.unwrap();
-        debug!("Got policy with {} bodies", policy.content.len());
+        if let Some(ref policy) = policy {
+            debug!("Got policy with {} bodies", policy.content.len());
+        } else {
+            debug!("No policy set");
+        }
 
         this.logger
-            .log_exec_task_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &task_id)
+            .log_exec_task_request(&verdict_reference, &auth_ctx, policy.as_ref().map(|policy| policy.version.version.unwrap()), &state, &workflow, &task_id)
             .await
             .map_err(|err| {
                 debug!("Could not log exec task request to audit log : {:?} | request id: {}", err, verdict_reference);
@@ -253,7 +237,12 @@ where
             Ok(policy) => policy,
             Err(err) => return Ok(err),
         };
-        debug!("Got policy with {} bodies", policy.content.len());
+
+        if let Some(ref policy) = policy {
+            debug!("Got policy with {} bodies", policy.content.len());
+        } else {
+            debug!("No policy set");
+        }
 
         let task_id: Option<String> = match task_id {
             Some(task_id) => {
@@ -277,7 +266,7 @@ where
                     reasons_for_denial: vec![].into(),
                 });
 
-                this.logger.log_data_access_request(&verdict_reference, &auth_ctx, -1, &state, &workflow, &data_id, &task_id).await.map_err(
+                this.logger.log_data_access_request(&verdict_reference, &auth_ctx, Some(-1), &state, &workflow, &data_id, &task_id).await.map_err(
                     |err| {
                         debug!("Could not log data access request to audit log : {:?} | request id: {}", err, verdict_reference);
                         warp::reject::custom(err)
@@ -292,10 +281,15 @@ where
                 return Ok(warp::reply::with_status(warp::reply::json(&resp), warp::hyper::StatusCode::OK));
             },
         };
-        debug!("Got policy with {} bodies", policy.content.len());
+
+        if let Some(ref policy) = policy {
+            debug!("Got policy with {} bodies", policy.content.len());
+        } else {
+            debug!("No policy set");
+        }
 
         this.logger
-            .log_data_access_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow, &data_id, &task_id)
+            .log_data_access_request(&verdict_reference, &auth_ctx, policy.as_ref().map(|policy| policy.version.version.unwrap()), &state, &workflow, &data_id, &task_id)
             .await
             .map_err(|err| {
                 debug!("Could not log data access request to audit log : {:?} | request id: {}", err, verdict_reference);
@@ -385,9 +379,14 @@ where
             Ok(policy) => policy,
             Err(err) => return Ok(err),
         };
-        debug!("Got policy with {} bodies", policy.content.len());
 
-        this.logger.log_validate_workflow_request(&verdict_reference, &auth_ctx, policy.version.version.unwrap(), &state, &workflow).await.map_err(
+        if let Some(ref policy) = policy {
+            debug!("Got policy with {} bodies", policy.content.len());
+        } else {
+            debug!("No policy set");
+        }
+
+        this.logger.log_validate_workflow_request(&verdict_reference, &auth_ctx, policy.as_ref().map(|policy| policy.version.version.unwrap()), &state, &workflow).await.map_err(
             |err| {
                 debug!("Could not log validate workflow request to audit log : {:?} | request id: {}", err, verdict_reference);
                 warp::reject::custom(err)
