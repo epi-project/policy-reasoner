@@ -17,9 +17,9 @@ use log::{error, info};
 use policy::{Context, Policy, PolicyDataAccess, PolicyDataError, PolicyVersion};
 use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 use policy_reasoner::logger::FileLogger;
-use policy_reasoner::state;
 use reasonerconn::ReasonerConnector;
 use srv::Srv;
+use state_resolver::{State, StateResolver};
 
 /***** HELPER FUNCTIONS *****/
 fn get_pauth_resolver() -> policy_reasoner::auth::JwtResolver<KidResolver> {
@@ -48,10 +48,18 @@ type DeliberationAuthResolverPlugin = JwtResolver<KidResolver>;
 type PolicyStorePlugin = DummyPolicyStore;
 
 /// The plugin used to resolve policy input state.
-#[cfg(feature = "brane-api-resolver")]
-type StateResolverPlugin = crate::state::BraneApiResolver;
-#[cfg(not(feature = "brane-api-resolver"))]
-type StateResolverPlugin = state::FileStateResolver;
+struct DummyStateResolver;
+
+#[async_trait]
+impl StateResolver for DummyStateResolver {
+    type Error = std::convert::Infallible;
+
+    async fn get_state(&self, _use_case: String) -> Result<State, Self::Error> {
+        Ok(State { users: Default::default(), locations: Default::default(), datasets: Default::default(), functions: Default::default() })
+    }
+}
+
+type StateResolverPlugin = DummyStateResolver;
 
 struct DummyPolicyStore;
 
@@ -199,13 +207,7 @@ where
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();
     let pstore: PolicyStorePlugin = DummyPolicyStore {};
 
-    let sresolve: StateResolverPlugin = match StateResolverPlugin::new(String::new()) {
-        Ok(sresolve) => sresolve,
-        Err(err) => {
-            error!("{}", err.trace());
-            std::process::exit(1);
-        },
-    };
+    let sresolve: StateResolverPlugin = DummyStateResolver {};
 
     // Run them!
     let server = Srv::new(args.address, logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
