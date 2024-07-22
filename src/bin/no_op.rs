@@ -9,11 +9,10 @@ pub mod implementation;
 
 use async_trait::async_trait;
 use clap::Parser;
-use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
 use implementation::interface::Arguments;
 use implementation::no_op::NoOpReasonerConnector;
-use log::{error, info};
+use log::{info};
 use policy::{Context, Policy, PolicyDataAccess, PolicyDataError, PolicyVersion};
 use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 use policy_reasoner::logger::FileLogger;
