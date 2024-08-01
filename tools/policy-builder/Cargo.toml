@@ -7,10 +7,14 @@ description = "Tool for taking a collection of eFLINT files and compiling them t
 
 
 [dependencies]
-clap = { version = "4.4.0", features = ["derive"]}
+# Crates.io
+clap = { version = "4.4.0", features = ["derive"] }
 console = "0.15.5"
-error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
-humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
 log = "0.4.21"
 
+# Git
+error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
+humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
+
+# Path
 eflint-to-json = { path = "../../lib/eflint-to-json" }

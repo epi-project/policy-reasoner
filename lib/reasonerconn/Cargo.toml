@@ -8,24 +8,32 @@ repository.workspace = true
 
 
 [dependencies]
-enum-debug = { git = "https://github.com/Lut99/enum-debug", features = ["derive"] }
-log = "0.4.21"
-transform = { git = "https://github.com/Lut99/transform-rs" }
-policy = { path = "../policy" }
-workflow = { path = "../workflow", features = ["eflint"]}
-state-resolver = { path = "../state-resolver" }
-audit-logger = { path = "../audit-logger" }
-eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant" }
-reqwest = {version = "0.12.0", features = ["blocking"]}
+# Crates.io
 anyhow = "1.0.66"
-serde = {version="1.0.203", features=["derive"]}
-serde_json = {version = "1.0.117" , features = ["raw_value"]}
 async-trait = "0.1.67"
+log = "0.4.21"
+reqwest = { version = "0.12.0", features = ["blocking"] }
+serde = { version="1.0.203", features=["derive"] }
+serde_json = { version = "1.0.117" , features = ["raw_value"] }
 tokio = { version = "1.38.0", features = ["full"] }
+
+# Path
+audit-logger = { path = "../audit-logger" }
+policy = { path = "../policy" }
+state-resolver = { path = "../state-resolver" }
+workflow = { path = "../workflow", features = ["eflint"]}
+
+# Git
+eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant" }
+enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0", features = ["derive"] }
+transform = { git = "https://github.com/Lut99/transform-rs", tag = "v0.1.1" }
 
 
 [dev-dependencies]
+# Crates.io
 clap = { version = "4.4.0", features = ["derive"] }
-error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
-humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
 log = "0.4.21"
+
+# Git
+error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v2.0.0" }
+humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.1.0" }
