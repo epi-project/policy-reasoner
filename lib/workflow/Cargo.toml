@@ -9,7 +9,6 @@ repository.workspace = true
 
 [dependencies]
 # Crates.io
-clap = { version = "4.4.0", features = ["derive"] }
 log = "0.4.21"
 num-traits = "0.2.18"
 rand = "0.8.5"

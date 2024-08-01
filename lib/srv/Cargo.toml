@@ -15,7 +15,6 @@ problem_details = "0.5.1"
 serde = { version="1.0.203", features=["derive"] }
 serde_json = {version = "1.0.117" , features = ["raw_value"] }
 tokio = { version = "1.38.0", features = ["full"] }
-tokio-scoped = "0.2"
 uuid = { version="1.7.0", features = ["v4"] }
 warp = "0.3"
 

@@ -963,9 +963,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "transform 0.1.1 (git+https://github.com/Lut99/transform-rs?tag=v0.1.1)",
  "uuid",
- "workflow 0.3.0",
 ]
 
 [[package]]
@@ -2553,13 +2551,11 @@ dependencies = [
  "async-trait",
  "chrono",
  "clap 4.5.13",
- "enum-debug 1.0.0 (git+https://github.com/Lut99/enum-debug?tag=v1.0.0)",
  "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
  "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
  "log",
  "serde",
  "serde_json",
- "transform 0.1.1 (git+https://github.com/Lut99/transform-rs?tag=v0.1.1)",
  "warp",
 ]
 
@@ -2823,7 +2819,6 @@ dependencies = [
  "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
  "log",
  "policy 0.1.0",
- "reqwest 0.12.5",
  "serde",
  "serde_json",
  "state-resolver 0.1.0",
@@ -3536,7 +3531,6 @@ dependencies = [
  "serde_json",
  "state-resolver 0.1.0",
  "tokio",
- "tokio-scoped",
  "uuid",
  "warp",
  "workflow 0.1.0",
@@ -4579,7 +4573,6 @@ dependencies = [
  "brane-ast",
  "brane-exe",
  "brane-shr",
- "clap 4.5.13",
  "eflint-json",
  "enum-debug 1.0.0 (git+https://github.com/Lut99/enum-debug?tag=v1.0.0)",
  "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
