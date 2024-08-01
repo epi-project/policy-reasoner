@@ -9,9 +9,9 @@ repository.workspace = true
 
 [dependencies]
 # Crates.io
-log = "0.4.21"
-serde = { version="1.0.203", features=["derive"] }
-serde_json = "1.0.117"
+log = "0.4.22"
+serde = { version="1.0.204", features=["derive"] }
+serde_json = "1.0.120"
 uuid = "1.7.0"
 
 # Git
@@ -24,8 +24,8 @@ brane-exe = { git = "https://github.com/epi-project/brane" }
 
 [dev-dependencies]
 # Crates.io
-clap = { version = "4.4.0", features = ["derive"] }
-log = "0.4.21"
+clap = { version = "4.5.6", features = ["derive"] }
+log = "0.4.22"
 
 # Git
 error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v2.0.0" }

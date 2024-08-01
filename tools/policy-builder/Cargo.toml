@@ -8,9 +8,9 @@ description = "Tool for taking a collection of eFLINT files and compiling them t
 
 [dependencies]
 # Crates.io
-clap = { version = "4.4.0", features = ["derive"] }
+clap = { version = "4.5.6", features = ["derive"] }
 console = "0.15.5"
-log = "0.4.21"
+log = "0.4.22"
 
 # Git
 error-trace = { git = "https://github.com/Lut99/error-trace-rs" }

@@ -8,5 +8,5 @@ repository.workspace = true
 
 [dependencies]
 async-trait = "0.1.67"
-serde = { version = "1.0.203", features = ["derive"] }
+serde = { version = "1.0.204", features = ["derive"] }
 warp = "0.3"

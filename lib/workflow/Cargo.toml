@@ -9,10 +9,10 @@ repository.workspace = true
 
 [dependencies]
 # Crates.io
-log = "0.4.21"
+log = "0.4.22"
 num-traits = "0.2.18"
 rand = "0.8.5"
-serde = { version = "1.0.203", features = ["derive"] }
+serde = { version = "1.0.204", features = ["derive"] }
 
 # Git
 eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", optional = true }
@@ -27,8 +27,8 @@ specifications = { git = "https://github.com/epi-project/brane" }
 
 [dev-dependencies]
 # Crates
-log = "0.4.21"
-serde_json = "1.0.117"
+log = "0.4.22"
+serde_json = "1.0.120"
 
 # Git
 eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant", features = ["display_eflint"] }

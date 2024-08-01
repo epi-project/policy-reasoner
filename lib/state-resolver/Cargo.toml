@@ -9,7 +9,7 @@ repository.workspace = true
 [dependencies]
 # Crates.io
 async-trait = "0.1.67"
-serde = { version="1.0.203", features=["derive"] }
+serde = { version="1.0.204", features=["derive"] }
 
 # Path
 workflow = {path = "../workflow"}

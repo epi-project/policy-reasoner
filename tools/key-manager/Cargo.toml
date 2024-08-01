@@ -9,10 +9,10 @@ description = "A tool that copies `branectl`s behaviour in making it easy to gen
 
 [dependencies]
 # Crates.io
-clap = { version = "4.4.0", features = ["derive"] }
+clap = { version = "4.5.6", features = ["derive"] }
 humantime = "2.1"
 jsonwebtoken = "9.2.0"
-log = "0.4.21"
+log = "0.4.22"
 
 # Git
 brane-ctl = { git = "https://github.com/epi-project/brane" }

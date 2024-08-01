@@ -11,9 +11,9 @@ repository.workspace = true
 # Crates.io
 anyhow = "1.0.66"
 async-trait = "0.1.67"
-log = "0.4.21"
-serde = { version="1.0.203", features=["derive"] }
-serde_json = { version = "1.0.117" , features = ["raw_value"] }
+log = "0.4.22"
+serde = { version="1.0.204", features=["derive"] }
+serde_json = { version = "1.0.120" , features = ["raw_value"] }
 tokio = { version = "1.38.0", features = ["full"] }
 
 # Path
@@ -30,8 +30,8 @@ transform = { git = "https://github.com/Lut99/transform-rs", tag = "v0.1.1" }
 
 [dev-dependencies]
 # Crates.io
-clap = { version = "4.4.0", features = ["derive"] }
-log = "0.4.21"
+clap = { version = "4.5.6", features = ["derive"] }
+log = "0.4.22"
 
 # Git
 error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v2.0.0" }

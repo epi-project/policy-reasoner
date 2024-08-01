@@ -10,10 +10,10 @@ repository.workspace = true
 # Crates.io
 chrono = "0.4.35"
 http = "1.0.0"
-log = "0.4.21"
+log = "0.4.22"
 problem_details = "0.5.1"
-serde = { version="1.0.203", features=["derive"] }
-serde_json = {version = "1.0.117" , features = ["raw_value"] }
+serde = { version="1.0.204", features=["derive"] }
+serde_json = {version = "1.0.120" , features = ["raw_value"] }
 tokio = { version = "1.38.0", features = ["full"] }
 uuid = { version="1.7.0", features = ["v4"] }
 warp = "0.3"
