@@ -4617,7 +4617,7 @@ dependencies = [
  "brane-ast",
  "brane-exe",
  "eflint-json",
- "enum-debug 1.0.0 (git+https://github.com/Lut99/enum-debug?tag=v1.0.0)",
+ "enum-debug 1.0.0 (git+https://github.com/Lut99/enum-debug)",
  "log",
  "num-traits",
  "rand 0.8.5",
