@@ -7,23 +7,29 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Crates.io
+chrono = "0.4.35"
+http = "1.0.0"
+log = "0.4.22"
+problem_details = "0.5.1"
+serde = { version="1.0.204", features=["derive"] }
+serde_json = {version = "1.0.120" , features = ["raw_value"] }
+tokio = { version = "1.38.0", features = ["full"] }
+uuid = { version="1.7.0", features = ["v4"] }
+warp = "0.3"
+
+# Path
 audit-logger = { path = "../audit-logger" }
 auth-resolver = { path = "../auth-resolver" }
+deliberation = { path = "../deliberation" }
+policy = { path = "../policy" }
+reasonerconn = {path = "../reasonerconn"}
+state-resolver = { path = "../state-resolver" }
+workflow = { path = "../workflow" }
+
+# Git
+error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
+
+# Brane
 brane-ast = { git = "https://github.com/epi-project/brane" }
 brane-exe = { git = "https://github.com/epi-project/brane" }
-chrono = "0.4.35"
-deliberation = { path = "../deliberation" }
-error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
-http = "1.0.0"
-log = "0.4.21"
-reasonerconn = {path = "../reasonerconn"}
-policy = { path = "../policy" }
-problem_details = "0.5.1"
-serde = {version="1.0.203", features=["derive"]}
-serde_json = {version = "1.0.117" , features = ["raw_value"]}
-state-resolver = { path = "../state-resolver" }
-tokio = { version = "1.38.0", features = ["full"] }
-tokio-scoped = "0.2"
-uuid ={version="1.7.0", features = ["v4"]}
-workflow = { path = "../workflow" }
-warp = "0.3"
