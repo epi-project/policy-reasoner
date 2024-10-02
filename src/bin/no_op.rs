@@ -3,13 +3,13 @@
 //! policy reasoner.
 use std::env;
 use std::fs::File;
-use std::net::SocketAddr;
 
 pub mod implementation;
 
 use clap::Parser;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
+use implementation::interface::Arguments;
 use implementation::no_op::NoOpReasonerConnector;
 use log::{error, info};
 use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
@@ -31,19 +31,6 @@ fn get_dauth_resolver() -> policy_reasoner::auth::JwtResolver<KidResolver> {
     let r = File::open("./examples/config/jwt_resolver.yaml").unwrap();
     let jwt_cfg: JwtConfig = serde_yaml::from_reader(r).unwrap();
     JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
-}
-
-/***** ARGUMENTS *****/
-/// Defines the arguments for the `policy-reasoner` server.
-#[derive(Debug, Parser, Clone)]
-struct Arguments {
-    /// Whether to enable full debugging
-    #[clap(long, global = true, help = "If given, enables more verbose debugging.")]
-    trace: bool,
-
-    /// The address on which to bind ourselves.
-    #[clap(short, long, env, default_value = "127.0.0.1:3030", help = "The address on which to bind the server.")]
-    address: SocketAddr,
 }
 
 /***** PLUGINS *****/
