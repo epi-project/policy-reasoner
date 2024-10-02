@@ -12,7 +12,7 @@ use clap::Parser;
 use humanlog::{DebugMode, HumanLogger};
 use implementation::interface::Arguments;
 use implementation::no_op::NoOpReasonerConnector;
-use log::{info};
+use log::info;
 use policy::{Context, Policy, PolicyDataAccess, PolicyDataError, PolicyVersion};
 use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 use policy_reasoner::logger::FileLogger;
@@ -81,7 +81,7 @@ impl PolicyDataAccess for DummyPolicyStore {
                 version: Some(1),
                 version_description: String::from("This is a dummy version of a dummy policy"),
                 // TODO: Compute hash by hand
-                reasoner_connector_context: String::from("Asd"),
+                reasoner_connector_context: String::from("No context exists"),
             },
             content:     Vec::new(),
         })
@@ -97,7 +97,7 @@ impl PolicyDataAccess for DummyPolicyStore {
                 version: Some(1),
                 version_description: String::from("This is a dummy version of a dummy policy"),
                 // TODO: Compute hash by hand
-                reasoner_connector_context: String::from("Asd"),
+                reasoner_connector_context: String::from("No context exists"),
             },
             content:     Vec::new(),
         })
@@ -113,7 +113,7 @@ impl PolicyDataAccess for DummyPolicyStore {
                 version: Some(1),
                 version_description: String::from("This is a dummy version of a dummy policy"),
                 // TODO: Compute hash by hand
-                reasoner_connector_context: String::from("Asd"),
+                reasoner_connector_context: String::from("No context exists"),
             },
             content:     Vec::new(),
         })
@@ -127,7 +127,7 @@ impl PolicyDataAccess for DummyPolicyStore {
             version: Some(1),
             version_description: String::from("This is a dummy version of a dummy policy"),
             // TODO: Compute hash by hand
-            reasoner_connector_context: String::from("Asd"),
+            reasoner_connector_context: String::from("No context exists"),
         }])
     }
 
@@ -141,7 +141,7 @@ impl PolicyDataAccess for DummyPolicyStore {
                 version: Some(1),
                 version_description: String::from("This is a dummy version of a dummy policy"),
                 // TODO: Compute hash by hand
-                reasoner_connector_context: String::from("Asd"),
+                reasoner_connector_context: String::from("No context exists"),
             },
             content:     Vec::new(),
         })
@@ -162,10 +162,9 @@ impl PolicyDataAccess for DummyPolicyStore {
                 version: Some(1),
                 version_description: String::from("This is a dummy version of a dummy policy"),
                 // TODO: Compute hash by hand
-                reasoner_connector_context: String::from("Asd"),
+                reasoner_connector_context: String::from("No context exists"),
             },
-            content:     Vec::new(),
-        })
+            content:     Vec::new(), })
     }
 
     async fn deactivate_policy<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
