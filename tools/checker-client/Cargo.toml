@@ -1,10 +1,11 @@
 [package]
 name = "checker-client"
-version = "0.1.0"
-edition = "2021"
-authors = [ "Bas Kloosterman", "Tim Müller" ]
-repository = "https://github.com/epi-project/policy-reasoner"
 description = "A tool to make requests to the checker conveniently, for demo/testing purposes."
+edition = "2021"
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
 
 
 [dependencies]

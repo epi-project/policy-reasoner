@@ -1,10 +1,11 @@
 [package]
 name = "reasonerconn"
-version = "0.1.0"
+description = "Defines the connector that translates for and communicates with a specific reasoner."
 edition = "2021"
 authors = ["Bas Kloosterman"]
-description = "Defines the connector that translates for and communicates with a specific reasoner."
+version.workspace = true
 repository.workspace = true
+license.workspace = true
 
 
 [dependencies]

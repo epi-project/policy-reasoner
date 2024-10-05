@@ -1,14 +1,17 @@
 [package]
 name = "policy-reasoner"
-version = "0.1.0"
-edition = "2021"
-authors = [ "Bas Kloosterman", "Tim Müller" ]
-repository.workspace = true
 description = "Long-awaited implementation of the EPI Framework checkers, which reason about policies and contrain systems like [Brane](https://github.com/epi-project/brane)"
-
+edition = "2021"
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [workspace.package]
+version = "0.1.0"
 repository = "https://github.com/epi-project/policy-reasoner"
+authors = [ "Bas Kloosterman", "Tim Müller" ]
+license = "Apache-2.0"
 
 
 [dependencies]
