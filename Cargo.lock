@@ -1146,10 +1146,10 @@ dependencies = [
 [[package]]
 name = "eflint-json"
 version = "0.1.0"
-source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#ec16789f8f697cf3edef32ea8f99ae73aea21ede"
+source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#0f984d8c8b68571dd5c7b9b6de87f30119813216"
 dependencies = [
  "console",
- "enum-debug 1.0.0 (git+https://github.com/Lut99/enum-debug)",
+ "enum-debug 1.0.0 (git+https://github.com/Lut99/enum-debug?tag=v1.0.0)",
  "lazy_static",
  "serde",
 ]
