@@ -32,7 +32,7 @@ use tokio::fs::{self as tfs, File as TFile};
 use tokio::io::{AsyncBufReadExt as _, AsyncReadExt, AsyncWriteExt as _, BufReader as TBufReader};
 use tokio::process::{Child as TChild, ChildStdin as TChildStdin, ChildStdout as TChildStdout, Command as TCommand};
 
-use crate::download::{download_file, download_file_async, DownloadSecurity};
+use crate::download::{DownloadSecurity, download_file, download_file_async};
 
 /***** CONSTANTS *****/
 /// Compiler download URL.

@@ -29,10 +29,10 @@ use policy::{Policy, PolicyDataAccess, PolicyDataError};
 use reasonerconn::ReasonerConnector;
 use serde::Serialize;
 use state_resolver::StateResolver;
+use warp::Filter;
 use warp::hyper::StatusCode;
 use warp::reject::{Reject, Rejection};
 use warp::reply::{Json, WithStatus};
-use warp::Filter;
 use workflow::Workflow;
 
 use crate::Srv;

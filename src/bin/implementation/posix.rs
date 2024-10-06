@@ -141,9 +141,9 @@ use reasonerconn::{ReasonerConnError, ReasonerConnector, ReasonerResponse};
 use serde::Deserialize;
 use specifications::data::{DataIndex, Location};
 use state_resolver::State;
-use workflow::spec::Workflow;
-use workflow::utils::{walk_workflow_preorder, WorkflowVisitor};
 use workflow::Dataset;
+use workflow::spec::Workflow;
+use workflow::utils::{WorkflowVisitor, walk_workflow_preorder};
 
 /// This location is an assumption right now, and is needed as long as the location is not passed to the workflow
 /// validator.

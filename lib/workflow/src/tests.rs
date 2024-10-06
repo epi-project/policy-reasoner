@@ -17,9 +17,9 @@ use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use brane_ast::{ast, compile_program, CompileResult, ParserOptions};
+use brane_ast::{CompileResult, ParserOptions, ast, compile_program};
 use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
-use log::{debug, Level};
+use log::{Level, debug};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 

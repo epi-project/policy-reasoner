@@ -21,13 +21,13 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::{error, fs};
 
-use brane_ast::{ast, compile_program, CompileResult, ParserOptions};
+use brane_ast::{CompileResult, ParserOptions, ast, compile_program};
 use brane_shr::utilities::{create_data_index_from, create_package_index_from};
 use clap::Parser;
 use enum_debug::EnumDebug;
 use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
-use log::{debug, error, info, Level};
+use log::{Level, debug, error, info};
 use specifications::data::DataIndex;
 use specifications::package::PackageIndex;
 use workflow::spec::Workflow;
