@@ -10,6 +10,14 @@ The entry point for the library is `src/lib.rs` as per usual.
 In these files no particular implementation of a policy reasoner is included, only
 the mechanisms on which the concept of a policy reasoner can be implemented.
 
+### Interface
+
+The interface for the different reasoners must be the same. Its command line
+arguments are defined in `src/bin/implementation/interface.rs`. It could be that a new
+reasoner requires more arguments. You can implement another arguments struct, however
+make sure the arguments defined in the common interface are supported as other
+components of infrastructure may depend on it.
+
 ### Implementations
 
 As of now there are three different implementations of a policy reasoners in

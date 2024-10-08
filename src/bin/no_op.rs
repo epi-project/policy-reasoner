@@ -3,21 +3,22 @@
 //! policy reasoner.
 use std::env;
 use std::fs::File;
-use std::net::SocketAddr;
+use std::future::Future;
 
 pub mod implementation;
 
+use async_trait::async_trait;
 use clap::Parser;
-use error_trace::ErrorTrace as _;
 use humanlog::{DebugMode, HumanLogger};
+use implementation::interface::Arguments;
 use implementation::no_op::NoOpReasonerConnector;
-use log::{error, info};
+use log::info;
+use policy::{Context, Policy, PolicyDataAccess, PolicyDataError, PolicyVersion};
 use policy_reasoner::auth::{JwtConfig, JwtResolver, KidResolver};
 use policy_reasoner::logger::FileLogger;
-use policy_reasoner::sqlite::SqlitePolicyDataStore;
-use policy_reasoner::state;
 use reasonerconn::ReasonerConnector;
 use srv::Srv;
+use state_resolver::{State, StateResolver};
 
 /***** HELPER FUNCTIONS *****/
 fn get_pauth_resolver() -> policy_reasoner::auth::JwtResolver<KidResolver> {
@@ -33,19 +34,6 @@ fn get_dauth_resolver() -> policy_reasoner::auth::JwtResolver<KidResolver> {
     JwtResolver::new(jwt_cfg, kid_resolver).unwrap()
 }
 
-/***** ARGUMENTS *****/
-/// Defines the arguments for the `policy-reasoner` server.
-#[derive(Debug, Parser, Clone)]
-struct Arguments {
-    /// Whether to enable full debugging
-    #[clap(long, global = true, help = "If given, enables more verbose debugging.")]
-    trace: bool,
-
-    /// The address on which to bind ourselves.
-    #[clap(short, long, env, default_value = "127.0.0.1:3030", help = "The address on which to bind the server.")]
-    address: SocketAddr,
-}
-
 /***** PLUGINS *****/
 /// The plugin used to do the audit logging.
 type AuditLogPlugin = FileLogger;
@@ -56,13 +44,138 @@ type PolicyAuthResolverPlugin = JwtResolver<KidResolver>;
 type DeliberationAuthResolverPlugin = JwtResolver<KidResolver>;
 
 /// The plugin used to interact with the policy store.
-type PolicyStorePlugin = SqlitePolicyDataStore;
+type PolicyStorePlugin = DummyPolicyStore;
 
 /// The plugin used to resolve policy input state.
-#[cfg(feature = "brane-api-resolver")]
-type StateResolverPlugin = crate::state::BraneApiResolver;
-#[cfg(not(feature = "brane-api-resolver"))]
-type StateResolverPlugin = state::FileStateResolver;
+struct DummyStateResolver;
+
+#[async_trait]
+impl StateResolver for DummyStateResolver {
+    type Error = std::convert::Infallible;
+
+    async fn get_state(&self, _use_case: String) -> Result<State, Self::Error> {
+        Ok(State { users: Default::default(), locations: Default::default(), datasets: Default::default(), functions: Default::default() })
+    }
+}
+
+type StateResolverPlugin = DummyStateResolver;
+
+struct DummyPolicyStore;
+
+#[async_trait]
+impl PolicyDataAccess for DummyPolicyStore {
+    type Error = std::convert::Infallible;
+
+    async fn add_version<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        _version: Policy,
+        _context: Context,
+        _transaction: impl 'static + Send + FnOnce(Policy) -> F,
+    ) -> Result<Policy, PolicyDataError> {
+        #[allow(unreachable_code)]
+        Ok(Policy {
+            description: String::from("This is a dummy policy"),
+            version:     policy::PolicyVersion {
+                creator: None,
+                created_at: chrono::DateTime::from_timestamp_nanos(0).into(),
+                version: Some(1),
+                version_description: String::from("This is a dummy version of a dummy policy"),
+                // TODO: Compute hash by hand
+                reasoner_connector_context: String::from("No context exists"),
+            },
+            content:     Vec::new(),
+        })
+    }
+
+    async fn get_version(&self, _version: i64) -> Result<Policy, PolicyDataError> {
+        #[allow(unreachable_code)]
+        Ok(Policy {
+            description: String::from("This is a dummy policy"),
+            version:     policy::PolicyVersion {
+                creator: None,
+                created_at: chrono::DateTime::from_timestamp_nanos(0).into(),
+                version: Some(1),
+                version_description: String::from("This is a dummy version of a dummy policy"),
+                // TODO: Compute hash by hand
+                reasoner_connector_context: String::from("No context exists"),
+            },
+            content:     Vec::new(),
+        })
+    }
+
+    async fn get_most_recent(&self) -> Result<Policy, PolicyDataError> {
+        #[allow(unreachable_code)]
+        Ok(Policy {
+            description: String::from("This is a dummy policy"),
+            version:     policy::PolicyVersion {
+                creator: None::<String>,
+                created_at: chrono::DateTime::from_timestamp_nanos(0).into(),
+                version: Some(1),
+                version_description: String::from("This is a dummy version of a dummy policy"),
+                // TODO: Compute hash by hand
+                reasoner_connector_context: String::from("No context exists"),
+            },
+            content:     Vec::new(),
+        })
+    }
+
+    async fn get_versions(&self) -> Result<Vec<PolicyVersion>, PolicyDataError> {
+        #[allow(unreachable_code)]
+        Ok(vec![PolicyVersion {
+            creator: None,
+            created_at: chrono::DateTime::from_timestamp_nanos(0).into(),
+            version: Some(1),
+            version_description: String::from("This is a dummy version of a dummy policy"),
+            // TODO: Compute hash by hand
+            reasoner_connector_context: String::from("No context exists"),
+        }])
+    }
+
+    async fn get_active(&self) -> Result<Policy, PolicyDataError> {
+        #[allow(unreachable_code)]
+        Ok(Policy {
+            description: String::from("This is a dummy policy"),
+            version:     policy::PolicyVersion {
+                creator: None,
+                created_at: chrono::DateTime::from_timestamp_nanos(0).into(),
+                version: Some(1),
+                version_description: String::from("This is a dummy version of a dummy policy"),
+                // TODO: Compute hash by hand
+                reasoner_connector_context: String::from("No context exists"),
+            },
+            content:     Vec::new(),
+        })
+    }
+
+    async fn set_active<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        _version: i64,
+        _context: Context,
+        _transaction: impl 'static + Send + FnOnce(Policy) -> F,
+    ) -> Result<Policy, PolicyDataError> {
+        #[allow(unreachable_code)]
+        Ok(Policy {
+            description: String::from("This is a dummy policy"),
+            version:     policy::PolicyVersion {
+                creator: None,
+                created_at: chrono::DateTime::from_timestamp_nanos(0).into(),
+                version: Some(1),
+                version_description: String::from("This is a dummy version of a dummy policy"),
+                // TODO: Compute hash by hand
+                reasoner_connector_context: String::from("No context exists"),
+            },
+            content:     Vec::new(), })
+    }
+
+    async fn deactivate_policy<F: 'static + Send + Future<Output = Result<(), PolicyDataError>>>(
+        &self,
+        _context: Context,
+        _transaction: impl 'static + Send + FnOnce() -> F,
+    ) -> Result<(), PolicyDataError> {
+        // Nothing to do
+        Ok(())
+    }
+}
 
 /***** ENTRYPOINT *****/
 #[tokio::main]
@@ -90,15 +203,9 @@ where
     let logger: AuditLogPlugin = FileLogger::new(log_identifier, "./audit-log.log");
     let pauthresolver: PolicyAuthResolverPlugin = get_pauth_resolver();
     let dauthresolver: DeliberationAuthResolverPlugin = get_dauth_resolver();
-    let pstore: PolicyStorePlugin = SqlitePolicyDataStore::new("./data/policy.db");
+    let pstore: PolicyStorePlugin = DummyPolicyStore {};
 
-    let sresolve: StateResolverPlugin = match StateResolverPlugin::new(String::new()) {
-        Ok(sresolve) => sresolve,
-        Err(err) => {
-            error!("{}", err.trace());
-            std::process::exit(1);
-        },
-    };
+    let sresolve: StateResolverPlugin = DummyStateResolver {};
 
     // Run them!
     let server = Srv::new(args.address, logger, rconn, pstore, sresolve, pauthresolver, dauthresolver);
