@@ -1,9 +1,10 @@
 [package]
 name = "nested-cli-parser"
-version = "0.1.0"
 edition = "2021"
+versin.workspace = true
 repository.workspace = true
-authors = [ "Bas Kloosterman", "Tim Müller" ]
+authors.workspace = true
+license.workspace = true
 
 
 [dependencies]

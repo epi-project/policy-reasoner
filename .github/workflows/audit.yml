@@ -1,0 +1,16 @@
+name: Audit
+on:
+  pull_request:
+  schedule:
+    # Every monday morning At 7AM UTC
+    - cron: '0 7 * * 1'
+
+  licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check licenses
+          arguments: --all-features
+

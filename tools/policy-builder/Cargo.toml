@@ -1,9 +1,11 @@
 [package]
 name = "policy-builder"
-version = "0.1.0"
+description = "Tool for taking a collection of eFLINT files and compiling them to a single eFLINT JSON Spec."
 edition = "2021"
 authors = [ "Tim Müller" ]
-description = "Tool for taking a collection of eFLINT files and compiling them to a single eFLINT JSON Spec."
+version.workspace = true
+repository.workspace = true
+license.workspace = true
 
 
 [dependencies]

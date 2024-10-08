@@ -1,10 +1,11 @@
 [package]
 name = "eflint-to-json"
-version = "0.1.0"
-edition = "2021"
-authors = [ "Bas Kloosterman", "Tim Müller" ]
 description = "Defines a high-level wrapper around Olaf's [`eflint-to-json`](https://github.com/Olaf-Erkemeij/eflint-server) executable that compiles eFLINT to eFLINT JSON Specification."
-repository = "https://github.com/epi-project/policy-reasoner"
+edition = "2021"
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
 
 
 [dependencies]

@@ -1,10 +1,11 @@
 [package]
 name = "key-manager"
-version = "0.1.0"
-edition = "2021"
-authors = [ "Bas Kloosterman", "Tim Müller" ]
-repository = "https://github.com/epi-project/policy-reasoner"
 description = "A tool that copies `branectl`s behaviour in making it easy to generates key/tokens."
+edition = "2021"
+version.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
 
 
 [dependencies]
