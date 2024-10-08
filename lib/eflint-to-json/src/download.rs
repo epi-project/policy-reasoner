@@ -22,7 +22,7 @@ use console::Style;
 use futures_util::StreamExt as _;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::debug;
-use reqwest::{blocking, Client, Request, Response, StatusCode, Url};
+use reqwest::{Client, Request, Response, StatusCode, Url, blocking};
 use sha2::{Digest as _, Sha256};
 use tokio::fs as tfs;
 use tokio::io::AsyncWriteExt as _;

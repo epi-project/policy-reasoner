@@ -19,10 +19,10 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 
+use brane_ast::MergeStrategy;
 use brane_ast::ast::{Edge, EdgeInstr, FunctionDef, SymTable, TaskDef, Workflow};
 use brane_ast::func_id::FunctionId;
 use brane_ast::spec::BuiltinFunctions;
-use brane_ast::MergeStrategy;
 use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
 use log::{debug, trace};
@@ -36,7 +36,7 @@ mod tests {
     use std::path::PathBuf;
 
     use brane_ast::traversals::print::ast;
-    use brane_ast::{compile_program, CompileResult, ParserOptions};
+    use brane_ast::{CompileResult, ParserOptions, compile_program};
     use brane_shr::utilities::{create_data_index_from, create_package_index_from, test_on_dsl_files_in};
     use humanlog::{DebugMode, HumanLogger};
     use specifications::data::DataIndex;

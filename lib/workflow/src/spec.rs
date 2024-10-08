@@ -15,8 +15,8 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use brane_ast::locations::Location;
 use brane_ast::MergeStrategy;
+use brane_ast::locations::Location;
 use enum_debug::EnumDebug;
 use serde::{Deserialize, Serialize};
 use specifications::version::Version;

@@ -19,11 +19,6 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::fs;
 use std::path::PathBuf;
 
-use async_trait::async_trait;
-use log::debug;
-use nested_cli_parser::map_parser::MapParser;
-use nested_cli_parser::{NestedCliParser, NestedCliParserHelpFormatter};
-use state_resolver::{State, StateResolver};
 #[cfg(feature = "brane-api-resolver")]
 use ::{
     brane_cfg::info::Info,
@@ -40,6 +35,11 @@ use ::{
     uuid::Uuid,
     workflow::{Dataset, User},
 };
+use async_trait::async_trait;
+use log::debug;
+use nested_cli_parser::map_parser::MapParser;
+use nested_cli_parser::{NestedCliParser, NestedCliParserHelpFormatter};
+use state_resolver::{State, StateResolver};
 
 /***** CONSTANTS *****/
 /// The list of recognized keys for the arguments of the [`FileStateResolver`].

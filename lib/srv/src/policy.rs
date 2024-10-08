@@ -11,7 +11,7 @@ use state_resolver::StateResolver;
 use warp::Filter;
 
 use crate::problem::Problem;
-use crate::{models, Srv};
+use crate::{Srv, models};
 
 impl<L, C, P, S, PA, DA> Srv<L, C, P, S, PA, DA>
 where

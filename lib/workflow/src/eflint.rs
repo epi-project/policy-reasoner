@@ -18,8 +18,8 @@ use std::collections::{HashMap, HashSet};
 use eflint_json::spec::{ConstructorInput, Expression, ExpressionConstructorApp, ExpressionPrimitive, Phrase, PhraseCreate};
 use enum_debug::EnumDebug as _;
 use log::{trace, warn};
-use rand::distributions::Alphanumeric;
 use rand::Rng as _;
+use rand::distributions::Alphanumeric;
 
 use crate::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, Metadata, User, Workflow};
 

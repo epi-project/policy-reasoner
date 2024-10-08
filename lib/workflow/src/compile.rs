@@ -20,15 +20,15 @@ use std::fmt::{Display, Formatter, Result as FResult};
 use std::panic::catch_unwind;
 
 use brane_ast::spec::BuiltinFunctions;
-use brane_ast::{ast, MergeStrategy};
+use brane_ast::{MergeStrategy, ast};
 use brane_exe::pc::{ProgramCounter, ResolvedProgramCounter};
 use enum_debug::EnumDebug as _;
-use log::{debug, trace, Level};
+use log::{Level, debug, trace};
 use specifications::data::{AvailabilityKind, DataName, PreprocessKind};
 
 use super::preprocess;
 use super::spec::{Dataset, Elem, ElemBranch, ElemCommit, ElemLoop, ElemParallel, ElemTask, User, Workflow};
-use crate::{utils, Metadata};
+use crate::{Metadata, utils};
 
 /***** ERRORS *****/
 /// Defines errors that may occur when compiling an [`ast::Workflow`] to a [`Workflow`].

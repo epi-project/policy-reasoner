@@ -5,6 +5,7 @@ max_width = 150
 use_small_heuristics = "Max"
 
 # Unstable features below
+style_edition = "2024"
 unstable_features = true
 blank_lines_upper_bound = 5
 enum_discrim_align_threshold = 5
@@ -18,4 +19,3 @@ imports_granularity = "Module"
 overflow_delimited_expr = true
 reorder_impl_items = true
 group_imports = "StdExternalCrate"
-version = "Two"

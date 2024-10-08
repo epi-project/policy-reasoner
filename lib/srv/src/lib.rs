@@ -12,10 +12,10 @@ use log::{debug, error, info, warn};
 use reasonerconn::ReasonerConnector;
 use serde::{Deserialize, Serialize};
 use state_resolver::StateResolver;
-use tokio::signal::unix::{signal, Signal, SignalKind};
+use tokio::signal::unix::{Signal, SignalKind, signal};
+use warp::Filter;
 use warp::reject::Rejection;
 use warp::reply::Reply;
-use warp::Filter;
 
 use crate::problem::Problem;
 
