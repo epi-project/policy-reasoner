@@ -23,10 +23,10 @@ policy = { path = "../policy" }
 state-resolver = { path = "../state-resolver" }
 workflow = { path = "../workflow", features = ["eflint"]}
 
-# Git
-eflint-json = { git = "https://gitlab.com/eflint/json-spec-rs", branch = "incorrect-is-invariant" }
-enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0", features = ["derive"] }
-transform = { git = "https://github.com/Lut99/transform-rs", tag = "v0.1.1" }
+# Workspace dependencies
+eflint-json.workspace = true
+enum-debug.workspace = true
+transform.workspace = true
 
 
 [dev-dependencies]
@@ -34,6 +34,6 @@ transform = { git = "https://github.com/Lut99/transform-rs", tag = "v0.1.1" }
 clap = { version = "4.5.6", features = ["derive"] }
 log = "0.4.22"
 
-# Git
-error-trace = { git = "https://github.com/Lut99/error-trace-rs", tag = "v2.0.0" }
-humanlog = { git = "https://github.com/Lut99/humanlog-rs", tag = "v0.1.0" }
+# Workspace dependencies
+error-trace.workspace = true
+humanlog.workspace = true
