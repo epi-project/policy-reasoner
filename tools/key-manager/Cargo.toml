@@ -15,7 +15,9 @@ humantime = "2.1"
 jsonwebtoken = "9.2.0"
 log = "0.4.22"
 
-# Git
+# Brane
 brane-ctl = { git = "https://github.com/epi-project/brane" }
-error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
-humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
+
+# Workspace dependencies
+error-trace.workspace = true
+humanlog.workspace = true

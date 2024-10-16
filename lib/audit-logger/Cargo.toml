@@ -24,4 +24,4 @@ state-resolver = { path = "../state-resolver" }
 workflow = { path = "../workflow" }
 
 # Git
-enum-debug = { git = "https://github.com/Lut99/enum-debug", tag = "v1.0.0", features = ["derive"] }
+enum-debug.workspace = true

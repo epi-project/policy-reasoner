@@ -97,25 +97,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86fdf8605db99b54d3cd748a44c6d04df638eb5dafb219b135d0149bd0db01f6"
 
 [[package]]
-name = "argon2rs"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f67b0b6a86dae6e67ff4ca2b6201396074996379fba2b92ff649126f37cb392"
-dependencies = [
- "blake2-rfc",
- "scoped_threadpool",
-]
-
-[[package]]
-name = "arrayvec"
-version = "0.4.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd9fd44efafa8690358b7408d253adf110036b88f55672a933f01d616ad9b1b9"
-dependencies = [
- "nodrop",
-]
-
-[[package]]
 name = "ascii"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -224,24 +205,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
-name = "atty"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
-dependencies = [
- "hermit-abi 0.1.19",
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "audit-logger"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "auth-resolver 0.1.0",
  "deliberation 0.1.0",
- "enum-debug",
+ "enum-debug 1.1.0",
  "hex",
  "policy 0.1.0",
  "serde",
@@ -254,12 +224,12 @@ dependencies = [
 [[package]]
 name = "audit-logger"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "async-trait",
  "auth-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "deliberation 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "enum-debug",
+ "enum-debug 1.0.0",
  "hex",
  "policy 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "serde",
@@ -281,7 +251,7 @@ dependencies = [
 [[package]]
 name = "auth-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "async-trait",
  "serde",
@@ -397,16 +367,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
 
 [[package]]
-name = "blake2-rfc"
-version = "0.2.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d6d530bdd2d52966a6d03b7a964add7ae1a288d25214066fd4b600f0f796400"
-dependencies = [
- "arrayvec",
- "constant_time_eq",
-]
-
-[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -457,16 +417,16 @@ dependencies = [
 [[package]]
 name = "brane-ast"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "brane-dsl",
  "brane-shr",
  "console",
- "enum-debug",
+ "enum-debug 1.1.0",
  "lazy_static",
  "log",
  "num-traits",
- "rand 0.8.5",
+ "rand",
  "serde",
  "serde_json_any_key",
  "specifications",
@@ -477,10 +437,10 @@ dependencies = [
 [[package]]
 name = "brane-cfg"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "async-trait",
- "enum-debug",
+ "enum-debug 1.1.0",
  "log",
  "rustls 0.21.12",
  "rustls-pemfile 1.0.4",
@@ -494,7 +454,7 @@ dependencies = [
 [[package]]
 name = "brane-ctl"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "base64ct",
  "bollard",
@@ -507,15 +467,15 @@ dependencies = [
  "dialoguer",
  "diesel",
  "diesel_migrations",
- "dirs-2",
+ "dirs",
  "dotenvy",
  "download",
  "eflint-to-json 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "enum-debug",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
+ "enum-debug 1.1.0",
+ "error-trace 3.0.0",
  "hex-literal",
  "human-panic",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "humanlog",
  "humantime",
  "jsonwebtoken",
  "lazy_static",
@@ -523,7 +483,7 @@ dependencies = [
  "names",
  "openssl-sys",
  "policy 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "rand 0.8.5",
+ "rand",
  "reqwest 0.11.27",
  "serde",
  "serde_json",
@@ -538,15 +498,15 @@ dependencies = [
 [[package]]
 name = "brane-dsl"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "brane-shr",
  "bytes",
- "enum-debug",
+ "enum-debug 1.1.0",
  "log",
  "nom",
  "nom_locate",
- "rand 0.8.5",
+ "rand",
  "regex",
  "semver",
  "serde",
@@ -558,7 +518,7 @@ dependencies = [
 [[package]]
 name = "brane-exe"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -566,7 +526,7 @@ dependencies = [
  "brane-ast",
  "brane-shr",
  "console",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures",
  "lazy_static",
  "log",
@@ -581,16 +541,16 @@ dependencies = [
 [[package]]
 name = "brane-shr"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "async-compression",
  "console",
  "dialoguer",
- "enum-debug",
+ "enum-debug 1.1.0",
  "fs2",
  "futures-util",
  "hex",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "humanlog",
  "indicatif",
  "log",
  "num-traits",
@@ -607,7 +567,7 @@ dependencies = [
 [[package]]
 name = "brane-tsk"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "async-trait",
  "base64 0.21.7",
@@ -620,7 +580,7 @@ dependencies = [
  "chrono",
  "console",
  "dialoguer",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures-util",
  "graphql_client",
  "hyper 0.14.30",
@@ -629,7 +589,7 @@ dependencies = [
  "num-traits",
  "parking_lot",
  "prost",
- "rand 0.8.5",
+ "rand",
  "reqwest 0.11.27",
  "serde",
  "serde_json",
@@ -695,15 +655,15 @@ dependencies = [
  "deliberation 0.1.0",
  "eflint-json",
  "eflint-to-json 0.1.0",
- "enum-debug",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
+ "enum-debug 1.1.0",
+ "error-trace 3.0.0",
  "hmac",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "humanlog",
  "jwt",
  "log",
  "names",
  "policy 0.1.0",
- "rand 0.8.5",
+ "rand",
  "reqwest 0.12.8",
  "serde_json",
  "sha2",
@@ -828,12 +788,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "constant_time_eq"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -925,9 +879,9 @@ dependencies = [
  "brane-ast",
  "brane-exe",
  "clap",
- "enum-debug",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "enum-debug 1.1.0",
+ "error-trace 3.0.0",
+ "humanlog",
  "log",
  "serde",
  "serde_json",
@@ -937,11 +891,11 @@ dependencies = [
 [[package]]
 name = "deliberation"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "brane-ast",
  "brane-exe",
- "enum-debug",
+ "enum-debug 1.0.0",
  "log",
  "serde",
  "serde_json",
@@ -1043,14 +997,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "dirs-2"
-version = "3.0.1"
+name = "dirs"
+version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a8ea7942b7e715ee77e0bcb03910628a08ac2669f4cc84e904e86dc5e347f4"
+checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
 dependencies = [
  "libc",
+ "option-ext",
  "redox_users",
- "winapi",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -1103,7 +1067,7 @@ version = "0.1.0"
 source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#0f984d8c8b68571dd5c7b9b6de87f30119813216"
 dependencies = [
  "console",
- "enum-debug",
+ "enum-debug 1.0.0",
  "lazy_static",
  "serde",
 ]
@@ -1127,7 +1091,7 @@ dependencies = [
 [[package]]
 name = "eflint-to-json"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "async-recursion",
  "console",
@@ -1167,7 +1131,15 @@ name = "enum-debug"
 version = "1.0.0"
 source = "git+https://github.com/Lut99/enum-debug?tag=v1.0.0#cd67d67d4bd8708eaa3343a6af515bf6ad5a3ce6"
 dependencies = [
- "enum-debug-derive",
+ "enum-debug-derive 1.0.0",
+]
+
+[[package]]
+name = "enum-debug"
+version = "1.1.0"
+source = "git+https://github.com/Lut99/enum-debug?tag=v1.1.0#f535466915f82861b0a2dc9d4e3a106f04d5ace7"
+dependencies = [
+ "enum-debug-derive 1.1.0",
 ]
 
 [[package]]
@@ -1176,6 +1148,15 @@ version = "1.0.0"
 source = "git+https://github.com/Lut99/enum-debug?tag=v1.0.0#cd67d67d4bd8708eaa3343a6af515bf6ad5a3ce6"
 dependencies = [
  "proc-macro-error",
+ "quote",
+ "syn 2.0.79",
+]
+
+[[package]]
+name = "enum-debug-derive"
+version = "1.1.0"
+source = "git+https://github.com/Lut99/enum-debug?tag=v1.1.0#f535466915f82861b0a2dc9d4e3a106f04d5ace7"
+dependencies = [
  "quote",
  "syn 2.0.79",
 ]
@@ -1198,35 +1179,13 @@ dependencies = [
 
 [[package]]
 name = "error-trace"
-version = "2.0.0"
-source = "git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0#7e9b76a2a2746a8ab88776877afd6ee53ea4b3b8"
+version = "3.0.0"
+source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.0.0#a026dc304b5bcc40bc68574f21459d2f1b6cad90"
 
 [[package]]
 name = "error-trace"
-version = "2.0.0"
-source = "git+https://github.com/Lut99/error-trace-rs#7e9b76a2a2746a8ab88776877afd6ee53ea4b3b8"
-
-[[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "backtrace",
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "synstructure",
-]
+version = "3.1.0"
+source = "git+https://github.com/Lut99/error-trace-rs#c3046059215f2bf60175f0274ec91c241c6dd069"
 
 [[package]]
 name = "fastrand"
@@ -1295,12 +1254,6 @@ dependencies = [
  "libc",
  "winapi",
 ]
-
-[[package]]
-name = "fuchsia-cprng"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 
 [[package]]
 name = "futures"
@@ -1566,15 +1519,6 @@ checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
-dependencies = [
- "libc",
-]
-
-[[package]]
-name = "hermit-abi"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
@@ -1680,9 +1624,9 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "human-panic"
-version = "1.2.3"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4f016c89920bbb30951a8405ecacbb4540db5524313b9445736e7e1855cf370"
+checksum = "80b84a66a325082740043a6c28bbea400c129eac0d3a27673a1de971e44bf1f7"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1696,22 +1640,9 @@ dependencies = [
 
 [[package]]
 name = "humanlog"
-version = "0.1.0"
-source = "git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0#3c7a024de4e5822c44c0f2d1ae4b08806e500d03"
+version = "0.2.0"
+source = "git+https://github.com/Lut99/humanlog-rs?tag=v0.2.0#0bceaaeb6426a6c990017c1d3c0aa7f51adbbfa1"
 dependencies = [
- "atty",
- "chrono",
- "console",
- "log",
- "parking_lot",
-]
-
-[[package]]
-name = "humanlog"
-version = "0.1.0"
-source = "git+https://github.com/Lut99/humanlog-rs#3c7a024de4e5822c44c0f2d1ae4b08806e500d03"
-dependencies = [
- "atty",
  "chrono",
  "console",
  "log",
@@ -2036,8 +1967,8 @@ version = "0.1.0"
 dependencies = [
  "brane-ctl",
  "clap",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs)",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs)",
+ "error-trace 3.0.0",
+ "humanlog",
  "humantime",
  "jsonwebtoken",
  "log",
@@ -2181,7 +2112,7 @@ version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80e04d1dcff3aae0704555fe5fee3bcfaf3d1fdf8a7e521d5b9d2b42acb52cec"
 dependencies = [
- "hermit-abi 0.3.9",
+ "hermit-abi",
  "libc",
  "wasi",
  "windows-sys 0.52.0",
@@ -2210,7 +2141,7 @@ name = "names"
 version = "0.1.0"
 source = "git+https://github.com/Lut99/names-rs?tag=v0.1.0#6fbb94733dfe526f7e68e374846e3802bac88327"
 dependencies = [
- "rand 0.8.5",
+ "rand",
 ]
 
 [[package]]
@@ -2236,12 +2167,6 @@ version = "0.1.0"
 dependencies = [
  "unicode-segmentation",
 ]
-
-[[package]]
-name = "nodrop"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72ef4a56884ca558e5ddb05a1d1e7e1bfd9a68d9ed024c21704cc98872dae1bb"
 
 [[package]]
 name = "nom"
@@ -2383,6 +2308,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "option-ext"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
 name = "os_info"
 version = "3.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2477,8 +2408,8 @@ dependencies = [
  "async-trait",
  "chrono",
  "clap",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "error-trace 3.0.0",
+ "humanlog",
  "log",
  "serde",
  "serde_json",
@@ -2488,7 +2419,7 @@ dependencies = [
 [[package]]
 name = "policy"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2505,8 +2436,8 @@ dependencies = [
  "clap",
  "console",
  "eflint-to-json 0.1.0",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs)",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs)",
+ "error-trace 3.0.0",
+ "humanlog",
  "log",
 ]
 
@@ -2529,10 +2460,10 @@ dependencies = [
  "dotenvy",
  "eflint-json",
  "eflint-to-json 0.1.0",
- "enum-debug",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
+ "enum-debug 1.1.0",
+ "error-trace 3.0.0",
  "graphql_client",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "humanlog",
  "itertools 0.13.0",
  "jsonwebtoken",
  "log",
@@ -2664,26 +2595,13 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
-dependencies = [
- "fuchsia-cprng",
- "libc",
- "rand_core 0.3.1",
- "rdrand",
- "winapi",
-]
-
-[[package]]
-name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha",
- "rand_core 0.6.4",
+ "rand_core",
 ]
 
 [[package]]
@@ -2693,23 +2611,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
- "rand_core 0.6.4",
+ "rand_core",
 ]
-
-[[package]]
-name = "rand_core"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a6fdeb83b075e8266dcc8762c22776f6877a63111121f5f8c7411e5be7eed4b"
-dependencies = [
- "rand_core 0.4.2",
-]
-
-[[package]]
-name = "rand_core"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c33a3c44ca05fa6f1807d8e6743f3824e8509beca625669633be0acbdf509dc"
 
 [[package]]
 name = "rand_core"
@@ -2721,15 +2624,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rdrand"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
-dependencies = [
- "rand_core 0.3.1",
-]
-
-[[package]]
 name = "reasonerconn"
 version = "0.1.0"
 dependencies = [
@@ -2738,44 +2632,38 @@ dependencies = [
  "audit-logger 0.1.0",
  "clap",
  "eflint-json",
- "enum-debug",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "enum-debug 1.1.0",
+ "error-trace 3.0.0",
+ "humanlog",
  "log",
  "policy 0.1.0",
  "serde",
  "serde_json",
  "state-resolver 0.1.0",
  "tokio",
- "transform",
+ "transform 0.2.0",
  "workflow 0.1.0",
 ]
 
 [[package]]
 name = "reasonerconn"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "anyhow",
  "async-trait",
  "audit-logger 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "eflint-json",
- "enum-debug",
+ "enum-debug 1.0.0",
  "log",
  "policy 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "serde",
  "serde_json",
  "state-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "tokio",
- "transform",
+ "transform 0.1.1",
  "workflow 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
 ]
-
-[[package]]
-name = "redox_syscall"
-version = "0.1.57"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41cc0f7e4d5d4544e8861606a285bb08d3e70712ccc7d2b84d7c0ccfaf4b05ce"
 
 [[package]]
 name = "redox_syscall"
@@ -2797,14 +2685,13 @@ dependencies = [
 
 [[package]]
 name = "redox_users"
-version = "0.2.0"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "214a97e49be64fd2c86f568dd0cb2c757d2cc53de95b273b6ad0a1c908482f26"
+checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
- "argon2rs",
- "failure",
- "rand 0.4.6",
- "redox_syscall 0.1.57",
+ "getrandom",
+ "libredox",
+ "thiserror",
 ]
 
 [[package]]
@@ -3076,12 +2963,6 @@ name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1cf6437eb19a8f4a6cc0f7dca544973b0b78843adbfeb3683d1a94a0024a294"
-
-[[package]]
-name = "scoped_threadpool"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d51f5df5af43ab3f1360b429fa5e0152ac5ce8c0bd6485cae490332e96846a8"
 
 [[package]]
 name = "scopeguard"
@@ -3373,7 +3254,7 @@ dependencies = [
 [[package]]
 name = "specifications"
 version = "3.0.0"
-source = "git+https://github.com/epi-project/brane#30e8c50594a0610e293b719fc1dc7e4ecd06c03c"
+source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3381,7 +3262,7 @@ dependencies = [
  "base64ct",
  "chrono",
  "const_format",
- "enum-debug",
+ "enum-debug 1.1.0",
  "futures",
  "jsonwebtoken",
  "log",
@@ -3417,7 +3298,7 @@ dependencies = [
  "brane-exe",
  "chrono",
  "deliberation 0.1.0",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs)",
+ "error-trace 3.0.0",
  "http 1.1.0",
  "log",
  "policy 0.1.0",
@@ -3435,7 +3316,7 @@ dependencies = [
 [[package]]
 name = "srv"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "audit-logger 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "auth-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
@@ -3443,7 +3324,7 @@ dependencies = [
  "brane-exe",
  "chrono",
  "deliberation 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs)",
+ "error-trace 3.1.0",
  "http 1.1.0",
  "log",
  "policy 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
@@ -3470,7 +3351,7 @@ dependencies = [
 [[package]]
 name = "state-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "async-trait",
  "serde",
@@ -3893,7 +3774,7 @@ dependencies = [
  "indexmap 1.9.3",
  "pin-project",
  "pin-project-lite",
- "rand 0.8.5",
+ "rand",
  "slab",
  "tokio",
  "tokio-util",
@@ -3952,6 +3833,11 @@ version = "0.1.1"
 source = "git+https://github.com/Lut99/transform-rs?tag=v0.1.1#17d06ab4cf1bc2f8f25f2a8276159c2722cdf301"
 
 [[package]]
+name = "transform"
+version = "0.2.0"
+source = "git+https://github.com/Lut99/transform-rs?tag=v0.2.0#ea708962d9a770c1f89c3bce0b9309dfe48656a6"
+
+[[package]]
 name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3969,7 +3855,7 @@ dependencies = [
  "http 1.1.0",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand",
  "sha1",
  "thiserror",
  "url",
@@ -4075,7 +3961,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
 dependencies = [
  "getrandom",
- "rand 0.8.5",
+ "rand",
  "serde",
 ]
 
@@ -4467,34 +4353,34 @@ dependencies = [
  "brane-exe",
  "brane-shr",
  "eflint-json",
- "enum-debug",
- "error-trace 2.0.0 (git+https://github.com/Lut99/error-trace-rs?tag=v2.0.0)",
- "humanlog 0.1.0 (git+https://github.com/Lut99/humanlog-rs?tag=v0.1.0)",
+ "enum-debug 1.1.0",
+ "error-trace 3.0.0",
+ "humanlog",
  "log",
  "names",
  "num-traits",
- "rand 0.8.5",
+ "rand",
  "serde",
  "serde_json",
  "specifications",
- "transform",
+ "transform 0.2.0",
 ]
 
 [[package]]
 name = "workflow"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#bc19c248596cbff49c4911ce67de8435237e7b88"
+source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
 dependencies = [
  "brane-ast",
  "brane-exe",
  "eflint-json",
- "enum-debug",
+ "enum-debug 1.0.0",
  "log",
  "num-traits",
- "rand 0.8.5",
+ "rand",
  "serde",
  "specifications",
- "transform",
+ "transform 0.1.1",
 ]
 
 [[package]]

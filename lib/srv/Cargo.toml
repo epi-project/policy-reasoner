@@ -29,8 +29,8 @@ reasonerconn = {path = "../reasonerconn"}
 state-resolver = { path = "../state-resolver" }
 workflow = { path = "../workflow" }
 
-# Git
-error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
+# Workspace dependencies
+error-trace.workspace = true
 
 # Brane
 brane-ast = { git = "https://github.com/epi-project/brane" }

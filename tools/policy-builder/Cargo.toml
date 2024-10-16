@@ -14,9 +14,9 @@ clap = { version = "4.5.6", features = ["derive"] }
 console = "0.15.5"
 log = "0.4.22"
 
-# Git
-error-trace = { git = "https://github.com/Lut99/error-trace-rs" }
-humanlog = { git = "https://github.com/Lut99/humanlog-rs" }
+# Workspace dependencies
+error-trace.workspace = true
+humanlog.workspace = true
 
 # Path
 eflint-to-json = { path = "../../lib/eflint-to-json" }
