@@ -211,7 +211,7 @@ dependencies = [
  "async-trait",
  "auth-resolver 0.1.0",
  "deliberation 0.1.0",
- "enum-debug 1.1.0",
+ "enum-debug",
  "hex",
  "policy 0.1.0",
  "serde",
@@ -224,12 +224,12 @@ dependencies = [
 [[package]]
 name = "audit-logger"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "async-trait",
  "auth-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "deliberation 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "enum-debug 1.0.0",
+ "enum-debug",
  "hex",
  "policy 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "serde",
@@ -251,7 +251,7 @@ dependencies = [
 [[package]]
 name = "auth-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "async-trait",
  "serde",
@@ -422,7 +422,7 @@ dependencies = [
  "brane-dsl",
  "brane-shr",
  "console",
- "enum-debug 1.1.0",
+ "enum-debug",
  "lazy_static",
  "log",
  "num-traits",
@@ -440,7 +440,7 @@ version = "3.0.0"
 source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671bae0fe78ceb1"
 dependencies = [
  "async-trait",
- "enum-debug 1.1.0",
+ "enum-debug",
  "log",
  "rustls 0.21.12",
  "rustls-pemfile 1.0.4",
@@ -471,8 +471,8 @@ dependencies = [
  "dotenvy",
  "download",
  "eflint-to-json 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "enum-debug 1.1.0",
- "error-trace 3.0.0",
+ "enum-debug",
+ "error-trace",
  "hex-literal",
  "human-panic",
  "humanlog",
@@ -502,7 +502,7 @@ source = "git+https://github.com/epi-project/brane#fb6b0a295fd7f227ac32d0eb8671b
 dependencies = [
  "brane-shr",
  "bytes",
- "enum-debug 1.1.0",
+ "enum-debug",
  "log",
  "nom",
  "nom_locate",
@@ -526,7 +526,7 @@ dependencies = [
  "brane-ast",
  "brane-shr",
  "console",
- "enum-debug 1.1.0",
+ "enum-debug",
  "futures",
  "lazy_static",
  "log",
@@ -546,7 +546,7 @@ dependencies = [
  "async-compression",
  "console",
  "dialoguer",
- "enum-debug 1.1.0",
+ "enum-debug",
  "fs2",
  "futures-util",
  "hex",
@@ -580,7 +580,7 @@ dependencies = [
  "chrono",
  "console",
  "dialoguer",
- "enum-debug 1.1.0",
+ "enum-debug",
  "futures-util",
  "graphql_client",
  "hyper 0.14.30",
@@ -655,8 +655,8 @@ dependencies = [
  "deliberation 0.1.0",
  "eflint-json",
  "eflint-to-json 0.1.0",
- "enum-debug 1.1.0",
- "error-trace 3.0.0",
+ "enum-debug",
+ "error-trace",
  "hmac",
  "humanlog",
  "jwt",
@@ -879,8 +879,8 @@ dependencies = [
  "brane-ast",
  "brane-exe",
  "clap",
- "enum-debug 1.1.0",
- "error-trace 3.0.0",
+ "enum-debug",
+ "error-trace",
  "humanlog",
  "log",
  "serde",
@@ -891,11 +891,11 @@ dependencies = [
 [[package]]
 name = "deliberation"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "brane-ast",
  "brane-exe",
- "enum-debug 1.0.0",
+ "enum-debug",
  "log",
  "serde",
  "serde_json",
@@ -1067,7 +1067,7 @@ version = "0.1.0"
 source = "git+https://gitlab.com/eflint/json-spec-rs?branch=incorrect-is-invariant#a77ae8c5050fcbeb36340ec86f353099d6c51182"
 dependencies = [
  "console",
- "enum-debug 1.1.0",
+ "enum-debug",
  "lazy_static",
  "serde",
 ]
@@ -1091,7 +1091,7 @@ dependencies = [
 [[package]]
 name = "eflint-to-json"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "async-recursion",
  "console",
@@ -1128,28 +1128,10 @@ dependencies = [
 
 [[package]]
 name = "enum-debug"
-version = "1.0.0"
-source = "git+https://github.com/Lut99/enum-debug?tag=v1.0.0#cd67d67d4bd8708eaa3343a6af515bf6ad5a3ce6"
-dependencies = [
- "enum-debug-derive 1.0.0",
-]
-
-[[package]]
-name = "enum-debug"
 version = "1.1.0"
 source = "git+https://github.com/Lut99/enum-debug?tag=v1.1.0#f535466915f82861b0a2dc9d4e3a106f04d5ace7"
 dependencies = [
- "enum-debug-derive 1.1.0",
-]
-
-[[package]]
-name = "enum-debug-derive"
-version = "1.0.0"
-source = "git+https://github.com/Lut99/enum-debug?tag=v1.0.0#cd67d67d4bd8708eaa3343a6af515bf6ad5a3ce6"
-dependencies = [
- "proc-macro-error",
- "quote",
- "syn 2.0.79",
+ "enum-debug-derive",
 ]
 
 [[package]]
@@ -1181,11 +1163,6 @@ dependencies = [
 name = "error-trace"
 version = "3.0.0"
 source = "git+https://github.com/Lut99/error-trace-rs?tag=v3.0.0#a026dc304b5bcc40bc68574f21459d2f1b6cad90"
-
-[[package]]
-name = "error-trace"
-version = "3.1.0"
-source = "git+https://github.com/Lut99/error-trace-rs#c3046059215f2bf60175f0274ec91c241c6dd069"
 
 [[package]]
 name = "fastrand"
@@ -1967,7 +1944,7 @@ version = "0.1.0"
 dependencies = [
  "brane-ctl",
  "clap",
- "error-trace 3.0.0",
+ "error-trace",
  "humanlog",
  "humantime",
  "jsonwebtoken",
@@ -2408,7 +2385,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "clap",
- "error-trace 3.0.0",
+ "error-trace",
  "humanlog",
  "log",
  "serde",
@@ -2419,7 +2396,7 @@ dependencies = [
 [[package]]
 name = "policy"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2436,7 +2413,7 @@ dependencies = [
  "clap",
  "console",
  "eflint-to-json 0.1.0",
- "error-trace 3.0.0",
+ "error-trace",
  "humanlog",
  "log",
 ]
@@ -2460,8 +2437,8 @@ dependencies = [
  "dotenvy",
  "eflint-json",
  "eflint-to-json 0.1.0",
- "enum-debug 1.1.0",
- "error-trace 3.0.0",
+ "enum-debug",
+ "error-trace",
  "graphql_client",
  "humanlog",
  "itertools 0.13.0",
@@ -2515,30 +2492,6 @@ dependencies = [
  "http 0.2.12",
  "http-serde",
  "serde",
-]
-
-[[package]]
-name = "proc-macro-error"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
-dependencies = [
- "proc-macro-error-attr",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "version_check",
-]
-
-[[package]]
-name = "proc-macro-error-attr"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
-dependencies = [
- "proc-macro2",
- "quote",
- "version_check",
 ]
 
 [[package]]
@@ -2632,8 +2585,8 @@ dependencies = [
  "audit-logger 0.1.0",
  "clap",
  "eflint-json",
- "enum-debug 1.1.0",
- "error-trace 3.0.0",
+ "enum-debug",
+ "error-trace",
  "humanlog",
  "log",
  "policy 0.1.0",
@@ -2641,27 +2594,27 @@ dependencies = [
  "serde_json",
  "state-resolver 0.1.0",
  "tokio",
- "transform 0.2.0",
+ "transform",
  "workflow 0.1.0",
 ]
 
 [[package]]
 name = "reasonerconn"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "anyhow",
  "async-trait",
  "audit-logger 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "eflint-json",
- "enum-debug 1.0.0",
+ "enum-debug",
  "log",
  "policy 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "serde",
  "serde_json",
  "state-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "tokio",
- "transform 0.1.1",
+ "transform",
  "workflow 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
 ]
 
@@ -3262,7 +3215,7 @@ dependencies = [
  "base64ct",
  "chrono",
  "const_format",
- "enum-debug 1.1.0",
+ "enum-debug",
  "futures",
  "jsonwebtoken",
  "log",
@@ -3298,7 +3251,7 @@ dependencies = [
  "brane-exe",
  "chrono",
  "deliberation 0.1.0",
- "error-trace 3.0.0",
+ "error-trace",
  "http 1.1.0",
  "log",
  "policy 0.1.0",
@@ -3316,7 +3269,7 @@ dependencies = [
 [[package]]
 name = "srv"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "audit-logger 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
  "auth-resolver 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
@@ -3324,7 +3277,7 @@ dependencies = [
  "brane-exe",
  "chrono",
  "deliberation 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
- "error-trace 3.1.0",
+ "error-trace",
  "http 1.1.0",
  "log",
  "policy 0.1.0 (git+https://github.com/epi-project/policy-reasoner)",
@@ -3351,7 +3304,7 @@ dependencies = [
 [[package]]
 name = "state-resolver"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "async-trait",
  "serde",
@@ -3826,11 +3779,6 @@ checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 dependencies = [
  "once_cell",
 ]
-
-[[package]]
-name = "transform"
-version = "0.1.1"
-source = "git+https://github.com/Lut99/transform-rs?tag=v0.1.1#17d06ab4cf1bc2f8f25f2a8276159c2722cdf301"
 
 [[package]]
 name = "transform"
@@ -4352,9 +4300,10 @@ dependencies = [
  "brane-ast",
  "brane-exe",
  "brane-shr",
+ "clap",
  "eflint-json",
- "enum-debug 1.1.0",
- "error-trace 3.0.0",
+ "enum-debug",
+ "error-trace",
  "humanlog",
  "log",
  "names",
@@ -4363,24 +4312,24 @@ dependencies = [
  "serde",
  "serde_json",
  "specifications",
- "transform 0.2.0",
+ "transform",
 ]
 
 [[package]]
 name = "workflow"
 version = "0.1.0"
-source = "git+https://github.com/epi-project/policy-reasoner#418d4099be3289d7a74c4846818b64a30ee0ce82"
+source = "git+https://github.com/epi-project/policy-reasoner#ccd92c638ff6dc11126a7f7bbb1cea9df513a31e"
 dependencies = [
  "brane-ast",
  "brane-exe",
  "eflint-json",
- "enum-debug 1.0.0",
+ "enum-debug",
  "log",
  "num-traits",
  "rand",
  "serde",
  "specifications",
- "transform 0.1.1",
+ "transform",
 ]
 
 [[package]]
