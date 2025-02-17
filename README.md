@@ -1,4 +1,11 @@
 # policy-reasoner
+
+---
+> # Important Notice
+> With the conclusion of the EPI Project, this repository has moved to a new GitHub organisation: [/BraneFramework/brane](https://github.com/BraneFramework/brane). This repository only exists for achival purposes.
+
+---
+
 Implements the famous policy reasoner, known as `checker` in Brane terminology. Builds on top of reasoners like [eFLINT](https://gitlab.com/eflint) and meant to be queried by [Brane](https://github.com/epi-project/brane).
 
 This project is complemented by the [Policy Reasoner GUI](https://github.com/epi-project/policy-reasoner-gui).
